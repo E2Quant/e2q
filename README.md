@@ -49,24 +49,24 @@
 
 ### 贡献流程：
 
-1.Fork 项目
-2.创建 feature branch (git checkout -b feature/AmazingFeature)
-3.提交修改 (git commit -m 'Add some AmazingFeature')
-4.推送分支 (git push origin feature/AmazingFeature)
-5.发起 Pull Request
-路线图
-[x] 已完成功能
-[ ] 计划中的功能
-[ ] 未来设想
+1. Fork 项目
+2. 创建 feature branch (git checkout -b E2Quant/e2q.git)
+3. 提交修改 (git commit -m 'Add some Feature')
+4. 推送分支 (git push origin feature/Feature)
+5. 发起 Pull Request
+
+### 路线图
+- [x] 已完成功能
+- [ ] 计划中的功能
+- [ ] 未来设想
 
 ### 许可证
 本项目采用 BSD-3-Clause 许可证。
 
 ### 联系方式
-有问题或建议？请通过以下方式联系我们：
 
-📧 Email: vyouzhi@gmail.com
+- 有问题或建议？请通过以下方式联系我们：
+ - 📧 Email: vyouzhi@gmail.com
+ - Telegram: @E2Quant
 
-Telegram: @E2Quant
-
-🐞 Issue Tracker
+🐞  [Issue Tracker](https://github.com/E2Quant/e2q/issues) 
