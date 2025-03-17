@@ -1,0 +1,20 @@
+#include <string>
+namespace e2q {
+
+namespace version {
+//! Major version number
+constexpr char version_major[] = "@E2Q_VERSION_MAJOR@";
+//! Minor version number
+constexpr char version_minor[] = "@E2Q_VERSION_MINOR@";
+//! Patch version number
+constexpr char version_patch[] = "@E2Q_VERSION_PATCH@";
+//! Extra version string
+constexpr char version_extra[] = "@E2Q_VERSION_EXTRA@";
+//! Version string (\c major.minor.patch)
+constexpr char version_version[] = "@E2Q_VERSION@";
+//! Full version string (\c major.minor.patchextra)
+constexpr char version_full[] = "@E2Q_VERSION_FULL@";
+
+}  // namespace version
+
+}  // namespace e2q
