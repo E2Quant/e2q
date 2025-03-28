@@ -169,7 +169,6 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
     FIX::OrderID oid = FIX::OrderID(std::to_string(order.ticket));
 
     executionReport.setField(oid);
-
     executionReport.set(FIX::ClOrdID(order.clOrdId));
     FIX::Symbol sym;
     sym.setString(order.symbol);

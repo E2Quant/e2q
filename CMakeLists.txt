@@ -27,9 +27,6 @@ if(DEBUG)
     add_compile_definitions( DEBUG )
 endif(DEBUG) 
 
-include_directories(
-    ${PROJECT_SOURCE_DIR}/src
-    )
 
 file(GLOB SOURCES
 
@@ -56,6 +53,21 @@ file(GLOB SOURCES
 
     "${PROJECT_SOURCE_DIR}/src/*.cpp"
     )
+
+# LLVM
+set(LLVM_DIR "" CACHE STRING "")
+if(NOT ${LLVM_DIR} STREQUAL "")
+    # use llvm dir cmake -DDEBUG=ON -DUSE_CCACHE=ON -DKAFKALOG=ON -DUSE_TALIB=ON -DUSE_ZTS=ON -DLLVM_DIR=/opt/homebrew/Cellar/llvm@14/14.0.6/include/ -DCMAKE_EXPORT_COMPILE_COMMANDS=1 ../
+    include_directories(
+        ${PROJECT_SOURCE_DIR}/src
+        ${LLVM_DIR}
+    )
+else()
+    include_directories(
+        ${PROJECT_SOURCE_DIR}/src
+    )
+
+endif() 
 
 # Kafka LOG
 option(KAFKALOG "build application with kafka log" OFF) # OFF is the default
@@ -177,10 +189,6 @@ endif()
 
 set(BIN2H_HEADER_FILE  ${PROJECT_SOURCE_DIR}/include/E2LScript/BIN2E_HEAD_FILE.hpp )
 set(BIN2H_SOURCE_FILE  ${PROJECT_SOURCE_DIR}/src/E2LScript/BIN2E_HEAD_FILE.cpp )
-
-
-
-
 
 
 #---------------------------

@@ -50,6 +50,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -242,11 +243,12 @@ struct __TradeTime {
 typedef struct __TradeTime TradeTime;
 
 struct __TraderData {
-    long qty;          // ticket -> qty
-    double adj_price;  // open adj_price
-    double equity;  //  ordstatu(filled, partially_filled) long:实际支出的资产,
-                    //  short: 当前 order 的收益
-    double margin;  //  freeze 初始冻结资产
+    long qty = 0;          // ticket -> qty
+    double adj_price = 0;  // open adj_price
+    double equity = 0;     //  ordstatu(filled, partially_filled)
+                           //  long:实际支出的资产, short: 当前 order 的收益
+    double margin = 0;     //  freeze 初始冻结资产
+    std::size_t thread_number = 0;  //  是哪个线程产生的订单
 }; /* ----------  end of struct __TraderData  ---------- */
 
 typedef struct __TraderData TraderData_t;
@@ -263,6 +265,96 @@ struct __TraderInfo {
 }; /* ----------  end of struct TraderInfo  ---------- */
 
 typedef struct __TraderInfo TraderInfo;
+
+struct __Postion {
+    float _postion = 0;
+    double _total_cash = 0;
+    double _freeze_cash = 0;
+}; /* ----------  end of struct __Postion  ---------- */
+
+typedef struct __Postion Postion;
+
+#define TCash(cash, op)                                              \
+    do {                                                             \
+        BasicLock _lock(_CMute);                                     \
+        if (_tsize == 0 || _thread_pos.count(_thread_number) == 0) { \
+            total_cash op cash;                                      \
+        }                                                            \
+        else {                                                       \
+            _thread_pos[_thread_number]._total_cash op cash;         \
+        }                                                            \
+    } while (0)
+
+#define TFREEZE(cash, op)                                            \
+    do {                                                             \
+        BasicLock _lock(_CMute);                                     \
+        if (_tsize == 0 || _thread_pos.count(_thread_number) == 0) { \
+            _freeze_cash op cash;                                    \
+        }                                                            \
+        else {                                                       \
+            _thread_pos[_thread_number]._freeze_cash op cash;        \
+        }                                                            \
+    } while (0)
+
+struct EaTraderInfo : public TraderInfo {
+    // 由线程管理不同的仓位
+    // thread_number,  Postion
+    std::map<std::size_t, Postion> _thread_pos;
+
+    void addClThread(std::string key, std::size_t num)
+    {
+        BasicLock _lock(_CMute);
+        cl_thread.insert({key, num});
+    }
+
+    // clOid , thread_number
+    std::map<std::string, std::size_t> cl_thread;
+
+    void add(double cash) { TCash(cash, =); }
+    void append(double cash) { TCash(cash, +=); }
+    void inc(double cash) { TCash(cash, -=); }
+
+    double TotalCash()
+    {
+        if (_tsize == 0) {
+            return total_cash;
+        }
+        // 剩的线程平分仓位
+        if (_thread_pos.count(_thread_number) == 0) {
+            return total_cash;
+        }
+        return _thread_pos.at(_thread_number)._total_cash;
+    }
+
+    void add_freeze(double cash) { TFREEZE(cash, +=); }
+    void inc_freeze(double cash) { TFREEZE(cash, -=); }
+
+    double FreezeCash()
+    {
+        if (_tsize == 0) {
+            return _freeze_cash;
+        }
+        if (_thread_pos.count(_thread_number) == 0) {
+            return _freeze_cash;
+        }
+        return _thread_pos.at(_thread_number)._freeze_cash;
+    }
+
+    void who(std::size_t thread_number) { _thread_number = thread_number; }
+
+    double _freeze_cash;  // 下单的时候，先freeze, 真实下单成功了，减去
+    // thread number
+    size_t _tsize = 0;
+    // all_postion;
+    double all_postion = 1.0;
+
+private:
+    std::size_t _thread_number = 0;
+    using CMute = BasicLock::mutex_type;
+    mutable CMute _CMute;
+}; /* ----------  end of struct EaTraderInfo  ---------- */
+
+typedef struct EaTraderInfo EaTraderInfo;
 
 /**
  * Ex-rights/Ex-dividend of Emerging Stocks
@@ -417,15 +509,16 @@ struct __FinancialInstrument : public MarketInfo {
     std::map<e2::Int_e, OrderInfoMap> _OrderIds;
     OrderTicketMap _OrderTicket;
     AnalyDict _analy;
-
-    std::map<std::thread::id, e2::Int_e> _quantId;  // ea id
+    // thread_id { first: uuid, second :thread numter}
+    std::map<std::thread::id, std::pair<e2::Int_e, std::size_t>>
+        _quantId;  // ea id
 
     bool _onOpen = false;  // bar on open ,默认不处理
 
-    bool _volume_append = false;   // 默认 volume 不累加
-    TraderInfo _cash;              // cash
-    double _freeze_cash;           // 下单的时候，先freeze, 真实下单成功了，减去
-    std::size_t _freeze_time = 0;  // freeze time
+    bool _volume_append = false;  // 默认 volume 不累加
+    EaTraderInfo _cash;           // cash
+
+    std::map<std::size_t, std::size_t> _freeze_time = {};  // freeze time
 }; /* ----------  end of struct __FinancialInstrument  ---------- */
 
 typedef struct __FinancialInstrument FinancialInstrument;
@@ -552,6 +645,7 @@ struct AutoIncrement {
 
     atomic_seqtype _storeId;  //
     std::thread::id _tid;     // std::thread::id
+    std::size_t _number = 0;  // number in e2lscript
 }; /* ----------  end of struct AutoIncrement  ---------- */
 }  // namespace e2q
 #endif /* ----- #ifndef NORM_INC  ----- */

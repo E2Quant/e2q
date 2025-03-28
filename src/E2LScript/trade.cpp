@@ -51,6 +51,7 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "OMSPack/FixAccount.hpp"
 #include "TradePack/STLog.hpp"
 #include "assembler/BaseType.hpp"
@@ -95,7 +96,7 @@ e2::Bool OrderClose(
 
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId[_id];
+        quantid = e2q::FixPtr->_quantId[_id].first;
     }
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
         log::bug("ticket:", ticket, " quantid ==0");
@@ -127,8 +128,6 @@ e2::Bool OrderClose(
     /*     return e2::Bool::B_FALSE; */
     /* } */
 
-    e2q::BasicLock lock(e2q::e2Mutex);
-
     e2::Side side = oi.side;
     if (side == e2::Side::os_Buy) {
         side = e2::Side::os_Sell;
@@ -140,14 +139,15 @@ e2::Bool OrderClose(
         lots = oi.qty;
     }
     e2q::FixPtr->_OrderIds[quantid][cl0id].trading = e2q::TradeStatus::CLOSEING;
+    std::size_t number = e2q::e2l_thread_map.number(_id);
 
     /**
      * ot_stop == buy buystop
      */
 
-    e2q::fix_application.OrderReplaceRequest(oi.symbol, side, lots, stoppx,
-                                             slippage, e2::OrdType::ot_stop,
-                                             ticket, quantid, e2q::ticket_now);
+    e2q::fix_application.OrderReplaceRequest(
+        oi.symbol, side, lots, stoppx, slippage, e2::OrdType::ot_stop, ticket,
+        quantid, e2q::ticket_now, number);
 
     // log::echo("close tick:", ticket, " sym:", oi.symbol);
 
@@ -187,6 +187,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
 
     symbol = NUMBERVAL(symbol);
     qty = NUMBERVAL(qty);
+    std::thread::id _id = std::this_thread::get_id();
 
     if (e2q::FixPtr->_fix_symbols.count(symbol) == 0) {
         log::bug("id == 0, id:", id);
@@ -198,41 +199,50 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
      * 简单计算 一下钱够不够
      */
     double expenditure = e2q::FixPtr->equity(price, qty);
+    std::size_t number = e2q::e2l_thread_map.number(_id);
 
-    for (auto it : e2q::FixPtr->_cash.order_cash) {
-        log::info("ticket:", it.first, " freeze:", it.second.margin,
-                  " check:", it.second.equity);
-    }
-    double free_cash = e2q::FixPtr->_cash.total_cash;
+    e2q::FixPtr->_cash.who(number);
 
+    double free_cash =
+        e2q::FixPtr->_cash.TotalCash() - e2q::FixPtr->_cash.FreezeCash();
+
+    // 防止一下子下多笔订单，因为 oms 还没有返回确认是不是下单成功，
+    // 所以先扣一笔资金
     if (expenditure > free_cash) {
         std::string cond = log::format(
             "expenditure: %.2f total cash:%.2f, freeze:%.2f", expenditure,
-            e2q::FixPtr->_cash.total_cash, e2q::FixPtr->_freeze_cash);
+            e2q::FixPtr->_cash.TotalCash(), e2q::FixPtr->_cash.FreezeCash());
         log::bug(cond);
         return e2::Bool::B_FALSE;
     }
 
-    e2q::BasicLock lock(e2q::e2Mutex);
+    // e2q::BasicLock lock(e2q::e2Mutex);
 
-    // 同一天不能多笔下单，以后再优化,可以多笔下单
-    if (e2q::FixPtr->_freeze_time == e2q::ticket_now) {
-        log::bug("has order");
-        return e2::Bool::B_FALSE;
+    if (e2q::FixPtr->_freeze_time.count(symbol) == 0) {
+        e2q::FixPtr->_freeze_time.insert({symbol, 0});
     }
+    // 信号多次触发，就会多次笔下单了，虽然可能是前端控制，或者这儿加一个 api
+    // 来处不吧,多线程的话，也会同时下多笔订单，以后再优化
+    // if (e2q::FixPtr->_freeze_time.at(symbol) == e2q::ticket_now) {
+    //     log::bug("has order");
+    //     return e2::Bool::B_FALSE;
+    // }
+
     side = (e2::Side)NUMBERVAL(side);
 
     ordtype = (e2::OrdType)NUMBERVAL(ordtype);
-    std::thread::id _id = std::this_thread::get_id();
+
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId[_id];
+        quantid = e2q::FixPtr->_quantId[_id].first;
     }
-    e2q::FixPtr->_freeze_time = e2q::ticket_now;
-    e2q::FixPtr->_freeze_cash = expenditure;
+    e2q::FixPtr->_freeze_time[symbol] = e2q::ticket_now;
+
+    e2q::FixPtr->_cash.add_freeze(expenditure);
 
     e2q::fix_application.NewOrderSingle(symbol, side, qty, price, slippage,
-                                        ordtype, quantid, e2q::ticket_now);
+                                        ordtype, quantid, e2q::ticket_now,
+                                        number);
 
     return e2::Bool::B_TRUE;
 } /* -----  end of function OrderSend  ----- */
@@ -262,7 +272,7 @@ e2::Bool OrderSelect(e2::Int_e index, e2::SelectFlag sel, e2::SelectFlag pool)
 
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId[_id];
+        quantid = e2q::FixPtr->_quantId[_id].first;
     }
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
         log::info("quantid == 0:", quantid);
@@ -276,23 +286,10 @@ e2::Bool OrderSelect(e2::Int_e index, e2::SelectFlag sel, e2::SelectFlag pool)
         return e2::Bool::B_FALSE;
     }
 
-    /* else { */
-    /*     // e2::SelectFlag::P_History */
-    /* } */
-    e2q::BasicLock lock(e2q::e2Mutex);
-
-    if (e2q::e2_os.count(_id) == 0) {
-        e2q::OrderStruct os;
-        os.id = index;
-        os.select = sel;
-        os.pool = pool;
-        e2q::e2_os.insert({_id, os});
-    }
-    else {
-        e2q::e2_os.at(_id).id = index;
-        e2q::e2_os.at(_id).select = sel;
-        e2q::e2_os.at(_id).pool = pool;
-    }
+    // else {
+    //    e2::SelectFlag::P_History
+    // }
+    e2q::e2_os.insert(_id, index, sel, pool);
 
     return e2::Bool::B_TRUE;
 } /* -----  end of function OrderSelect  ----- */
@@ -310,19 +307,19 @@ e2::Bool OrderSelect(e2::Int_e index, e2::SelectFlag sel, e2::SelectFlag pool)
  */
 e2::Int_e OrderTicket()
 {
-    e2q::BasicLock lock(e2q::e2Mutex);
+    // e2q::BasicLock lock(e2q::e2Mutex);
 
     e2q::SeqType tick = 0;
     std::thread::id _id = std::this_thread::get_id();
 
-    if (e2q::e2_os.count(_id) == 0) {
+    if (e2q::e2_os.check(_id)) {
 #ifdef DEBUG
         log::bug(" id empty:", _id);
 #endif
         return tick;
     }
 
-    e2q::OrderStruct os = e2q::e2_os.at(_id);
+    e2q::OrderStruct os = e2q::e2_os.get(_id);
     if (os.id == -1) {
 #ifdef DEBUG
         log::bug(" id empty:", _id);
@@ -330,7 +327,8 @@ e2::Int_e OrderTicket()
         return tick;
     }
     if (os.select == e2::SelectFlag::F_ByTicket) {
-        e2q::e2_os.at(_id).id = -1;
+        e2q::e2_os.release(_id);
+
 #ifdef DEBUG
         log::bug("select error:", os.select);
 #endif
@@ -340,13 +338,13 @@ e2::Int_e OrderTicket()
 
     std::size_t quantId = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantId = e2q::FixPtr->_quantId[_id];
+        quantId = e2q::FixPtr->_quantId[_id].first;
     }
 
     if (os.pool == e2::SelectFlag::P_Trade) {
         // trade
         if ((std::size_t)os.id >= e2q::FixPtr->_OrderIds[quantId].size()) {
-            e2q::e2_os.at(_id).id = -1;
+            e2q::e2_os.release(_id);
 #ifdef DEBUG
             log::bug(" id > size:", _id);
 #endif
@@ -362,8 +360,8 @@ e2::Int_e OrderTicket()
                 if (m == (std::size_t)os.id) {
                     tick = it->second.ticket;
                     // log::echo("trading:", it->second.trading,
-                    //           " ticket:", it->second.ticket, "m:", m,
-                    //           " os.id:", os.id);
+                    //           " ticket:", it->second.ticket, " m:", m,
+                    //           " os.id:", os.id, " quantid:", quantId);
                     break;
                 }
                 m++;
@@ -373,7 +371,7 @@ e2::Int_e OrderTicket()
     else {
         // history
     }
-    e2q::e2_os.at(_id).id = -1;
+    e2q::e2_os.release(_id);
 
     return tick;
 } /* -----  end of function OrderTicket  ----- */
@@ -398,7 +396,7 @@ e2::Int_e OrderLots(e2::Int_e ticket)
     e2::Int_e ret = 0;
     std::size_t quantId = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantId = e2q::FixPtr->_quantId[_id];
+        quantId = e2q::FixPtr->_quantId[_id].first;
     }
     for (auto it = e2q::FixPtr->_OrderIds[quantId].begin();
          it != e2q::FixPtr->_OrderIds[quantId].end(); ++it) {
@@ -429,7 +427,7 @@ e2::Int_e OrdersHistoryTotal()
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId[_id];
+        quantid = e2q::FixPtr->_quantId[_id].first;
     }
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
         return 0;
@@ -461,7 +459,7 @@ e2::Int_e OrdersTotal()
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId[_id];
+        quantid = e2q::FixPtr->_quantId[_id].first;
     }
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
         return 0;
@@ -493,7 +491,7 @@ void OrderComment(e2::Int_e ticket, e2::Side side, e2::OrderEvent oe)
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId[_id];
+        quantid = e2q::FixPtr->_quantId[_id].first;
     }
     std::size_t _ticket = ticket;
     int _side = (int)NUMBERVAL(side);
@@ -519,7 +517,7 @@ e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId.at(_id);
+        quantid = e2q::FixPtr->_quantId.at(_id).first;
     }
 
     //   log::echo("qid:", quantid);

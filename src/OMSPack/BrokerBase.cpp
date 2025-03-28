@@ -333,7 +333,7 @@ double BrokerBase::CheckMargin(const FIX::SessionID& id, double price, long qty)
         std::string erro =
             log::format("total_cash %.3f  margin: %.3f price:%.3f,  qty:%ld",
                         _traders.at(id).total_cash, margin, price, qty);
-        log::echo(erro);
+        log::bug(erro);
         margin = -1;
     }
     return margin;

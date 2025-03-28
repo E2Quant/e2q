@@ -83,65 +83,171 @@
 #include "utility/Log.hpp"
 
 namespace e2q {
-/**
- * e2l thread lock
- */
-inline e2q::BasicLock::mutex_type e2Mutex;
 
-inline std::map<std::thread::id, std::shared_ptr<AutoIncrement>> e2l_thread_map;
+struct __AutoInc_t {
+    void init(std::thread::id _id)
+    {
+        if (_autoinc.count(_id) == 0) {
+            BasicLock _lock(_EMute);
+            std::shared_ptr<e2q::AutoIncrement> ai =
+                std::make_shared<e2q::AutoIncrement>();
+            _autoinc.insert({_id, ai});
+        }
+    }
 
-#define AutoInc(_id)                                        \
-    ({                                                      \
-        do {                                                \
-            _id = std::this_thread::get_id();               \
-            if (e2q::e2l_thread_map.count(_id) == 0) {      \
-                std::shared_ptr<e2q::AutoIncrement> ai =    \
-                    std::make_shared<e2q::AutoIncrement>(); \
-                e2q::e2l_thread_map.insert({_id, ai});      \
-            }                                               \
-        } while (0);                                        \
+    void AutoInit(std::thread::id _id, std::size_t num)
+    {
+        if (_autoinc.count(_id) == 1) {
+            _autoinc.at(_id)->init();
+            _autoinc.at(_id)->_number = num;
+        }
+    }
+
+    e2::Int_e Id(std::thread::id _id) { return _autoinc.at(_id)->Id(); }
+    e2::Int_e StoreId(std::thread::id _id)
+    {
+        return _autoinc.at(_id)->StoreId();
+    }
+
+    std::size_t number(std::thread::id _id)
+    {
+        if (_autoinc.count(_id) == 1) {
+            return _autoinc.at(_id)->_number;
+        }
+        return 0;
+    }
+
+private:
+    std::map<std::thread::id, std::shared_ptr<AutoIncrement>> _autoinc;
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+
+}; /* ----------  end of struct __AutoInc_t  ---------- */
+
+typedef struct __AutoInc_t AutoInc_t;
+
+inline AutoInc_t e2l_thread_map;
+
+#define AutoInc(_id)                          \
+    ({                                        \
+        do {                                  \
+            _id = std::this_thread::get_id(); \
+            e2q::e2l_thread_map.init(_id);    \
+        } while (0);                          \
     })
 
 /**
  *  e2l variable store
+ *   thread_id: { store id, store value }
  */
 
-inline std::map<std::thread::id, std::map<e2::Int_e, e2::Int_e>> e2l_silk;
+struct __Silk_t {
+    void init(std::thread::id _id)
+    {
+        BasicLock _lock(_EMute);
+        std::map<e2::Int_e, e2::Int_e> p;
+        _silk.insert({_id, p});
+    }
+    bool exist(std::thread::id _id) { return _silk.count(_id) == 0; }
+    bool check(std::thread::id _id, e2::Int_e id)
+    {
+        return _silk.at(_id).count(id) == 0;
+    }
+    void insert(std::thread::id _id, e2::Int_e id, e2::Int_e val)
+    {
+        BasicLock _lock(_EMute);
+        _silk[_id].insert({id, val});
+    }
+    void update(std::thread::id _id, e2::Int_e id, e2::Int_e val)
+    {
+        BasicLock _lock(_EMute);
+        _silk[_id][id] = val;
+    }
+    e2::Int_e get(std::thread::id _id, e2::Int_e id) { return _silk[_id][id]; }
 
-#define E2LSILK(_bool, _id, id)                         \
-    ({                                                  \
-        do {                                            \
-            _id = std::this_thread::get_id();           \
-            if (e2q::e2l_silk.count(_id) == 0) {        \
-                std::map<e2::Int_e, e2::Int_e> p;       \
-                e2q::e2l_silk.insert({_id, p});         \
-            }                                           \
-            if (e2q::e2l_silk.at(_id).count(id) == 0) { \
-                _bool = e2::Bool::B_FALSE;              \
-            }                                           \
-            else {                                      \
-                _bool = e2::Bool::B_TRUE;               \
-            }                                           \
-        } while (0);                                    \
+private:
+    std::map<std::thread::id, std::map<e2::Int_e, e2::Int_e>> _silk;
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+
+}; /* ----------  end of struct __Silk_t  ---------- */
+
+typedef struct __Silk_t Silk_t;
+inline Silk_t e2l_silk;
+
+#define E2LSILK(_bool, _id, id)                 \
+    ({                                          \
+        do {                                    \
+            _id = std::this_thread::get_id();   \
+            if (e2q::e2l_silk.exist(_id)) {     \
+                e2q::e2l_silk.init(_id);        \
+            }                                   \
+            if (e2q::e2l_silk.check(_id, id)) { \
+                _bool = e2::Bool::B_FALSE;      \
+            }                                   \
+            else {                              \
+                _bool = e2::Bool::B_TRUE;       \
+            }                                   \
+        } while (0);                            \
     })
 
-inline std::map<std::thread::id,
-                std::pair<std::size_t, std::array<e2q::SeqType, ohlc_column>>>
-    e2l_bar_ohlc;
+struct __BarOHLC_t {
+    void init(std::thread::id _id)
+    {
+        BasicLock _lock(_EMute);
+        std::array<e2q::SeqType, ohlc_column> bar{0};
 
-#define E2LBAR(id)                                          \
-    ({                                                      \
-        do {                                                \
-            id = std::this_thread::get_id();                \
-            if (e2q::e2l_bar_ohlc.count(id) == 0) {         \
-                std::array<e2q::SeqType, ohlc_column> bar;  \
-                std::size_t idx = 0;                        \
-                e2q::e2l_bar_ohlc.insert({id, {idx, bar}}); \
-            }                                               \
-        } while (0);                                        \
+        if (_bar_ohlc.count(_id) == 0) {
+            std::size_t idx = 0;
+            _bar_ohlc.insert({_id, {idx, bar}});
+        }
+    }
+
+    void clear(std::thread::id _id)
+    {
+        std::fill(_bar_ohlc.at(_id).second.begin(),
+                  _bar_ohlc.at(_id).second.end(), 0);
+    }
+
+    std::size_t size(std::thread::id _id)
+    {
+        return _bar_ohlc.at(_id).second.size();
+    }
+
+    e2::Int_e value(std::thread::id _id, e2::BarType bt)
+    {
+        return _bar_ohlc.at(_id).second[bt];
+    }
+
+    void update(std::thread::id _id, size_t idx,
+                std::array<e2q::SeqType, ohlc_column> bar)
+    {
+        BasicLock _lock(_EMute);
+        clear(_id);
+        _bar_ohlc.at(_id).second = bar;
+        _bar_ohlc.at(_id).first = idx;
+    }
+
+private:
+    std::map<std::thread::id,
+             std::pair<std::size_t, std::array<e2q::SeqType, ohlc_column>>>
+        _bar_ohlc;
+
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+
+}; /* ----------  end of struct __BarOHLC_t  ---------- */
+
+typedef struct __BarOHLC_t BarOHLC_t;
+
+inline BarOHLC_t e2l_bar_ohlc;
+
+#define E2LBAR(id)                      \
+    ({                                  \
+        do {                            \
+            e2q::e2l_bar_ohlc.init(id); \
+        } while (0);                    \
     })
-
-inline RingLoop e2l_ring_data;
 
 struct __OrderStruct {
     e2::Int_e id;  // tick or pos
@@ -151,7 +257,46 @@ struct __OrderStruct {
 
 typedef struct __OrderStruct OrderStruct;
 
-inline std::map<std::thread::id, OrderStruct> e2_os;
+struct __Select_t {
+    void insert(std::thread::id _id, e2::Int_e index, e2::SelectFlag select,
+                e2::SelectFlag pool)
+    {
+        BasicLock _lock(_EMute);
+
+        if (_os.count(_id) == 0) {
+            e2q::OrderStruct os;
+            os.id = index;
+            os.select = select;
+            os.pool = pool;
+            _os.insert({_id, os});
+        }
+        else {
+            _os.at(_id).id = index;
+            _os.at(_id).select = select;
+            _os.at(_id).pool = pool;
+        }
+    }
+
+    bool check(std::thread::id _id) { return _os.count(_id) == 0; }
+    e2q::OrderStruct get(std::thread::id _id) { return _os.at(_id); }
+
+    void release(std::thread::id _id)
+    {
+        BasicLock _lock(_EMute);
+        _os.at(_id).id = -1;
+    }
+
+private:
+    std::map<std::thread::id, OrderStruct> _os;
+
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+
+}; /* ----------  end of struct __Select_t  ---------- */
+
+typedef struct __Select_t Select_t;
+
+inline Select_t e2_os;
 
 struct __e2lAnalse {
     e2::Int_e id = 0;       // indicator id
@@ -176,9 +321,180 @@ struct __e2lAnalse {
 
 typedef struct __e2lAnalse e2lAnalse;
 
-inline std::map<std::thread::id, std::vector<e2lAnalse>> e2_analse;
+struct __Analse_t {
+    std::size_t size(std::thread::id _id) { return 0; }
+    bool check(std::thread::id _id, e2::Int_e id)
+    {
+        return _analse.count(_id) > 0 && _analse.at(_id).count(id) == 1;
+    }
 
-inline std::map<e2::Int_e, std::thread::id> e2_share_array;
+    void init(std::thread::id _id)
+    {
+        BasicLock _lock(_EMute);
+        std::map<e2::Int_e, e2lAnalse> val;
+        _analse.insert({_id, val});
+    }
+
+    void update(std::thread::id _id, e2lAnalse ana)
+    {
+        BasicLock _lock(_EMute);
+
+        if (_analse.count(_id) == 0) {
+            std::map<e2::Int_e, e2lAnalse> val;
+            val.insert({ana.id, ana});
+            _analse.insert({_id, val});
+        }
+        else {
+            if (_analse[_id].count(ana.id) == 0) {
+                _analse[_id].insert({ana.id, ana});
+            }
+            else {
+                _analse[_id][ana.id] = ana;
+            }
+        }
+    }
+
+    void addArgv(std::thread::id _id, e2::Int_e id, std::string args)
+    {
+        BasicLock _lock(_EMute);
+        e2lAnalse ana;
+        if (_analse.count(_id) == 0 || _analse[_id].count(id) == 0) {
+            log::bug(" e2_analse is empty:");
+        }
+        else {
+            if (_analse.at(_id).at(id).init == e2q::ticket_now) {
+                if (_analse[_id][id].argv.length() == 0) {
+                    _analse[_id][id].argv = args;
+                }
+                else {
+                    _analse[_id][id].argv += "/" + args;
+                }
+            }
+        }
+    }
+    void addValue(std::thread::id _id, e2::Int_e id, std::string args)
+    {
+        BasicLock _lock(_EMute);
+        e2lAnalse ana;
+        if (_analse.count(_id) == 0 || _analse[_id].count(id) == 0) {
+            log::bug(" e2_analse is empty:");
+        }
+        else {
+            if (_analse.at(_id).at(id).etime == e2q::ticket_now) {
+                if (_analse[_id][id].values.length() == 0) {
+                    _analse[_id][id].values = args;
+                }
+                else {
+                    _analse[_id][id].values += "/" + args;
+                }
+            }
+        }
+    }
+
+    void Save()
+    {
+        e2q::UtilTime ut;
+        std::size_t now = ut.time();
+        std::thread::id _id = std::this_thread::get_id();
+
+        std::size_t idx = e2q::GlobalDBPtr->getId();
+
+        e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
+        if (gsql == nullptr || _analse.count(_id) == 0) {
+            e2q::GlobalDBPtr->release(idx);
+            return;
+        }
+        for (auto ana : _analse.at(_id)) {
+            auto it = ana.second;
+            gsql->insert_table("analse");
+            gsql->insert_field("aid", it.id);
+            gsql->insert_field("quantid", it.quantId);
+            gsql->insert_field("name", it.name.c_str());
+            gsql->insert_field("argv", it.argv.c_str());
+            gsql->insert_query(
+                "verid",
+                "( SELECT id FROM trade_info WHERE active = 1 ORDER "
+                " BY ctime LIMIT 1) ");
+            gsql->insert_field("ctime", now);
+            gsql->insert_commit();
+        }
+        e2q::GlobalDBPtr->release(idx);
+    }
+
+private:
+    std::map<std::thread::id, std::map<e2::Int_e, e2lAnalse>> _analse;
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+
+}; /* ----------  end of struct __Analse_t  ---------- */
+
+typedef struct __Analse_t Analse_t;
+inline Analse_t e2_analse;
+
+struct __ProcessShare_t : public RingLoop {
+    void add_proce(e2::Int_e id)
+    {
+        BasicLock _lock(_RLoopMutex);
+        std::thread::id _id = std::this_thread::get_id();
+
+        if (!check(id)) {
+            _share_array.insert({id, _id});
+        }
+        else {
+            _share_array[id] = _id;
+        }
+    }
+
+    e2::Int_e length(e2::Int_e id)
+    {
+        std::thread::id _id;
+        if (check(id)) {
+            _id = _share_array.at(id);
+        }
+        else {
+            _id = std::this_thread::get_id();
+        }
+
+        return RingLoop::length(_id, id);
+    }
+
+    e2::Int_e size(e2::Int_e id)
+    {
+        std::thread::id _id;
+        if (check(id)) {
+            _id = _share_array.at(id);
+        }
+        else {
+            _id = std::this_thread::get_id();
+        }
+
+        return RingLoop::size(_id, id);
+    }
+
+    e2::Int_e get(e2::Int_e id, std::size_t idx)
+    {
+        std::thread::id _id;
+        if (check(id)) {
+            _id = _share_array.at(id);
+        }
+        else {
+            _id = std::this_thread::get_id();
+        }
+
+        return RingLoop::get(_id, id, idx);
+    }
+
+private:
+    bool check(e2::Int_e id) { return _share_array.count(id) == 1; }
+
+    // 跨进程的
+    // store id > thread_id
+    std::map<e2::Int_e, std::thread::id> _share_array;
+
+}; /* ----------  end of struct __ProcessShare_t  ---------- */
+
+typedef struct __ProcessShare_t ProcessShare_t;
+inline ProcessShare_t e2_share_array;
 
 /**
  * exdi

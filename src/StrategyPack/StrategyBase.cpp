@@ -49,12 +49,15 @@
 #include <ctime>
 #include <exception>
 #include <memory>
+#include <stdexcept>
 #include <thread>
 #include <utility>
 #include <vector>
 
 #include "E2L/E2LType.hpp"
 #include "E2L/general.hpp"
+#include "E2LScript/util_inline.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 
 namespace e2q {
 
@@ -72,9 +75,9 @@ inline std::size_t ticket_now = 0;
  *
  * ============================================
  */
-StrategyBase ::StrategyBase(_Resource_ptr ptr,
-                            std::shared_ptr<BeamData> beam_data,
-                            std::size_t quantId_start)
+StrategyBase::StrategyBase(_Resource_ptr ptr,
+                           std::shared_ptr<BeamData> beam_data,
+                           std::size_t quantId_start)
 {
     _quantIdStart = quantId_start;
     if (ptr == nullptr) {
@@ -171,26 +174,22 @@ void StrategyBase::runScript()
 
         if (FixPtr->_quantId.count(_id) == 0) {
             _uuid = this->_quantIdStart + num;
-            FixPtr->_quantId.insert({_id, _uuid});
+            FixPtr->_quantId.insert({_id, {_uuid, num}});
 
-            std::vector<e2q::e2lAnalse> ana;
-
-            e2q::e2_analse.insert({_id, ana});
+            e2q::e2_analse.init(_id);
         }
     };  // -----  end lambda  -----
 
     auto job = [this](std::size_t tk_size, size_t num, std::thread::id _id) {
         try {
-            if (e2l_thread_map.count(_id) > 0) {
-                e2l_thread_map.at(_id)->init();
-            }
+            e2l_thread_map.AutoInit(_id, num);
 
             this->_program.toScript(tk_size, num);
         }
-        catch (std::exception &e) {
-            log::bug(e.what());
+        catch (std::runtime_error &e) {
+            log::bug(e.what(), " num:", num);
         }
-    };  // -----  end lambda  -----
+    };  // -----  end ambda  -----
 
     ThreadPool<std::size_t> pool{e2l_thread_num};
     pool.job_init(job_init);
@@ -205,7 +204,6 @@ void StrategyBase::runScript()
 
             ticket_now = e2l_cnt->data_ptr->now();
         }
-
         //  运行得有点慢
 
         /**

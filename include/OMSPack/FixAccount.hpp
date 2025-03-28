@@ -245,12 +245,12 @@ public:
 
     std::size_t NewOrderSingle(Int_e, Int_e side, Int_e qty, Int_e price,
                                Int_e slippage, Int_e ordtype, std::size_t,
-                               std::size_t);
+                               std::size_t, std::size_t);
 
     void OrderCancelRequest();
     void OrderReplaceRequest(Int_e, Int_e side, Int_e qty, Int_e stoppx,
                              Int_e slippage, Int_e ordtype, Int_e, std::size_t,
-                             std::size_t);
+                             std::size_t, std::size_t);
     void OrderCancelReject();
 
     void defHeader(FIX::Header& header);

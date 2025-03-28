@@ -422,10 +422,10 @@ void QuantId(e2::Int_e id)
 {
     std::thread::id _id = std::this_thread::get_id();
     if (e2q::FixPtr->_quantId.count(_id) == 0) {
-        e2q::FixPtr->_quantId.insert({_id, id});
+        e2q::FixPtr->_quantId.insert({_id, {id, 0}});
     }
     else {
-        e2q::FixPtr->_quantId[_id] = id;
+        e2q::FixPtr->_quantId[_id].first = id;
     }
 } /* -----  end of function QuantId  ----- */
 
@@ -460,7 +460,7 @@ e2::Int_e CurrentQuantId()
         return 0;
     }
 
-    e2::Int_e ret = e2q::FixPtr->_quantId[_id];
+    e2::Int_e ret = e2q::FixPtr->_quantId[_id].first;
     return ret;
 } /* -----  end of function CurrentQuantId  ----- */
 

@@ -257,7 +257,6 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
         if (relateGroup.isSetField(symbol)) {
             relateGroup.getField(symbol);
             sym_id = atol(symbol.getString().c_str());
-
             symbols.push_back(sym_id);
         }
         FIX::CashOrderQty coq;
@@ -566,12 +565,14 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         const char* fmt =
             "SELECT quantid from trades WHERE ticket=%ld LIMIT 1;";
         std::string sql = log::format(fmt, ticket);
-        log::info(sql);
+        // log::info(sql);
         bool r = gsql->select_sql(sql);
         if (r && gsql->tuple_size() > 0) {
             gsql->update_table("trades");
             gsql->update_field("stat", 8);
             gsql->update_field("qty", qty);
+            gsql->update_field("ctime", ticket_now);
+            gsql->update_field("otime", ticket_now);
             gsql->update_field("price", NUMBERVAL(price));
             gsql->update_condition("ticket", ticket);
             gsql->update_commit();
@@ -588,6 +589,9 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
             gsql->insert_field("symbol", cfi);
             gsql->insert_field("ticket", ticket);
             gsql->insert_field("stat", 8);
+            gsql->insert_field("ctime", ticket_now);
+            gsql->insert_field("otime", ticket_now);
+
             gsql->insert_field("side", (int)convert(side));
             gsql->insert_field("quantid", quantId);
             gsql->insert_field("qty", qty);
@@ -847,9 +851,13 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
         order_qty = GlobalMatcher->CheckClose(ticket_close, symbol.getValue(),
                                               order_qty);
-        if (order_qty == 0) {
-            rejectOrder(sid, clOrdID, symbol, side, "CheckClose", ticket_close,
-                        qid, order_qty, order_price);
+        if (order_qty <= 0) {
+            std::string error = "CheckClose order_qty == 0";
+            if (order_qty == -1) {
+                error = "settlement T + x";
+            }
+            rejectOrder(sid, clOrdID, symbol, side, error, ticket_close, qid,
+                        order_qty, order_price);
             return;
         }
     }
@@ -880,7 +888,8 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
             // 开仓的时候才会设置,平仓就得全部 平掉
             margin = GlobalMatcher->CheckMargin(sid, order_price, order_qty);
 
-            if (FinFabr->_tif == e2::TimeInForce::tif_immediate_or_cancel) {
+            if (margin > 0 &&
+                FinFabr->_tif == e2::TimeInForce::tif_immediate_or_cancel) {
                 order->hasMargin(margin);
             }
         }

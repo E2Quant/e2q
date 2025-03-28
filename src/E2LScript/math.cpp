@@ -52,6 +52,7 @@
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
 
@@ -73,7 +74,7 @@ void Array(e2::Int_e id, e2::Int_e asize, const char *_vname, e2::Int_e loc,
 
     std::size_t len = (std::size_t)NUMBERVAL(asize);
 
-    bool ret = e2q::e2l_ring_data.init(id, len);
+    bool ret = e2q::e2_share_array.init(id, len);
     if (ret == false) {
         log::bug("id:", std::string(_vname), " codeline:", loc,
                  " path:", std::string(_path));
@@ -96,7 +97,7 @@ void ArrayFixed(e2::Int_e id, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
 
-    e2q::e2l_ring_data.fixed(id);
+    e2q::e2_share_array.fixed(id);
 
 } /* -----  end of function ArrayFixed  ----- */
 
@@ -116,9 +117,9 @@ void ArrayFill(e2::Int_e id, e2::Int_e value, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
 
-    std::size_t max_size = e2q::e2l_ring_data.size(id);
+    std::size_t max_size = e2q::e2_share_array.size(id);
     for (std::size_t m = 0; m < max_size; m++) {
-        e2q::e2l_ring_data.update(id, m, value);
+        e2q::e2_share_array.update(id, m, value);
     }
 
 } /* -----  end of function ArrayFill  ----- */
@@ -138,8 +139,10 @@ e2::Bool ArrayAdd(e2::Int_e id, e2::Int_e val, const char *_vname,
 {
     id = NUMBERVAL(id);
 
-    e2::Bool ret = e2q::e2l_ring_data.add(id, val);
-
+    e2::Bool ret = e2q::e2_share_array.add(id, val);
+    if (ret == e2::Bool::B_FALSE) {
+        log::bug("id:", id);
+    }
     return ret;
 } /* -----  end of function AddArray  ----- */
 /*
@@ -161,7 +164,7 @@ e2::Bool ArrayUpdate(e2::Int_e id, e2::Int_e index, e2::Int_e x,
     std::size_t idx = (std::size_t)NUMBERVAL(index);
     e2::Bool ret = e2::Bool::B_TRUE;
 
-    ret = e2q::e2l_ring_data.update(id, idx, x);
+    ret = e2q::e2_share_array.update(id, idx, x);
 
     return ret;
 } /* -----  end of function UpdateArray  ----- */
@@ -180,17 +183,9 @@ e2::Bool ArrayUpdate(e2::Int_e id, e2::Int_e index, e2::Int_e x,
 void ArrayShare(e2::Int_e id, const char *_vname, e2::Int_e loc,
                 const char *_path)
 {
-    e2q::BasicLock lock(e2q::e2Mutex);
-
     id = NUMBERVAL(id);
+    e2q::e2_share_array.add_proce(id);
 
-    std::thread::id _id = std::this_thread::get_id();
-    if (e2q::e2_share_array.count(id) == 0) {
-        e2q::e2_share_array.insert({id, _id});
-    }
-    else {
-        e2q::e2_share_array.at(id) = _id;
-    }
 } /* -----  end of function ArrayShare  ----- */
 
 /*
@@ -209,16 +204,8 @@ e2::Int_e ArrayLength(e2::Int_e id, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
 
-    e2::Int_e len = 0;
-    std::thread::id _id;
-    if (e2q::e2_share_array.count(id) == 1) {
-        _id = e2q::e2_share_array.at(id);
-    }
-    else {
-        _id = std::this_thread::get_id();
-    }
+    e2::Int_e len = e2q::e2_share_array.length(id);
 
-    len = e2q::e2l_ring_data.length(_id, id);
     return VALNUMBER(len);
 } /* -----  end of function ArrayLength  ----- */
 
@@ -238,16 +225,8 @@ e2::Int_e ArraySize(e2::Int_e id, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
 
-    e2::Int_e len = 0;
-    std::thread::id _id;
-    if (e2q::e2_share_array.count(id) == 1) {
-        _id = e2q::e2_share_array.at(id);
-    }
-    else {
-        _id = std::this_thread::get_id();
-    }
+    e2::Int_e len = e2q::e2_share_array.size(id);
 
-    len = e2q::e2l_ring_data.size(_id, id);
     return VALNUMBER(len);
 } /* -----  end of function ArraySize  ----- */
 
@@ -267,17 +246,8 @@ e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char *_vname,
 {
     id = NUMBERVAL(id);
 
-    e2::Int_e val = 0;
     std::size_t idx = (std::size_t)NUMBERVAL(index);
-    std::thread::id _id;
-    if (e2q::e2_share_array.count(id) == 1) {
-        _id = e2q::e2_share_array.at(id);
-    }
-    else {
-        _id = std::this_thread::get_id();
-    }
-
-    val = e2q::e2l_ring_data.get(_id, id, idx);
+    e2::Int_e val = e2q::e2_share_array.get(id, idx);
 
     return val;
 } /* -----  end of function GetArray  ----- */
@@ -298,19 +268,8 @@ e2::Int_e ArrayLast(e2::Int_e id, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
 
-    e2::Int_e val = 0;
-    std::size_t idx = 0;
-
-    std::thread::id _id;
-    if (e2q::e2_share_array.count(id) == 1) {
-        _id = e2q::e2_share_array.at(id);
-    }
-    else {
-        _id = std::this_thread::get_id();
-    }
-
-    idx = e2q ::e2l_ring_data.length(_id, id) - 2;
-    val = e2q::e2l_ring_data.get(_id, id, idx);
+    std::size_t idx = e2q::e2_share_array.length(id) - 2;
+    e2::Int_e val = e2q::e2_share_array.get(id, idx);
 
     return val;
 } /* -----  end of function LastArray  ----- */
@@ -331,7 +290,7 @@ e2::Int_e ArrayMax(e2::Int_e id, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
 
-    e2::Int_e ret = e2q::e2l_ring_data.Max(id);
+    e2::Int_e ret = e2q::e2_share_array.Max(id);
     return ret;
 } /* -----  end of function ArrayMax  ----- */
 
@@ -351,7 +310,7 @@ e2::Int_e ArrayMin(e2::Int_e id, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
 
-    e2::Int_e ret = e2q::e2l_ring_data.Min(id);
+    e2::Int_e ret = e2q::e2_share_array.Min(id);
     return ret;
 
 } /* -----  end of function ArrayMin  ----- */
@@ -377,7 +336,7 @@ e2::Int_e Sum(e2::Int_e id, e2::Int_e p)
     }
     std::size_t next = (std::size_t)NUMBERVAL(p);
 
-    val = e2q::e2l_ring_data.Sum(id, next);
+    val = e2q::e2_share_array.Sum(id, next);
 
     return val;
 } /* -----  end of function Sum  ----- */
@@ -422,7 +381,7 @@ e2::Int_e Stdev(e2::Int_e id)
         return ret;
     };  // -----  end lambda  -----
 
-    stdev = e2q::e2l_ring_data.Stdev(id, fun);
+    stdev = e2q::e2_share_array.Stdev(id, fun);
     return VALNUMBER(stdev);
 } /* -----  end of function Stdev  ----- */
 /*

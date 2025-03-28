@@ -41,13 +41,15 @@
  * =====================================================================================
  */
 
-#include <string>
+#include <cstddef>
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
+#include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
+#include "utility/Log.hpp"
 
 namespace e2l {
 
@@ -64,7 +66,11 @@ namespace e2l {
  */
 e2::Int_e AccountBalance()
 {
-    e2::Int_e ret = e2q::FixPtr->_cash.total_cash;
+    std::thread::id _id = std::this_thread::get_id();
+    std::size_t number = e2q::e2l_thread_map.number(_id);
+
+    e2q::FixPtr->_cash.who(number);
+    e2::Int_e ret = e2q::FixPtr->_cash.TotalCash();
 
     return VALNUMBER(ret);
 } /* -----  end of function AccountBalance  ----- */
@@ -83,8 +89,13 @@ e2::Int_e AccountBalance()
 e2::Int_e AccountMargin()
 {
     e2::Int_e ret = 0;
+    std::thread::id _id = std::this_thread::get_id();
+    std::size_t number = e2q::e2l_thread_map.number(_id);
     for (auto it : e2q::FixPtr->_cash.order_cash) {
         ret += it.second.margin;
+        if (it.second.thread_number != number) {
+            continue;
+        }
     }
     return VALNUMBER(ret);
 } /* -----  end of function AccountMargin  ----- */
@@ -102,8 +113,21 @@ e2::Int_e AccountMargin()
  */
 e2::Int_e AccountEquity()
 {
-    e2::Int_e ret = e2q::FixPtr->_freeze_cash;
+    std::thread::id _id = std::this_thread::get_id();
+    std::size_t number = e2q::e2l_thread_map.number(_id);
 
+    e2q::FixPtr->_cash.who(number);
+
+    e2::Int_e ret =
+        e2q::FixPtr->_cash.TotalCash() - e2q::FixPtr->_cash.FreezeCash();
+    // std::string cond =
+    //     log::format("total:%.3f freeze:%.3f", e2q::FixPtr->_cash.TotalCash(),
+    //                 e2q::FixPtr->_cash.FreezeCash());
+
+    // log::info(cond);
+    if (ret < 0) {
+        ret = 0;
+    }
     return VALNUMBER(ret);
 } /* -----  end of function AccountEquity  ----- */
 /*
@@ -122,5 +146,36 @@ e2::Int_e AccountProfit()
     e2::Int_e ret = 0;
     return ret;
 } /* -----  end of function AccountProfit  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  ThreadPosition
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  不同的线程仓位管理
+ *  其实只需要从不同的 quant id 来区分就可以了
+ *  输入的时候，是线程的 index
+ *  是总的仓位分配，单笔交易，是当前策略的分配仓位
+ * ============================================
+ */
+void ThreadPosition(e2::Int_e tid, e2::Int_e position)
+{
+    e2q::Postion thread_post;
+
+    std::size_t num = NUMBERVAL(tid);
+    thread_post._postion = (float)NUMBERVAL(position) / 100;
+    double free_postion = e2q::FixPtr->_cash.all_postion - thread_post._postion;
+    if (free_postion < 0) {
+        log::bug("postion: %.3f", thread_post._postion);
+        return;
+    }
+    e2q::FixPtr->_cash.all_postion -= thread_post._postion;
+    e2q::FixPtr->_cash._thread_pos.insert({num, thread_post});
+    e2q::FixPtr->_cash._tsize++;
+} /* -----  end of function ThreadPosition  ----- */
+
 }  // namespace e2l
 

@@ -46,6 +46,7 @@
 #include "E2L/E2LType.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/DB/pg.hpp"
 
@@ -162,38 +163,17 @@ e2::Int_e analytotal(e2::Int_e analy)
  */
 void Analse(e2::Int_e id, const char *name)
 {
-    e2q::BasicLock _lock(e2q::e2Mutex);
     id = NUMBERVAL(id);
     std::thread::id _id = std::this_thread::get_id();
-    std::size_t m = 0;
-    bool exits = false;
-    if (e2q::e2_analse.count(_id) == 0 || e2q::e2_analse[_id].size() == 0) {
-        exits = true;
-    }
-    else {
-        for (auto it : e2q::e2_analse[_id]) {
-            if (it.id == id) {
-                break;
-            }
-            m++;
-        }
-        if (m == e2q::e2_analse[_id].size()) {
-            exits = true;
-        }
-    }
 
-    if (exits) {
-        e2q::e2lAnalse ana;
-        ana.id = id;
-        ana.quantId = e2q::FixPtr->_quantId[_id];
-        ana.name = std::string(name);
-        ana.etime = 0;
-        ana.init = e2q::ticket_now;
-        e2q::e2_analse[_id].push_back(ana);
-    }
-    else {
-        log::bug(" e2_analse is exits:");
-    }
+    e2q::e2lAnalse ana;
+    ana.id = id;
+    ana.quantId = e2q::FixPtr->_quantId[_id].first;
+    ana.name = std::string(name);
+    ana.etime = 0;
+    ana.init = e2q::ticket_now;
+    e2q::e2_analse.update(_id, ana);
+
 } /* -----  end of function Analse  ----- */
 
 /*
@@ -209,28 +189,12 @@ void Analse(e2::Int_e id, const char *name)
  */
 void AnalseArgv(e2::Int_e id, e2::Int_e args)
 {
-    e2q::BasicLock _lock(e2q::e2Mutex);
     id = NUMBERVAL(id);
     int iargs = (int)NUMBERVAL(args);
+    std::string vargs = std::to_string(iargs);
+
     std::thread::id _id = std::this_thread::get_id();
-    std::size_t m = 0;
-
-    if (e2q::e2_analse.count(_id) == 0) {
-        log::bug(" e2_analse is empty:");
-
-        return;
-    }
-    for (auto it : e2q::e2_analse[_id]) {
-        if (it.id == id && it.init == e2q::ticket_now) {
-            if (e2q::e2_analse[_id][m].argv.length() == 0) {
-                e2q::e2_analse[_id][m].argv = std::to_string(iargs);
-            }
-            else {
-                e2q::e2_analse[_id][m].argv += "/" + std::to_string(iargs);
-            }
-        }
-        m++;
-    }
+    e2q::e2_analse.addArgv(_id, id, vargs);
 
 } /* -----  end of function AnalseArgv  ----- */
 
@@ -247,29 +211,13 @@ void AnalseArgv(e2::Int_e id, e2::Int_e args)
  */
 void AnalseValue(e2::Int_e id, e2::Int_e val)
 {
-    e2q::BasicLock _lock(e2q::e2Mutex);
     id = NUMBERVAL(id);
     double dval = NUMBERVAL(val);
+    std::string vals = std::to_string(dval);
+
     std::thread::id _id = std::this_thread::get_id();
-    std::size_t m = 0;
+    e2q::e2_analse.addValue(_id, id, vals);
 
-    if (e2q::e2_analse.count(_id) == 0) {
-        log::bug(" e2_analse is empty:");
-
-        return;
-    }
-    for (auto it : e2q::e2_analse[_id]) {
-        if (it.id == id) {
-            if (e2q::e2_analse[_id][m].etime != e2q::ticket_now) {
-                e2q::e2_analse[_id][m].etime = e2q::ticket_now;
-                e2q::e2_analse[_id][m].values = std::to_string(dval);
-            }
-            else {
-                e2q::e2_analse[_id][m].values += "/" + std::to_string(dval);
-            }
-        }
-        m++;
-    }
 } /* -----  end of function AnalseValue  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -284,36 +232,8 @@ void AnalseValue(e2::Int_e id, e2::Int_e val)
  */
 void AnalseDB()
 {
-    e2q::BasicLock _lock(e2q::e2Mutex);
+    e2q::e2_analse.Save();
 
-    std::thread::id _id = std::this_thread::get_id();
-
-    if (e2q::e2_analse.count(_id) == 0) {
-        log::bug(" e2_analse is empty:");
-        return;
-    }
-    std::size_t idx = e2q::GlobalDBPtr->getId();
-
-    e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
-    if (gsql == nullptr) {
-        e2q::GlobalDBPtr->release(idx);
-        return;
-    }
-    e2q::UtilTime ut;
-    std::size_t now = ut.time();
-    for (auto it : e2q::e2_analse[_id]) {
-        gsql->insert_table("analse");
-        gsql->insert_field("aid", it.id);
-        gsql->insert_field("quantid", it.quantId);
-        gsql->insert_field("name", it.name.c_str());
-        gsql->insert_field("argv", it.argv.c_str());
-        gsql->insert_query("verid",
-                           "( SELECT id FROM trade_info WHERE active = 1 ORDER "
-                           "BY ctime LIMIT 1) ");
-        gsql->insert_field("ctime", now);
-        gsql->insert_commit();
-    }
-    e2q::GlobalDBPtr->release(idx);
 } /* -----  end of function AnalseDB  ----- */
 
 /*
@@ -329,12 +249,10 @@ void AnalseDB()
  */
 void AnalseLog(e2::Int_e key, e2::Int_e val, e2::Int_e type, e2::Int_e time)
 {
-    e2q::BasicLock _lock(e2q::e2Mutex);
-
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
-        quantid = e2q::FixPtr->_quantId[_id];
+        quantid = e2q::FixPtr->_quantId[_id].first;
     }
 
     double _val = (double)NUMBERVAL(val);

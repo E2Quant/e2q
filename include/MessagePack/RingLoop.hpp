@@ -137,6 +137,8 @@ protected:
     /* =============  METHODS       =================== */
 
     /* =============  DATA MEMBERS  =================== */
+    using Mutex = typename e2q::BasicLock::mutex_type;
+    mutable Mutex _RLoopMutex;
 
 private:
     /* =============  METHODS       =================== */
@@ -145,8 +147,6 @@ private:
     // std::map<e2::Int_e, RingLoopType> _data;
 
     std::map<std::thread::id, std::map<e2::Int_e, RingLoopType>> _ring_data;
-    using Mutex = typename e2q::BasicLock::mutex_type;
-    mutable Mutex _RLoopMutex;
 
 }; /* -----  end of class RingLoop  ----- */
 

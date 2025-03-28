@@ -43,6 +43,7 @@
 #include "libs/kafka/producer.hpp"
 
 #include <cstddef>
+#include <cstdio>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -191,8 +192,7 @@ void Producer::data(const char *line, std::size_t size, std::string topic_str,
     }
 
     BasicLock _lock(_kMute);
-
-    // log::info(line + "  " + topic_str);
+    //    log::info(line + "  " + topic_str);
     RdKafka::ErrorCode resp = producer->produce(
         topic_str, partition, RdKafka::Producer::RK_MSG_COPY /* Copy payload
                                                               */

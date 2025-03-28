@@ -240,13 +240,8 @@ e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
     timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
     e2::Int_e ret = 0;
 
-    e2q::BasicLock lock(e2q::e2Mutex);
-
     std::thread::id pid;
     E2LBAR(pid);
-
-    std::fill(e2q::e2l_bar_ohlc.at(pid).second.begin(),
-              e2q::e2l_bar_ohlc.at(pid).second.end(), 0);
 
     e2::Bool _bool = e2::Bool::B_FALSE;
     std::array<e2q::SeqType, ohlc_column> bar;
@@ -257,8 +252,8 @@ e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
         ret = e2q::e2l_cnt->data_ptr->read(bar, stock, timeframe, shift);
 
         if (ret != -1) {
-            e2q::e2l_bar_ohlc.at(pid).second = bar;
-            e2q::e2l_bar_ohlc.at(pid).first = idx;
+            e2q::e2l_bar_ohlc.update(pid, idx, bar);
+
             _bool = e2::Bool::B_TRUE;
         }
     }
@@ -284,13 +279,13 @@ e2::Int_e BarSeries(e2::BarType bt)
     }
     std::thread::id pid;
     E2LBAR(pid);
-    std::size_t len = e2q::e2l_bar_ohlc.at(pid).second.size();
+    std::size_t len = e2q::e2l_bar_ohlc.size(pid);
 
     if (bt >= len) {
         log::bug("error len:", len, " bt:", bt);
         return 0;
     }
-    ret = e2q::e2l_bar_ohlc.at(pid).second[bt];
+    ret = e2q::e2l_bar_ohlc.value(pid, bt);
 
     return ret;
 } /* -----  end of function BarSeries  ----- */

@@ -108,6 +108,11 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
 
     idx += parse_uint_t(p + idx, sinit.CfiCode);
 
+    // 加上 e2q
+    if (sinit.CfiCode > 0) {
+        sinit.CfiCode += E2QCfiStart;
+    }
+
     sinit.Itype = *(p + idx);
     idx++;
 
@@ -116,6 +121,19 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
 
     std::string symbol = std::string(sinit.Stock);
     FinFabr->_fix_symbols.insert({sinit.CfiCode, symbol});
+
+    std::size_t gidx = GlobalDBPtr->getId();
+    Pgsql *gsql = GlobalDBPtr->ptr(gidx);
+    std::string table = "api.";
+    if (gsql != nullptr) {
+        gsql->public_table(table);
+        gsql->insert_table("stockinfo");
+        gsql->insert_field("symbol", sinit.CfiCode);
+        gsql->insert_field("stock", sinit.Stock);
+        gsql->insert_commit();
+    }
+
+    GlobalDBPtr->release(gidx);
 
     if (sinit.Aligned == Aligned_t::PULL) {
         // log::echo("offer:", sinit.OfferTime);
@@ -169,6 +187,9 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
     }
 
     idx += parse_uint_t(p + idx, saxm.CfiCode);
+    if (saxm.CfiCode > 0) {
+        saxm.CfiCode += E2QCfiStart;
+    }
 
     idx += parse_uint_t(p + idx, saxm.year);
     idx += parse_uint_t(p + idx, saxm.month);
@@ -214,14 +235,10 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
 
     std::size_t gidx = GlobalDBPtr->getId();
     Pgsql *gsql = GlobalDBPtr->ptr(gidx);
-    std::string stock = "";
-    if (FinFabr->_fix_symbols.count(saxm.CfiCode) == 1) {
-        stock = FinFabr->_fix_symbols.at(saxm.CfiCode);
-    }
+
     if (gsql != nullptr) {
         gsql->insert_table("exdr");
         gsql->insert_field("symbol", saxm.CfiCode);
-        gsql->insert_field("stock", stock.c_str());
         gsql->insert_field("cash", cash);
         gsql->insert_field("shares", shares);
         gsql->insert_field("extype", (int)node._extype);
@@ -236,6 +253,10 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         gsql->insert_commit();
     }
     std::vector<long> tickets;
+    std::string stock = "";
+    if (FinFabr->_fix_symbols.count(saxm.CfiCode) == 1) {
+        stock = FinFabr->_fix_symbols.at(saxm.CfiCode);
+    }
     // 现金收益，add trade_report
     if (stock.length() > 0 && (cash > 0 || shares > 0)) {
         std::string ymd = std::to_string(node._ymd);
@@ -500,6 +521,10 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
     }
     idx += parse_uint_t(ptr + idx, mtm.CfiCode);
 
+    if (mtm.CfiCode > 0) {
+        mtm.CfiCode += E2QCfiStart;
+    }
+
     idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, mtm.unix_time);
 
     idx += parse_uint_t(ptr + idx, mtm.frame);
@@ -512,6 +537,12 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
     idx += parse_uint_t(ptr + idx, mtm.number);
 
     mtm.Aligned = *(ptr + idx);
+
+    // if (mtm.Aligned == Aligned_t::PULL) {
+    //     if (_lastTime == mtm.unix_time) {
+    //         log::info("lastTime:", _lastTime);
+    //     }
+    // }
 
     if (_lastTime > mtm.unix_time) {
         log::bug("bug tick: lastTime:", _lastTime,
@@ -535,14 +566,6 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
 
     // logs(_call_data, moffset);
 
-    // if (mtm.Aligned == Aligned_t::PULL) {
-    /**
-     * 随便 做点事情
-     */
-    //        if (FinFabr->_csv_kafka != e2::MKType::mk_kafka) {
-    //   TSleep(FinFabr->_offer_time);
-    //      }
-    // }
     if (_TunCall != nullptr) {
         _TunCall(_call_data);
     }

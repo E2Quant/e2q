@@ -105,6 +105,7 @@ struct BaseMessage {
 
 typedef struct AlignedMessage AlignedMessage;
 
+#define E2QCfiStart 179590
 struct SystemInitMessage : public BaseMessage {
     char Stock[9] = {0};
     std::uint32_t CfiCode = 0;

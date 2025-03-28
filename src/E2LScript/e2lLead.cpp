@@ -112,7 +112,8 @@ void E2LFunList()
     AddFun(AccountMargin, 0, "FAccountMargin", E2L_RETURN, "();");
     AddFun(AccountProfit, 0, "FAccountProfit", E2L_RETURN, "();");
     AddFun(AccountEquity, 0, "FAccountEquity", E2L_RETURN, "();");
-
+    AddFun(ThreadPosition, 2, "FThreadPosition", E2L_NORETURN,
+           "(thread_number, postion);");
     /**
      * account end
      */

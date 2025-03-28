@@ -242,11 +242,9 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
  */
 e2::Int_e StoreId(e2::Int_e loc, const char *_path)
 {
-    e2q::BasicLock lock(e2q::e2Mutex);
-
     std::thread::id _id;
     AutoInc(_id);
-    e2::Int_e id = e2q::e2l_thread_map.at(_id)->StoreId();
+    e2::Int_e id = e2q::e2l_thread_map.StoreId(_id);
 
     // log::info("id:", id, " codeline:", loc, " path:", std::string(_path));
     return VALNUMBER(id);
@@ -265,11 +263,9 @@ e2::Int_e StoreId(e2::Int_e loc, const char *_path)
  */
 e2::Int_e LastStoreId(e2::Int_e loc, const char *_path)
 {
-    e2q::BasicLock lock(e2q::e2Mutex);
-
     std::thread::id _id;
     AutoInc(_id);
-    e2::Int_e id = e2q::e2l_thread_map.at(_id)->Id();
+    e2::Int_e id = e2q::e2l_thread_map.Id(_id);
     return VALNUMBER(id);
 } /* -----  end of function LastStoreId  ----- */
 
@@ -307,7 +303,6 @@ e2::Bool isStore(e2::Int_e id)
  */
 e2::Int_e fetch(e2::Int_e id)
 {
-    e2q::BasicLock lock(e2q::e2Mutex);
     id = NUMBERVAL(id);
 
     std::thread::id _id;
@@ -317,7 +312,7 @@ e2::Int_e fetch(e2::Int_e id)
     if (ret == e2::Bool::B_FALSE) {
         return VALNUMBER(-1);
     }
-    e2::Int_e val = e2q::e2l_silk.at(_id).at(id);
+    e2::Int_e val = e2q::e2l_silk.get(_id, id);
 
     return val;
 
@@ -337,17 +332,16 @@ e2::Int_e fetch(e2::Int_e id)
 void store(e2::Int_e id, e2::Int_e val)
 {
     std::thread::id _id;
-    e2q::BasicLock lock(e2q::e2Mutex);
     id = NUMBERVAL(id);
 
     e2::Bool ret = e2::Bool::B_FALSE;
     E2LSILK(ret, _id, id);
 
     if (ret == e2::Bool::B_FALSE) {
-        e2q::e2l_silk.at(_id).insert({id, val});
+        e2q::e2l_silk.insert(_id, id, val);
     }
     else {
-        e2q::e2l_silk.at(_id).at(id) = val;
+        e2q::e2l_silk.update(_id, id, val);
     }
 
 } /* -----  end of function store  ----- */
