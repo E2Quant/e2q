@@ -64,7 +64,7 @@
 ### 引用以下论文或技术
 - Price dynamics in a Markovian limit order market (arXiv:1104.4596)
 - A Stochastic Control Approach to Bid-Ask Price Modelling (arXiv:2112.02368v1)
-- M. Thompson, D. Farley, M. Barker, P. Gee, A. Stewart, Disruptor: High performance alternative to bounded queues for exchanging data between concurrent threads, Technical Report, LMAX, 2011. URL: https://lmax-exchange.github.io/disruptor/
+- M. Thompson, D. Farley, M. Barker, P. Gee, A. Stewart, Disruptor: High performance alternative to bounded queues for exchanging data between concurrent threads, Technical Report, LMAX, 2011. URL: https://lmax-exchange.github.io/disruptor/
 
 ### 许可证
 本项目采用 BSD-3-Clause 许可证。
