@@ -62,12 +62,12 @@ namespace e2q {
  *
  * ============================================
  */
-void Producer::init(std::string brokers, std::string topic_str)
+int Producer::init(std::string brokers, std::string topic_str)
 {
     if (brokers.length() == 0 || topic_str.length() == 0) {
         _active = false;
         log::bug("brokers:", brokers, " topic:", topic_str);
-        return;
+        return -1;
     }
 
     std::string errstr;
@@ -79,8 +79,8 @@ void Producer::init(std::string brokers, std::string topic_str)
     /*
      * Create configuration objects
      */
-    RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    RdKafka::Conf *tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
+    conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
+    tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
 
     /*
      * Set configuration properties
@@ -105,30 +105,35 @@ void Producer::init(std::string brokers, std::string topic_str)
     producer = RdKafka::Producer::create(conf, errstr);
     if (!producer) {
         std::cerr << "Failed to create producer: " << errstr << std::endl;
-        exit(1);
+        return -1;
     }
-
     log_topic = topic_str;
+    return 0;
+
+} /* -----  end of function Producer::init  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Producer::daemon
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void Producer::daemon()
+{
+    if (producer == nullptr) {
+        return;
+    }
     while (_active || producer->outq_len() > 0) {
         // std::cerr << "Waiting for " << producer->outq_len() << std::endl;
         producer->poll(1000);
     }
 
-    delete producer;
-
-    delete conf;
-    delete tconf;
-
-    /*
-     * Wait for RdKafka to decommission.
-     * This is not strictly needed (when check outq_len() above), but
-     * allows RdKafka to clean up all its resources before the application
-     * exits so that memory profilers such as valgrind wont complain about
-     * memory leaks.
-     */
-    RdKafka::wait_destroyed(5000);
-
-} /* -----  end of function Producer::init  ----- */
+} /* -----  end of function Producer::daemon  ----- */
 
 /*
  * ===  FUNCTION  =============================

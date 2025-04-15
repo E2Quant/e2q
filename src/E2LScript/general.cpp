@@ -44,6 +44,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <exception>
 #include <memory>
 #include <string>
 #include <thread>
@@ -312,7 +313,13 @@ e2::Int_e fetch(e2::Int_e id)
     if (ret == e2::Bool::B_FALSE) {
         return VALNUMBER(-1);
     }
-    e2::Int_e val = e2q::e2l_silk.get(_id, id);
+    e2::Int_e val = VALNUMBER(-1);
+    try {
+        val = e2q::e2l_silk.get(_id, id);
+    }
+    catch (std::exception &e) {
+        std::cout << "e2l_silk " << std::endl;
+    }
 
     return val;
 
@@ -333,17 +340,20 @@ void store(e2::Int_e id, e2::Int_e val)
 {
     std::thread::id _id;
     id = NUMBERVAL(id);
+    try {
+        e2::Bool ret = e2::Bool::B_FALSE;
+        E2LSILK(ret, _id, id);
 
-    e2::Bool ret = e2::Bool::B_FALSE;
-    E2LSILK(ret, _id, id);
-
-    if (ret == e2::Bool::B_FALSE) {
-        e2q::e2l_silk.insert(_id, id, val);
+        if (ret == e2::Bool::B_FALSE) {
+            e2q::e2l_silk.insert(_id, id, val);
+        }
+        else {
+            e2q::e2l_silk.update(_id, id, val);
+        }
     }
-    else {
-        e2q::e2l_silk.update(_id, id, val);
+    catch (std::exception &e) {
+        std::cout << "e2l_silk 1 " << std::endl;
     }
-
 } /* -----  end of function store  ----- */
 
 /*

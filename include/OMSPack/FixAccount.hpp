@@ -171,6 +171,7 @@ public:
         }
         catch (std::exception& e) {
             log::bug(e.what());
+            log::echo(msg.toXML());
         }
 
         //    _event.signal();

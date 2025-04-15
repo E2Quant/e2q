@@ -44,41 +44,10 @@
 
 #ifndef PROTO_INC
 #define PROTO_INC
-#include <cmath>
+
 #include <cstddef>
 #include <cstdint>
 namespace e2q {
-
-#define BUFF_SIZE 8192
-#define TimeStampSize 4
-
-#ifdef NUMBER_DECI
-inline double_t _deci = NUMBER_DECI;
-#else
-/**
- * 精度
- */
-static std::size_t _scale = 3;
-inline double_t _deci = std::pow(10, _scale);
-#endif
-
-template <unsigned nbits>
-struct uint {};
-
-template <>
-struct uint<2> {
-    using type = uint16_t;
-};
-template <>
-struct uint<4> {
-    using type = uint16_t;
-};
-template <>
-struct uint<8> {
-    using type = uint32_t;
-};
-
-#define fldsiz(name, field) (sizeof(((struct name*)0)->field))
 
 enum e2l_pro_t {
     INIT = 'I',
@@ -105,9 +74,10 @@ struct BaseMessage {
 
 typedef struct AlignedMessage AlignedMessage;
 
-#define E2QCfiStart 179590
+#define E2QSTOCK_LENGTH 10
+
 struct SystemInitMessage : public BaseMessage {
-    char Stock[9] = {0};
+    char Stock[E2QSTOCK_LENGTH] = {0};
     std::uint32_t CfiCode = 0;
     char Itype = 'i';
     std::uint32_t OfferTime = 0;
@@ -164,6 +134,8 @@ enum NumberType_t {
 
 typedef enum NumberType_t NumberType_t;
 
+#define DYNAMIC_ALPHA 256
+
 struct E2LScriptLogMessage {
     char MsgType;
     char logt;
@@ -175,7 +147,7 @@ struct E2LScriptLogMessage {
     std::uint32_t pid = 0;
     std::uint16_t vname_len = 0;
     std::uint16_t path_len = 0;
-    char alpha[256] = {0};
+    char alpha[DYNAMIC_ALPHA] = {0};
 }; /* ----------  end of struct E2LScriptLogMessage  ---------- */
 
 typedef struct E2LScriptLogMessage E2LScriptLogMessage;

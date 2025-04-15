@@ -98,7 +98,8 @@ e2::Bool OrderClose(
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
         quantid = e2q::FixPtr->_quantId[_id].first;
     }
-    if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
+    if (e2q::FixPtr->_OrderIds.count(quantid) == 0 ||
+        e2q::FixPtr->_OrderIds[quantid].count(cl0id) == 0) {
         log::bug("ticket:", ticket, " quantid ==0");
 
         return e2::Bool::B_FALSE;
@@ -201,17 +202,16 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     double expenditure = e2q::FixPtr->equity(price, qty);
     std::size_t number = e2q::e2l_thread_map.number(_id);
 
-    e2q::FixPtr->_cash.who(number);
-
-    double free_cash =
-        e2q::FixPtr->_cash.TotalCash() - e2q::FixPtr->_cash.FreezeCash();
+    double free_cash = e2q::FixPtr->_cash.TotalCash(number) -
+                       e2q::FixPtr->_cash.FreezeCash(number);
 
     // 防止一下子下多笔订单，因为 oms 还没有返回确认是不是下单成功，
     // 所以先扣一笔资金
     if (expenditure > free_cash) {
         std::string cond = log::format(
-            "expenditure: %.2f total cash:%.2f, freeze:%.2f", expenditure,
-            e2q::FixPtr->_cash.TotalCash(), e2q::FixPtr->_cash.FreezeCash());
+            "expenditure: %.2f total cash:%.2f, freeze:%.2f number:%ld",
+            expenditure, e2q::FixPtr->_cash.TotalCash(number),
+            e2q::FixPtr->_cash.FreezeCash(number), number);
         log::bug(cond);
         return e2::Bool::B_FALSE;
     }
@@ -238,7 +238,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     }
     e2q::FixPtr->_freeze_time[symbol] = e2q::ticket_now;
 
-    e2q::FixPtr->_cash.add_freeze(expenditure);
+    e2q::FixPtr->_cash.add_freeze(number, expenditure);
 
     e2q::fix_application.NewOrderSingle(symbol, side, qty, price, slippage,
                                         ordtype, quantid, e2q::ticket_now,
@@ -341,6 +341,11 @@ e2::Int_e OrderTicket()
         quantId = e2q::FixPtr->_quantId[_id].first;
     }
 
+    if (e2q::FixPtr->_OrderIds.count(quantId) == 0) {
+        log::bug("quaniId:", quantId);
+        return tick;
+    }
+
     if (os.pool == e2::SelectFlag::P_Trade) {
         // trade
         if ((std::size_t)os.id >= e2q::FixPtr->_OrderIds[quantId].size()) {
@@ -397,6 +402,10 @@ e2::Int_e OrderLots(e2::Int_e ticket)
     std::size_t quantId = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
         quantId = e2q::FixPtr->_quantId[_id].first;
+    }
+    if (e2q::FixPtr->_OrderIds.count(quantId) == 0) {
+        log::bug("quaniId:", quantId);
+        return ret;
     }
     for (auto it = e2q::FixPtr->_OrderIds[quantId].begin();
          it != e2q::FixPtr->_OrderIds[quantId].end(); ++it) {

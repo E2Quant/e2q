@@ -37,7 +37,6 @@ file(GLOB SOURCES
     "${PROJECT_SOURCE_DIR}/src/libs/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/libs/bprinter/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/libs/kafka/*.cpp"
-    "${PROJECT_SOURCE_DIR}/src/libs/kafka/protocol/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/libs/DB/*.cpp"
 
     "${PROJECT_SOURCE_DIR}/src/PlunkPack/*.cpp"

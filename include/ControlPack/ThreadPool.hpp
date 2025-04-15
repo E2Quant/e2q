@@ -68,7 +68,7 @@ class ThreadPool {
 public:
     /* =============  LIFECYCLE     =================== */
     ThreadPool(std::size_t num_threads)
-        : _num_threads(num_threads){
+        : _num_threads(num_threads) {
 
           }; /* constructor */
     ~ThreadPool()
@@ -133,7 +133,8 @@ private:
             std::unique_lock lock(guard);
 
             _arg_jobs.insert({_id, q});
-            _job_init(_arg_jobs.size(), _id);
+            std::size_t thread_num = _arg_jobs.size() - 1;
+            _job_init(thread_num, _id);
         };
 
         /**

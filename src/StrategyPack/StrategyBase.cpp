@@ -174,6 +174,7 @@ void StrategyBase::runScript()
 
         if (FixPtr->_quantId.count(_id) == 0) {
             _uuid = this->_quantIdStart + num;
+
             FixPtr->_quantId.insert({_id, {_uuid, num}});
 
             e2q::e2_analse.init(_id);
@@ -183,12 +184,17 @@ void StrategyBase::runScript()
     auto job = [this](std::size_t tk_size, size_t num, std::thread::id _id) {
         try {
             e2l_thread_map.AutoInit(_id, num);
-
-            this->_program.toScript(tk_size, num);
         }
-        catch (std::runtime_error &e) {
+        catch (std::exception &e) {
             log::bug(e.what(), " num:", num);
         }
+
+        // try {
+        this->_program.toScript(tk_size, num);
+        // }
+        // catch (std::exception &e) {
+        //     log::bug(e.what(), " num:", num);
+        // }
     };  // -----  end ambda  -----
 
     ThreadPool<std::size_t> pool{e2l_thread_num};

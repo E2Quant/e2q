@@ -409,17 +409,17 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
                 double all_cash = FixPtr->exdr_cash(qty, NUMBERVAL(et._cash));
 
                 std::size_t thread_number = 0;
-                if (FixPtr->_cash.cl_thread.count(cl0id) > 0) {
-                    thread_number = FixPtr->_cash.cl_thread.at(cl0id);
+                if (FixPtr->_cash._tsize > 0) {
+                    if (FixPtr->_cash.cl_thread.count(cl0id) > 0) {
+                        thread_number = FixPtr->_cash.cl_thread.at(cl0id);
+                    }
+                    else {
+                        log::bug("error cl0id:", cl0id,
+                                 " ticket:", oi.second.ticket);
+                    }
                 }
-                else {
-                    log::bug("error cl0id:", cl0id,
-                             " ticket:", oi.second.ticket);
-                }
+                FixPtr->_cash.append(thread_number, all_cash);
 
-                e2q::FixPtr->_cash.who(thread_number);
-                FixPtr->_cash.append(all_cash);
-                // FixPtr->_cash.total_cash += all_cash;
                 quantId = it.first;
 
                 FixPtr->_OrderIds[quantId].at(cl0id).qty =
@@ -454,13 +454,14 @@ void FixAccount::onMessage(const FIX44::QuoteResponse& message,
     double sub_cash = 0;
     for (std::size_t m = 0; m < FixPtr->_cash._tsize; m++) {
         sub_cash = cash * FixPtr->_cash._thread_pos.at(m)._postion;
-        FixPtr->_cash._thread_pos[m]._total_cash = sub_cash;
+        FixPtr->_cash.add(m, sub_cash);
 
         FixPtr->_cash.total_cash -= sub_cash;
 
-        // std::string cont =
-        //     log::format("%.3f, post:%.3f", sub_cash,
-        //                 FixPtr->_cash._thread_pos.at(m)._postion);
+        // std::string cont = log::format(
+        //     "sub: %.3f, post:%.3f, all total: %.3f", sub_cash,
+        //     FixPtr->_cash._thread_pos.at(m)._postion,
+        //     FixPtr->_cash.total_cash);
         // log::echo(cont);
     }
 } /* -----  end of function FixAccount::onMessage  ----- */
@@ -518,8 +519,10 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     message.getFieldIfSet(adjpx);
 
     e2::Int_e quantId = stol(fquantId.getValue().c_str());
+    double margin = sfr.getValue();
+
     std::string key = cl0id.getValue();
-    // log::info("quantId: ", quantId);
+
     if (FixPtr->_OrderIds.count(quantId) == 0) {
         log::echo("canceled");
         return;
@@ -540,22 +543,22 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     if (FixPtr->_cash.cl_thread.count(key) > 0) {
         thread_number = FixPtr->_cash.cl_thread.at(key);
     }
-    else {
-        log::bug("bug:", key, " ticket:", ticket.getValue());
+    // else {
+    //     log::bug("bug:", key, " ticket:", ticket.getValue());
 
-        for (auto it : FixPtr->_cash.cl_thread) {
-            log::info("key:", it.first);
-        }
-    }
-
-    e2q::FixPtr->_cash.who(thread_number);
+    //     for (auto it : FixPtr->_cash.cl_thread) {
+    //         log::info("key:", it.first);
+    //     }
+    // }
+    // log::info("quantId: ", quantId, " margin:", margin,
+    //           " thread_num:", thread_number, " ticket:", tk);
 
     if (exec.getValue() == FIX::OrdStatus_CANCELED) {
         FixPtr->_OrderIds.erase(quantId);
 
         for (auto it : e2q::FixPtr->_cash.order_cash) {
             if (tk == it.first) {
-                e2q::FixPtr->_cash.append(it.second.margin);
+                e2q::FixPtr->_cash.append(thread_number, it.second.margin);
                 // e2q::FixPtr->_cash.total_cash += it.second.margin;
                 FixPtr->_cash.order_cash.erase(it.first);
 
@@ -569,7 +572,6 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     std::size_t oid_m = FixPtr->_OrderIds[quantId].count(key);
     double cumq = cumqty.getValue();
     double leave = leaveqty.getValue();
-    double margin = sfr.getValue();
     long ctime = atol(tradeDate.getValue().c_str());
     if (oid_m != 1) {
         log::bug("not found cl0id:", key, " quantId:", quantId, " ticket",
@@ -587,7 +589,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     if (margin > 0) {
         switch (ord_status) {
             case e2::OrdStatus::ost_New: {
-                FixPtr->_cash.inc(margin);
+                FixPtr->_cash.inc(thread_number, margin);
 
                 if (FixPtr->_cash.order_cash.count(tk) == 0) {
                     TraderData_t dtt;
@@ -606,7 +608,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                 e2::Int_e qty = FixPtr->_OrderIds[quantId].at(key).qty;
 
                 double expenditure = e2q::FixPtr->equity(price, qty);
-                e2q::FixPtr->_cash.inc_freeze(expenditure);
+                e2q::FixPtr->_cash.inc_freeze(thread_number, expenditure);
 
                 break;
             }
@@ -614,7 +616,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
 
                 if (closetck > 0) {
                     // close order
-                    FixPtr->_cash.append(margin);
+                    FixPtr->_cash.append(thread_number, margin);
                     // FixPtr->_cash.total_cash += margin;
                     // std::string balan = log::format(
                     //     "total cash:%.3f, clostck:%ld, margin:%.3f",
@@ -641,7 +643,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                         double zemargin =
                             FixPtr->_cash.order_cash.at(tk).margin;
                         zemargin -= margin;
-                        FixPtr->_cash.append(zemargin);
+                        FixPtr->_cash.append(thread_number, zemargin);
                         //                        FixPtr->_cash.total_cash +=
                         //                        zemargin;
                         FixPtr->_cash.order_cash.at(tk).margin = margin;
@@ -1228,26 +1230,43 @@ void FixAccount::wait()
  */
 void FixAccount::quit()
 {
-#ifdef DEBUG
-    std::string cond = "";
     double total_cash = 0;
-    if (FixPtr->_cash._tsize == 0) {
-        total_cash = e2q::FixPtr->_cash.total_cash;
+    std::size_t idx = e2q::GlobalDBPtr->getId();
+
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
+    if (gsql == nullptr) {
+        e2q::GlobalDBPtr->release(idx);
+        return;
     }
-    else {
-        for (std::size_t m = 0; m < FixPtr->_cash._tsize; m++) {
-            total_cash += FixPtr->_cash._thread_pos.at(m)._total_cash;
+    if (FixPtr->_cash._tsize > 0) {
+        for (auto it : FixPtr->_quantId) {
+            if (FixPtr->_cash._thread_pos.count(it.second.second) == 0) {
+                continue;
+            }
+            total_cash = 0;
+            for (auto oc : FixPtr->_cash.order_cash) {
+                log::echo(oc.second.thread_number, ". ticket:", oc.first,
+                          " freeze:", oc.second.equity,
+                          " margin:", oc.second.margin);
+                if (oc.second.thread_number == it.second.second) {
+                    total_cash += oc.second.margin;
+                    break;
+                }
+            }
+            total_cash +=
+                FixPtr->_cash._thread_pos.at(it.second.second)._total_cash;
+            log::echo(
+                it.second.second, ". quantId:", it.second.first, " total:",
+                FixPtr->_cash._thread_pos.at(it.second.second)._total_cash,
+                " all total:", total_cash);
+
+            gsql->update_table("analse");
+            gsql->update_field("profit", total_cash, 3);
+            gsql->update_condition("quantid", it.second.first);
+            gsql->update_commit();
         }
-        total_cash += FixPtr->_cash.total_cash;
     }
-
-    for (auto it : e2q::FixPtr->_cash.order_cash) {
-        log::echo("first:", it.first, " freeze:", it.second.equity);
-    }
-    cond = log::format("total cash:%.2f\n", total_cash);
-
-    log::info(cond);
-#endif
+    e2q::GlobalDBPtr->release(idx);
 
     _is_end = true;
 

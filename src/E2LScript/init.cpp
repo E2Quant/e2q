@@ -508,14 +508,21 @@ void TradeMode(e2::SymbolTradeMode m)
  *
  * ============================================
  */
-void QuantVersion(const char *v)
+void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
 {
     char *field = nullptr;
     char *val = nullptr;
+    int maj = (int)NUMBERVAL(abs(major));
+    int min = (int)NUMBERVAL(abs(minor));
+    int pat = (int)NUMBERVAL(abs(patch));
     std::string qversion = "";
     if (e2q::FinFabr->_QuantVerId > 0 || e2q::GlobalDBPtr == nullptr) {
         return;
     }
+    char *v = nullptr;
+    std::size_t len = snprintf(NULL, 0, "%d.%d.%d", maj, min, pat) + 1;
+    v = MALLOC(char, len);
+    snprintf(v, len, "%d.%d.%d", maj, min, pat);
 
     const char *fmt =
         "SELECT id  FROM trade_info WHERE version = '%s' LIMIT 1;";
@@ -525,6 +532,7 @@ void QuantVersion(const char *v)
     e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
     if (gsql == nullptr) {
         e2q::GlobalDBPtr->release(idx);
+        RELEASE(v);
         return;
     }
     gsql->update_table("trade_info");
@@ -561,6 +569,9 @@ void QuantVersion(const char *v)
     gsql->update_commit();
 
     e2q::GlobalDBPtr->release(idx);
+
+    RELEASE(v);
+
 } /* -----  end of function QuantVersion  ----- */
 
 /*

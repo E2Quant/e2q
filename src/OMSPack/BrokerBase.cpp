@@ -67,12 +67,14 @@ void BrokerBase::Debug()
         std::string id = it.first.getTargetCompID().getValue();
         std::string cont = log::format("%.2f", it.second.total_cash);
         log::info("sid:", id, " total:", cont);
-        /* for (auto ze : it.second.order_cash) { */
-        /*     cont = log::format("freeze:%.2f, ordstat: %.2f", ze.second.first,
-         */
-        /*                        ze.second.second); */
-        /*     log::info("ticket:", ze.first, " margin:", cont); */
-        /* } */
+        /*
+         for (auto ze : it.second.order_cash) {
+             cont = log::format("ticket: %ld, equity:%.2f, margin: %.2f",
+                                ze.first, ze.second.equity,
+
+                                ze.second.margin);
+             log::info("ticket:", ze.first, " margin:", cont);
+         }*/
     }
 } /* -----  end of function BrokerBase::Debug  ----- */
 
@@ -456,18 +458,18 @@ void BrokerBase::trade_report(OrderLots& lots)
     pgsql->insert_table("trade_report");
     pgsql->insert_field("ticket", ticket);
     pgsql->insert_field("sessionid", sessionid);
-    pgsql->insert_field("balance", balance);
-    pgsql->insert_field("margin", margin);
-    pgsql->insert_field("profit", profit);
+    pgsql->insert_field("balance", balance, 3);
+    pgsql->insert_field("margin", margin, 3);
+    pgsql->insert_field("profit", profit, 3);
     pgsql->insert_field("side", side);
-    pgsql->insert_field("credit", credit);
+    pgsql->insert_field("credit", credit, 3);
     pgsql->insert_field("ctime", lots.ctime);
     pgsql->insert_commit();
 
     pgsql->update_table("account");
-    pgsql->update_field("balance", credit);
-    pgsql->update_field("margin", margin);
-    pgsql->update_field("profit", profit);
+    pgsql->update_field("balance", credit, 3);
+    pgsql->update_field("margin", margin, 3);
+    pgsql->update_field("profit", profit, 3);
     pgsql->update_condition("sessionid", sessionid);
     pgsql->update_commit();
 
@@ -507,12 +509,13 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
                 pgsql->insert_table("trade_report");
                 pgsql->insert_field("ticket", ticket);
                 pgsql->insert_field("sessionid", sessionid);
-                pgsql->insert_field("balance",
-                                    _traders.at(it.first).total_cash);
+                pgsql->insert_field("balance", _traders.at(it.first).total_cash,
+                                    3);
                 pgsql->insert_field("margin", 0);
-                pgsql->insert_field("profit", all_cash);
+                pgsql->insert_field("profit", all_cash, 3);
                 pgsql->insert_field("side", 3);
-                pgsql->insert_field("credit", _traders.at(it.first).total_cash);
+                pgsql->insert_field("credit", _traders.at(it.first).total_cash,
+                                    3);
                 pgsql->insert_field("ctime", ctime);
                 pgsql->insert_commit();
             }

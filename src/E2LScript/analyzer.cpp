@@ -168,7 +168,13 @@ void Analse(e2::Int_e id, const char *name)
 
     e2q::e2lAnalse ana;
     ana.id = id;
-    ana.quantId = e2q::FixPtr->_quantId[_id].first;
+    if (e2q::FixPtr->_quantId.count(_id) == 0) {
+        log::bug("quantId");
+        ana.quantId = 0;
+    }
+    else {
+        ana.quantId = e2q::FixPtr->_quantId[_id].first;
+    }
     ana.name = std::string(name);
     ana.etime = 0;
     ana.init = e2q::ticket_now;

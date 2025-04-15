@@ -197,13 +197,13 @@ public:
 #endif
 
         // 当前一笔 成交金额，为此订单的成交总金额
-        double trade_amount = FinFabr->effect(true_price, quantity);
+        double trade_amount = FinFabr->effect(true_price, (double)quantity);
 
         double exec_amount =
             FinFabr->effect(_avgExecutedPrice, _executedQuantity);
 
-        _avgExecutedPrice =
-            (trade_amount + (exec_amount)) / (quantity + _executedQuantity);
+        _avgExecutedPrice = (trade_amount + (exec_amount)) /
+                            (double)(quantity + _executedQuantity);
 
         _leavesQty -= quantity;
         _executedQuantity += quantity;

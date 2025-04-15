@@ -103,10 +103,19 @@ struct __AutoInc_t {
         }
     }
 
-    e2::Int_e Id(std::thread::id _id) { return _autoinc.at(_id)->Id(); }
+    e2::Int_e Id(std::thread::id _id)
+    {
+        if (_autoinc.count(_id) == 1) {
+            return _autoinc.at(_id)->Id();
+        }
+        return 0;
+    }
     e2::Int_e StoreId(std::thread::id _id)
     {
-        return _autoinc.at(_id)->StoreId();
+        if (_autoinc.count(_id) == 1) {
+            return _autoinc.at(_id)->StoreId();
+        }
+        return 0;
     }
 
     std::size_t number(std::thread::id _id)
@@ -203,25 +212,31 @@ struct __BarOHLC_t {
         }
     }
 
-    void clear(std::thread::id _id)
-    {
-        std::fill(_bar_ohlc.at(_id).second.begin(),
-                  _bar_ohlc.at(_id).second.end(), 0);
-    }
-
     std::size_t size(std::thread::id _id)
     {
+        if (_bar_ohlc.count(_id) == 0) {
+            log::bug("bad thread id");
+            return 0;
+        }
         return _bar_ohlc.at(_id).second.size();
     }
 
     e2::Int_e value(std::thread::id _id, e2::BarType bt)
     {
+        if (_bar_ohlc.count(_id) == 0) {
+            log::bug("bad thread id");
+            return 0;
+        }
         return _bar_ohlc.at(_id).second[bt];
     }
 
     void update(std::thread::id _id, size_t idx,
                 std::array<e2q::SeqType, ohlc_column> bar)
     {
+        if (_bar_ohlc.count(_id) == 0) {
+            log::bug("bad thread id");
+            return;
+        }
         BasicLock _lock(_EMute);
         clear(_id);
         _bar_ohlc.at(_id).second = bar;
@@ -229,6 +244,11 @@ struct __BarOHLC_t {
     }
 
 private:
+    void clear(std::thread::id _id)
+    {
+        std::fill(_bar_ohlc.at(_id).second.begin(),
+                  _bar_ohlc.at(_id).second.end(), 0);
+    }
     std::map<std::thread::id,
              std::pair<std::size_t, std::array<e2q::SeqType, ohlc_column>>>
         _bar_ohlc;
@@ -282,7 +302,12 @@ struct __Select_t {
 
     void release(std::thread::id _id)
     {
+        if (_os.count(_id) == 0) {
+            log::bug("bad thread id");
+            return;
+        }
         BasicLock _lock(_EMute);
+
         _os.at(_id).id = -1;
     }
 

@@ -44,18 +44,27 @@
 
 #ifndef NBO_INC
 #define NBO_INC
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 namespace e2q {
-std::uint16_t bswap_16(std::uint16_t value);
-std::uint32_t bswap_32(std::uint32_t value);
-std::uint64_t bswap_64(std::uint64_t value);
 
-std::uint16_t parse_uint16(char* a);
-std::uint32_t parse_uint32(char* a);
-std::uint64_t parse_uint64(char* a);
+#define BUFF_SIZE 8192
+#define TimeStampSize 4
 
-std::uint64_t parse_ts(char* a);
+#ifdef NUMBER_DECI
+inline double_t _deci = NUMBER_DECI;
+#else
+/**
+ * 精度
+ */
+static std::size_t _scale = 3;
+inline double_t _deci = std::pow(10, _scale);
+#endif
+
+#define fldsiz(name, field) (sizeof(((struct name*)0)->field))
+
+#define E2QCfiStart 179590
 
 template <typename T, std::size_t N = 0>
 size_t parse_uint_t(const void* buffer, T& value)
@@ -76,6 +85,9 @@ size_t parse_uint_t(const void* buffer, T& value)
     return (len - N);
 }
 
+/**
+ * 动态的数据
+ */
 template <typename T, std::size_t N = 0>
 size_t serialize_uint_t(void* buffer, T& value)
 {

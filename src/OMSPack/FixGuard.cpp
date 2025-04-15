@@ -295,6 +295,7 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
              * 如果这个订单是在分红之前的话，就得加一个 分红的值
              */
         }
+
         GlobalDBPtr->release(idx);
     }
     try {

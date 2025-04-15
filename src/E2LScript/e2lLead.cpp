@@ -144,7 +144,8 @@ void E2LFunList()
     AddFun(GenerateQuantId, 0, "FGenerateQuantId", E2L_NORETURN, "();");
     AddFun(CurrentQuantId, 0, "FCurrentQuantId", E2L_RETURN, "();");
 
-    AddFun(QuantVersion, 1, "FQuantVersion", E2L_NORETURN, "(version);");
+    AddFun(QuantVersion, 3, "FQuantVersion", E2L_NORETURN,
+           "(major,minor,patch);");
 
     AddFun(TradeTime, 4, "FTradeTime", E2L_NORETURN,
            "(open_hour,open_minute,close_hour,close_minute);");

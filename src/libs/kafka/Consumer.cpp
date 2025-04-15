@@ -96,7 +96,7 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     mlen += fldsiz(SystemInitMessage, OfferTime);
 
     if (sz != (int)(mlen - 1)) {
-        std::string err = log::format("sz:%d  mlen:%ld \n", sz, mlen);
+        std::string err = log::format("sz:%d  mlen:%ld \n", sz, (mlen - 1));
 
         log::bug(err);
         return;
@@ -506,7 +506,7 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
     MarketTickMessage mtm;
     std::size_t mlen = 1;  // aligned
     mlen += fldsiz(MarketTickMessage, CfiCode);
-    mlen += fldsiz(MarketTickMessage, unix_time) - 2;
+    mlen += fldsiz(MarketTickMessage, unix_time);
     mlen += fldsiz(MarketTickMessage, frame);
     mlen++;  // side
     mlen += fldsiz(MarketTickMessage, price) - 2;
@@ -525,7 +525,7 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
         mtm.CfiCode += E2QCfiStart;
     }
 
-    idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, mtm.unix_time);
+    idx += parse_uint_t(ptr + idx, mtm.unix_time);
 
     idx += parse_uint_t(ptr + idx, mtm.frame);
 
@@ -540,7 +540,7 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
 
     // if (mtm.Aligned == Aligned_t::PULL) {
     //     if (_lastTime == mtm.unix_time) {
-    //         log::info("lastTime:", _lastTime);
+
     //     }
     // }
 
@@ -564,7 +564,9 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
     _call_data[Trading::t_stock] = mtm.CfiCode;
     _call_data[Trading::t_adjprice] = mtm.price;
 
-    // logs(_call_data, moffset);
+    if (mtm.number == 0) {
+        logs(_call_data, moffset);
+    }
 
     if (_TunCall != nullptr) {
         _TunCall(_call_data);
@@ -599,7 +601,7 @@ void KfConsumeCb::logs(std::array<SeqType, trading_protocols> trad_data,
     tp.AddColumn("offset", 10);
 
     tp.PrintHeader();
-    tp << ut.stamptostr(trad_data[Trading::t_time], fmt)
+    tp << ut.millitostr(trad_data[Trading::t_time], fmt)
        << trad_data[Trading::t_frame] << trad_data[Trading::t_side]
        << trad_data[Trading::t_qty] << trad_data[Trading::t_price]
        << trad_data[Trading::t_msg] << trad_data[Trading::t_stock] << moffset;

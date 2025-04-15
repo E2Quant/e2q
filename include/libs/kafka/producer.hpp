@@ -56,6 +56,7 @@
 #include <thread>
 
 #include "Toolkit/Norm.hpp"
+#include "assembler/BaseType.hpp"
 
 #ifdef _WIN32
 #include "../win32/wingetopt.h"
@@ -142,11 +143,22 @@ public:
     Producer() {}; /* constructor */
     ~Producer()
     {
-        // _active = false;
-        // cv.notify_all();
+        RELEASE(producer);
+        RELEASE(conf);
+        RELEASE(tconf);
+
+        /*
+         * Wait for RdKafka to decommission.
+         * This is not strictly needed (when check outq_len() above), but
+         * allows RdKafka to clean up all its resources before the application
+         * exits so that memory profilers such as valgrind wont complain about
+         * memory leaks.
+         */
+        RdKafka::wait_destroyed(5000);
     }
     /* =============  ACCESSORS     =================== */
-    void init(std::string brokers, std::string topic_str);
+    int init(std::string brokers, std::string topic_str);
+    void daemon();
     /* =============  MUTATORS      =================== */
     void data(std::pair<std::thread::id, std::string>);
     void data(std::pair<std::thread::id, std::string>, std::string);
@@ -170,6 +182,9 @@ private:
     /* =============  DATA MEMBERS  =================== */
     // std::condition_variable cv;
     // std::mutex guard;
+
+    RdKafka::Conf *conf = nullptr;
+    RdKafka::Conf *tconf = nullptr;
 
     std::atomic_bool _active{true};
     std::queue<std::pair<std::thread::id, std::string>> _arg;

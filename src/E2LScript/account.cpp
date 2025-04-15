@@ -69,8 +69,7 @@ e2::Int_e AccountBalance()
     std::thread::id _id = std::this_thread::get_id();
     std::size_t number = e2q::e2l_thread_map.number(_id);
 
-    e2q::FixPtr->_cash.who(number);
-    e2::Int_e ret = e2q::FixPtr->_cash.TotalCash();
+    e2::Int_e ret = e2q::FixPtr->_cash.TotalCash(number);
 
     return VALNUMBER(ret);
 } /* -----  end of function AccountBalance  ----- */
@@ -116,15 +115,9 @@ e2::Int_e AccountEquity()
     std::thread::id _id = std::this_thread::get_id();
     std::size_t number = e2q::e2l_thread_map.number(_id);
 
-    e2q::FixPtr->_cash.who(number);
+    e2::Int_e ret = e2q::FixPtr->_cash.TotalCash(number) -
+                    e2q::FixPtr->_cash.FreezeCash(number);
 
-    e2::Int_e ret =
-        e2q::FixPtr->_cash.TotalCash() - e2q::FixPtr->_cash.FreezeCash();
-    // std::string cond =
-    //     log::format("total:%.3f freeze:%.3f", e2q::FixPtr->_cash.TotalCash(),
-    //                 e2q::FixPtr->_cash.FreezeCash());
-
-    // log::info(cond);
     if (ret < 0) {
         ret = 0;
     }
@@ -167,10 +160,15 @@ void ThreadPosition(e2::Int_e tid, e2::Int_e position)
 
     std::size_t num = NUMBERVAL(tid);
     thread_post._postion = (float)NUMBERVAL(position) / 100;
+    if (e2q::FixPtr->_cash.all_postion < thread_post._postion) {
+        thread_post._postion = e2q::FixPtr->_cash.all_postion;
+    }
     double free_postion = e2q::FixPtr->_cash.all_postion - thread_post._postion;
     if (free_postion < 0) {
-        log::bug("postion: %.3f", thread_post._postion);
-        return;
+        std::string cond = log::format(
+            "postion: %.03f all_postion:%.03f free:%.08f\n",
+            thread_post._postion, e2q::FixPtr->_cash.all_postion, free_postion);
+        log::bug(cond);
     }
     e2q::FixPtr->_cash.all_postion -= thread_post._postion;
     e2q::FixPtr->_cash._thread_pos.insert({num, thread_post});

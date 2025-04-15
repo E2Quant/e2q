@@ -50,6 +50,8 @@
 #include <cstdlib>
 #include <vector>
 
+#include "Toolkit/Norm.hpp"
+
 namespace e2q {
 
 /*
@@ -110,13 +112,18 @@ void Container::Cell(std::vector<size_t>& symbol,
 int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
 {
     UtilTime ut;
-#define NowTime(t, gmt)                                    \
-    ({                                                     \
-        std::size_t __ret = 0;                             \
-        do {                                               \
-            __ret = (t + gmt) - ((t + gmt) % 86400) - gmt; \
-        } while (0);                                       \
-        __ret;                                             \
+
+#define millis 1000
+
+#define day_second 86400 * millis
+
+#define NowTime(t, gmt)                                         \
+    ({                                                          \
+        std::size_t __ret = 0;                                  \
+        do {                                                    \
+            __ret = (t + gmt) - ((t + gmt) % day_second) - gmt; \
+        } while (0);                                            \
+        __ret;                                                  \
     })
     std::size_t row = 0;
     bool pause = false;
@@ -128,7 +135,8 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     auto search = _cells.find(stock);
     std::array<SeqType, ohlc_column> ohlc;
     int ret = 0;
-    std::size_t minute = 60;
+    std::size_t minute = 60 * millis;
+    // 毫秒 和秒的问题
     std::size_t timestamp = data[Trading::t_time];
     _now = timestamp;
     std::size_t intervalTime = 0;
@@ -140,7 +148,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     std::size_t time_flag = 0;
     std::size_t gmtTime = 0;
     if (FixPtr->_gmt > 0) {
-        gmtTime = ut.offset_gmt();
+        gmtTime = ut.offset_gmt() * millis;
     }
 
     if (FixPtr->_onOpen) {
@@ -193,6 +201,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
             case e2::TimeFrames::PERIOD_D1: {
                 // 1440
                 startTime = NowTime(timestamp, gmtTime);
+
                 break;
             }
             case e2::TimeFrames::PERIOD_W1: {
@@ -274,7 +283,6 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
             _cells.at(stock).at(m).data->push(0, ohlc);
         }
     }
-    // log::echo("container:", ut.milliseconds());
 
     return stock;
 } /* -----  end of function Container::push  ----- */
@@ -301,9 +309,9 @@ std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
     UtilTime ut;
     const char hh[] = "%H";
     const char mm[] = "%M";
-    std::string hhr = ut.stamptostr(timestamp, hh);
+    std::string hhr = ut.millitostr(timestamp, hh);
     std::size_t hour = atol(hhr.c_str());
-    std::string mmr = ut.stamptostr(timestamp, mm);
+    std::string mmr = ut.millitostr(timestamp, mm);
     std::size_t min = atol(mmr.c_str());
 
     std::size_t now_total_time = hour * 60 + min;
@@ -344,6 +352,7 @@ std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
         }
         n++;
     }
+    log::echo("ret:", ret);
     return ret;
 } /* -----  end of function Container::deviation  ----- */
 

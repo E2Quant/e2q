@@ -274,26 +274,26 @@ struct __Postion {
 
 typedef struct __Postion Postion;
 
-#define TCash(cash, op)                                              \
-    do {                                                             \
-        BasicLock _lock(_CMute);                                     \
-        if (_tsize == 0 || _thread_pos.count(_thread_number) == 0) { \
-            total_cash op cash;                                      \
-        }                                                            \
-        else {                                                       \
-            _thread_pos[_thread_number]._total_cash op cash;         \
-        }                                                            \
+#define TCash(cash, op)                                             \
+    do {                                                            \
+        BasicLock _lock(_CMute);                                    \
+        if (_tsize == 0 || _thread_pos.count(thread_number) == 0) { \
+            total_cash op cash;                                     \
+        }                                                           \
+        else {                                                      \
+            _thread_pos[thread_number]._total_cash op cash;         \
+        }                                                           \
     } while (0)
 
-#define TFREEZE(cash, op)                                            \
-    do {                                                             \
-        BasicLock _lock(_CMute);                                     \
-        if (_tsize == 0 || _thread_pos.count(_thread_number) == 0) { \
-            _freeze_cash op cash;                                    \
-        }                                                            \
-        else {                                                       \
-            _thread_pos[_thread_number]._freeze_cash op cash;        \
-        }                                                            \
+#define TFREEZE(cash, op)                                           \
+    do {                                                            \
+        BasicLock _lock(_CMute);                                    \
+        if (_tsize == 0 || _thread_pos.count(thread_number) == 0) { \
+            _freeze_cash op cash;                                   \
+        }                                                           \
+        else {                                                      \
+            _thread_pos[thread_number]._freeze_cash op cash;        \
+        }                                                           \
     } while (0)
 
 struct EaTraderInfo : public TraderInfo {
@@ -310,37 +310,58 @@ struct EaTraderInfo : public TraderInfo {
     // clOid , thread_number
     std::map<std::string, std::size_t> cl_thread;
 
-    void add(double cash) { TCash(cash, =); }
-    void append(double cash) { TCash(cash, +=); }
-    void inc(double cash) { TCash(cash, -=); }
+    void add(std::size_t thread_number, double cash)
+    {
+        //  std::cout << thread_number << " cash=" << cash << std::endl;
 
-    double TotalCash()
+        TCash(cash, =);
+    }
+    void append(std::size_t thread_number, double cash)
+    {
+        // std::cout << thread_number << " cash+=" << cash << std::endl;
+
+        TCash(cash, +=);
+    }
+    void inc(std::size_t thread_number, double cash)
+    {
+        // std::cout << thread_number << " cash-=" << cash << std::endl;
+
+        TCash(cash, -=);
+    }
+
+    double TotalCash(std::size_t thread_number)
     {
         if (_tsize == 0) {
             return total_cash;
         }
         // 剩的线程平分仓位
-        if (_thread_pos.count(_thread_number) == 0) {
+        if (_thread_pos.count(thread_number) == 0) {
             return total_cash;
         }
-        return _thread_pos.at(_thread_number)._total_cash;
+        return _thread_pos.at(thread_number)._total_cash;
     }
 
-    void add_freeze(double cash) { TFREEZE(cash, +=); }
-    void inc_freeze(double cash) { TFREEZE(cash, -=); }
+    void add_freeze(std::size_t thread_number, double cash)
+    {
+        TFREEZE(cash, +=);
+    }
+    void inc_freeze(std::size_t thread_number, double cash)
+    {
+        TFREEZE(cash, -=);
+    }
 
-    double FreezeCash()
+    double FreezeCash(std::size_t thread_number)
     {
         if (_tsize == 0) {
             return _freeze_cash;
         }
-        if (_thread_pos.count(_thread_number) == 0) {
+        if (_thread_pos.count(thread_number) == 0) {
             return _freeze_cash;
         }
-        return _thread_pos.at(_thread_number)._freeze_cash;
+        return _thread_pos.at(thread_number)._freeze_cash;
     }
 
-    void who(std::size_t thread_number) { _thread_number = thread_number; }
+    //   void who(std::size_t thread_number) { _thread_number = thread_number; }
 
     double _freeze_cash;  // 下单的时候，先freeze, 真实下单成功了，减去
     // thread number
@@ -349,7 +370,7 @@ struct EaTraderInfo : public TraderInfo {
     double all_postion = 1.0;
 
 private:
-    std::size_t _thread_number = 0;
+    // std::size_t _thread_number = 0;
     using CMute = BasicLock::mutex_type;
     mutable CMute _CMute;
 }; /* ----------  end of struct EaTraderInfo  ---------- */

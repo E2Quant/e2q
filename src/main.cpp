@@ -267,6 +267,7 @@ int e2q_action(int argc, char* argv[])
     }
 
     if (oms_el.size() != 0) {
+        e2q::process_run_number = run;
         _e2q.setCfg(oms_el, properties);
         _e2q.exchange();
     }
