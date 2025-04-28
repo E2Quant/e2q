@@ -91,12 +91,13 @@ void FeedBalance::obtain()
         return;
     }
 
-    std::vector<size_t> symId = FixPtr->_symbols;
+    // std::vector<size_t> symId = FixPtr->_symbols;
+    // log::echo("symid.......symbols size:", symId.size());
     std::vector<e2::TimeFrames> tf = FixPtr->_tf;
 
     OHLCBeam _ohlc;
     _ohlc.shareptr(_resource);
-    _ohlc.market(symId, tf, FixPtr->_offers, FixPtr->_tradetime);
+    _ohlc.market(tf, FixPtr->_offers, FixPtr->_tradetime);
     _data_ptr->assign<OHLCBeam, Func_beam>(_ohlc);
 
     AnalyBeam _analy;

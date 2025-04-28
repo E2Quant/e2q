@@ -47,14 +47,12 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include <chrono>
 #include <cstddef>
-#include <iomanip>
 #include <string>
 
 #include "Norm.hpp"
 namespace e2q {
-
+#define DEF_MIN_SECOND 3745571651
 /*
  * =====================================================================================
  *        Class:  UtilTime
@@ -79,7 +77,7 @@ public:
     std::string stamptostr(size_t now, const char *fmt);
     std::string toDate(size_t now);
     std::string millitostr(_millisecond now, const char *fmt, bool ext);
-    std::string millitostr(size_t now, const char *fmt);
+    std::string millitostr(_millisecond now, const char *fmt);
 
     _millisecond milliseconds();
     size_t time();

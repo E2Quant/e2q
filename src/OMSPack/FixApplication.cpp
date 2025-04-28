@@ -100,7 +100,11 @@ void FixApplication::toFeedData(_Resource_ptr ptr,
  *
  * ============================================
  */
-void FixApplication::onLogon(const FIX::SessionID&) {
+void FixApplication::onLogon(const FIX::SessionID& sid)
+{
+    std::vector<std::size_t> symbols;
+    SessionSymList[sid] = symbols;
+
 } /* -----  end of function FixApplication::onLogon  ----- */
 
 /*
@@ -266,8 +270,12 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
             GlobalMatcher->traders(sid, cash);
         }
     }
-
-    SessionSymList.insert({sid, symbols});
+    if (SessionSymList.count(sid) == 0) {
+        SessionSymList.insert({sid, symbols});
+    }
+    else {
+        SessionSymList[sid] = symbols;
+    }
 
     FIX::QuoteRespID respid;
     respid.setValue(UUidGen());
@@ -636,7 +644,8 @@ void FixApplication::FeedDataHandle()
      * 1. reject
      * 2. pending loop
      */
-    auto fix_call = [this](SeqType cfi, SeqType now, SeqType price) {
+    auto fix_call = [this](SeqType cfi, SeqType now, SeqType price,
+                           SeqType qty) {
         SeqType adj_ret = -1;
         if (price == 0) {
             return adj_ret;
@@ -665,7 +674,10 @@ void FixApplication::FeedDataHandle()
             }
         }
 
-        this->matcher(sym, now, price, adj_ret);
+        // 涨跌停，由 kafka 发送价格端来控制，有量的话，就交易,否则不进行交易
+        if (qty > 0) {
+            this->matcher(sym, now, price, adj_ret);
+        }
 
         return adj_ret;
     };  // -----  end lambda  -----

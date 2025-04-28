@@ -65,28 +65,50 @@ namespace e2q {
  *
  * ============================================
  */
-void Container::Cell(std::vector<size_t>& symbol,
-                     std::vector<e2::TimeFrames>& tf,
+void Container::Cell(std::vector<e2::TimeFrames>& tf,
                      std::vector<TradeTime>& tt)
 {
+    _time_frames = tf;
+    _trade_time = tt;
+
+} /* -----  end of function Container::Cell  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Container::InitCell
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void Container::InitCell()
+{
+    std::vector<size_t> symId = FixPtr->_symbols;
+
     if (_source_ptr == nullptr) {
         log::echo("source ptr is nullptr");
         return;
     }
-    for (auto t : tf) {
+    if (_cells.size() > 0) {
+        return;
+    }
+    for (auto t : _time_frames) {
         CellShape cell;
         cell.frame = t;
         cell.idx = 0;
         cell.data = _source_ptr->MemPtr<SilkPermit<SeqType>>(ohlc_column);
         _cells[0].push_back(cell);
     }
-    for (auto id : symbol) {
+    for (auto id : symId) {
         if (id == 0) {
             continue;
         }
 
         if (_cells.count(id) == 0) {
-            for (auto t : tf) {
+            for (auto t : _time_frames) {
                 CellShape cell;
                 cell.frame = t;
                 cell.idx = 0;
@@ -96,8 +118,11 @@ void Container::Cell(std::vector<size_t>& symbol,
             }
         }
     }
+#ifdef DEBUG
+    log::info("init cell and symId size:", symId.size());
+#endif
+} /* -----  end of function Container::InitCell  ----- */
 
-} /* -----  end of function Container::Cell  ----- */
 /*
  * ===  FUNCTION  =============================
  *
@@ -113,9 +138,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
 {
     UtilTime ut;
 
-#define millis 1000
-
-#define day_second 86400 * millis
+#define day_second 86400
 
 #define NowTime(t, gmt)                                         \
     ({                                                          \
@@ -135,10 +158,16 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     auto search = _cells.find(stock);
     std::array<SeqType, ohlc_column> ohlc;
     int ret = 0;
-    std::size_t minute = 60 * millis;
+    std::size_t minute = 60;
+
+    SeqType trad_time = data[Trading::t_time];
+
     // 毫秒 和秒的问题
-    std::size_t timestamp = data[Trading::t_time];
-    _now = timestamp;
+    std::size_t timestamp = trad_time / 1000;
+
+    // double Decimal = (millisecond - (double)timestamp) * 1000.0;
+    // log::echo("start day", ut.toDate(timestamp));
+    _now = trad_time;
     std::size_t intervalTime = 0;
     std::size_t startTime = 0;
     if (search == _cells.end()) {
@@ -148,7 +177,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     std::size_t time_flag = 0;
     std::size_t gmtTime = 0;
     if (FixPtr->_gmt > 0) {
-        gmtTime = ut.offset_gmt() * millis;
+        gmtTime = ut.offset_gmt();
     }
 
     if (FixPtr->_onOpen) {
@@ -176,7 +205,6 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
                 // 5
                 intervalTime = time_flag * minute;
                 startTime = timestamp - (timestamp % intervalTime);
-
                 break;
             }
             case e2::TimeFrames::PERIOD_M15:
@@ -194,7 +222,11 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
                     std::size_t deviation_time =
                         deviation(timestamp, time_flag);
                     startTime = time_day_flag + (deviation_time * minute);
-
+                    // log::echo("start:", ut.toDate(startTime),
+                    //           " time:", ut.toDate(timestamp),
+                    //           " day_flag:", ut.toDate(time_day_flag),
+                    //           " devia:", deviation_time,
+                    //           " time_flag:", time_flag);
                     break;
                 }
 
@@ -227,6 +259,8 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
                 break;
         }
         /* -----  end switch  ----- */
+
+        startTime = startTime * 1000;
 
         ohlc = {0};
         ret = _cells.at(stock).at(m).data->read(&ohlc);
@@ -300,24 +334,24 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
  */
 std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
 {
-    _trade_time = FixPtr->_tradetime;
+    std::vector<TradeTime> trade_time = FixPtr->_tradetime;
     std::size_t ret = 0;
-    if (_trade_time.size() == 0) {
+    if (trade_time.size() == 0) {
         log::bug(" trade time is empty!");
         return ret;
     }
     UtilTime ut;
     const char hh[] = "%H";
     const char mm[] = "%M";
-    std::string hhr = ut.millitostr(timestamp, hh);
+    std::string hhr = ut.stamptostr(timestamp, hh);
     std::size_t hour = atol(hhr.c_str());
-    std::string mmr = ut.millitostr(timestamp, mm);
+    std::string mmr = ut.stamptostr(timestamp, mm);
     std::size_t min = atol(mmr.c_str());
 
     std::size_t now_total_time = hour * 60 + min;
 
-    // log::echo("tick hour:", hour, " min:", min, " now_total:",
-    // now_total_time);
+    //  log::echo("tick hour:", hour, " min:", min, " now_total:",
+    //  now_total_time);
 
     size_t closeTimeflag = 0, openTimeflag = 0;
     size_t n = 0;
@@ -325,13 +359,14 @@ std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
     int num = 0;
     std::size_t start = 0, stop = 0;
 
-    for (auto it : _trade_time) {
+    for (auto it : trade_time) {
         closeTimeflag = it.close_hour * 60 + it.close_min;
         openTimeflag = it.open_hour * 60 + it.open_min;
 
         if (now_total_time >= openTimeflag && now_total_time <= closeTimeflag) {
+            // log::echo("n:", n, " now_total_time:", now_total_time,
+            //           " open:", openTimeflag, " close:", closeTimeflag);
             if (n > 0) {
-                log::echo("n:", n);
                 start = (now_total_time / timeFlag) * timeFlag;
                 stop = (now_total_time / timeFlag + 1) * timeFlag;
                 if (start <= openTimeflag && stop >= closeTimeflag) {
@@ -352,7 +387,6 @@ std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
         }
         n++;
     }
-    log::echo("ret:", ret);
     return ret;
 } /* -----  end of function Container::deviation  ----- */
 
@@ -497,10 +531,14 @@ std::size_t Container::idx(std::size_t stock, std::size_t timeframe)
 {
     if (_cells.count(stock) == 0) {
         log::bug("but stock:", stock);
+        for (auto it : _cells) {
+            log::info("cells system cfi code:", it.first);
+        }
         return 0;
     }
+
     for (auto cell : _cells.at(stock)) {
-        if (cell.frame == timeframe) {
+        if (cell.frame == timeframe || timeframe == 0) {
             return cell.idx;
         }
     }
@@ -530,7 +568,7 @@ int Container::read(std::array<SeqType, ohlc_column>& ohlc, std::size_t stock,
     }
     int rows = 0;
     for (auto cell : _cells.at(stock)) {
-        if (cell.frame == timeframe) {
+        if (cell.frame == timeframe || timeframe == 0) {
             rows = _cells.at(stock).at(m).data->writed();
             if (rows >= (int)shift) {
                 ret = _cells.at(stock).at(m).data->read(&ohlc, shift);

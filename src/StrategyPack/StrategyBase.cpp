@@ -228,9 +228,7 @@ void StrategyBase::runScript()
 
     pool.exits();
 
-#ifdef KAFKALOG
     elog.exist();
-#endif
 
     /**
      * 先不管，到时候 优化再做

@@ -191,7 +191,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
             return;
         }
         _cnt_ptr->data_ptr->shareptr(_source_ptr);
-        _cnt_ptr->data_ptr->Cell(_symId, _frame, _tradetime);
+        _cnt_ptr->data_ptr->Cell(_frame, _tradetime);
         int off = _off;
         e2q::bridge::ReceiveType<DisruptorStashSharePtr> tfun =
             [_cnt_ptr, off](DisruptorStashSharePtr ptr) {
@@ -220,6 +220,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
                             log::echo("ohlc_pt is nullptr");
                             return;
                         }
+
                         std::size_t rows = ptr->data_ptr->rows();
                         int cnt = -1;
 
@@ -289,17 +290,17 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
         _source_ptr = std::move(ptr);
 
     } /* -----  end of function shareptr  ----- */
-    void market(std::vector<size_t>& sym, std::vector<e2::TimeFrames>& frame,
-                e2::Offers o, std::vector<TradeTime>& tt)
+    void market(std::vector<e2::TimeFrames>& frame, e2::Offers o,
+                std::vector<TradeTime>& tt)
     {
-        _symId = sym;
+        // _symId = sym;
         _frame = frame;
         _off = o;
         _tradetime = tt;
     }
 
 private:
-    std::vector<size_t> _symId;
+    // std::vector<size_t> _symId;
     std::vector<e2::TimeFrames> _frame;
     std::vector<TradeTime> _tradetime;
     e2::Offers _off;

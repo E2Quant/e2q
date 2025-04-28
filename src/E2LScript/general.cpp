@@ -43,12 +43,8 @@
 #include "E2L/general.hpp"
 
 #include <cstdint>
-#include <cstdio>
 #include <exception>
-#include <memory>
-#include <string>
 #include <thread>
-#include <utility>
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
@@ -93,7 +89,7 @@ void log(e2::Int_e s, const char *_vname, e2::Int_e loc, const char *_path)
     lp.vname(_vname);
     lp.path(_path);
 
-    E2LOG(p, lp.size(), lp.header(tid));
+    E2LOG(p, lp.size(), tid);
 
 } /* -----  end of function log  ----- */
 /*
@@ -139,7 +135,7 @@ void PrintLine(e2::Int_e s, const char *_vname, e2::Int_e loc,
     lp.vname(_vname);
     lp.path(_path);
 
-    E2LOG(p, lp.size(), lp.header(tid));
+    E2LOG(p, lp.size(), tid);
 
 } /* -----  end of function PrintLine  ----- */
 
@@ -178,7 +174,7 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
     lp.vname(_vname);
     lp.path(_path);
 
-    E2LOG(p, lp.size(), lp.header(tid));
+    E2LOG(p, lp.size(), tid);
 
 } /* -----  end of function PrintDeci  ----- */
 /*
@@ -198,7 +194,6 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
     if (i < 1) {
         return;
     }
-    i = NUMBERVAL(i);
     if (_vname == nullptr) {
         log::bug("%d vname is null ", loc);
         return;
@@ -225,7 +220,7 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
     lp.vname(_vname);
     lp.path(_path);
 
-    E2LOG(p, lp.size(), lp.header(tid));
+    E2LOG(p, lp.size(), tid);
 
 } /* -----  end of function PrintTime  ----- */
 

@@ -144,7 +144,6 @@ private:
     /* =============  METHODS       =================== */
     void Debug(e2::Int_e);
     /* =============  DATA MEMBERS  =================== */
-    // std::map<e2::Int_e, RingLoopType> _data;
 
     std::map<std::thread::id, std::map<e2::Int_e, RingLoopType>> _ring_data;
 

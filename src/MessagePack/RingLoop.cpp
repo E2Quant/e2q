@@ -43,7 +43,6 @@
 #include "MessagePack/RingLoop.hpp"
 
 #include <cstddef>
-#include <exception>
 #include <vector>
 
 #include "E2L/E2LType.hpp"

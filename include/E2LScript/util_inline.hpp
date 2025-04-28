@@ -45,11 +45,15 @@
 #ifndef UTIL_INLINE_INC
 #define UTIL_INLINE_INC
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <string>
@@ -75,6 +79,8 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "FeedPack/Container.hpp"
 #include "MessagePack/RingLoop.hpp"
+#include "Toolkit/Norm.hpp"
+#include "Toolkit/Util.hpp"
 #include "assembler/BaseNode.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/kafka/producer.hpp"
@@ -621,7 +627,94 @@ typedef struct __ExdiType ExdiType;
 
 inline ExdiType ExdiSymList;
 
+// 二进制记录日是志
+struct LogProtoBin_t {
+    void init(std::thread::id tid)
+    {
+        if (_ldata.count(tid) == 0) {
+            BasicLock _lock(_EMute);
+            FILE *pFile;
+            std::size_t idh = _idx++;
+            auto dirIter = std::filesystem::directory_iterator(_dir);
+
+            for (auto &entry : dirIter) {
+                if (entry.is_regular_file()) {
+                    ++idh;
+                }
+            }
+
+            struct stat info;
+
+            if (stat(_dir.c_str(), &info) != 0) {
+                mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            }
+            else if (info.st_mode & S_IFDIR) {
+            }
+            else {
+                mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            }
+
+            std::string path = _dir + log::format("%d_%ld_.log", getpid(), idh);
+            pFile = fopen(path.c_str(), "wb");
+            _ldata.insert({tid, pFile});
+        }
+    }
+    void release()
+    {
+        for (auto it : _ldata) {
+            fflush(it.second);
+            fclose(it.second);
+        }
+    }
+    void data(const char *p, std::size_t len, std::thread::id tid)
+    {
+        FILE *pFile = nullptr;
+        if (_ldata.count(tid) == 0) {
+            init(tid);
+        }
+        if (p == nullptr || len <= 0) {
+            return;
+        }
+        pFile = _ldata.at(tid);
+        fwrite(p, sizeof(char), len, pFile);
+
+        fputc('\0', pFile);
+
+        auto fun = [this](std::thread::id tid) {
+            if (_isFlush == 0) {
+                _isFlush = ticket_now;
+                return;
+            }
+            if (_isFlush == ticket_now) {
+                return;
+            }
+            _isFlush = ticket_now;
+            FILE *pFile = this->_ldata.at(tid);
+            fflush(pFile);
+        };  // -----  end lambda  -----
+
+        THREAD_FUN(fun, tid);
+    }
+
+private:
+    std::map<std::thread::id, FILE *> _ldata;
+
+    std::size_t _idx = 0;
+    std::size_t _isFlush = 0;
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+
+    // 以后再自定义吧
+    std::string _dir = "./log/";
+}; /* ----------  end of struct LogProtoBin_t  ---------- */
+
+typedef struct LogProtoBin_t LogProtoBin_t;
+
+#ifdef KAFKALOG
 struct LogProtoPtr_t : public Producer {
+#else
+struct LogProtoPtr_t : public LogProtoBin_t {
+#endif
     char *log(std::thread::id tid)
     {
         BasicLock _lock(_EMute);
@@ -643,11 +736,14 @@ struct LogProtoPtr_t : public Producer {
             free(it.second);
             it.second = nullptr;
         }
+#ifdef KAFKALOG
         Producer::exist();
+#else
+        LogProtoBin_t::release();
+#endif
     }
 
 private:
-    //    e2q::Producer _elog;
     std::size_t elm_size = fldsiz(E2LScriptLogMessage, MsgType) +
                            fldsiz(E2LScriptLogMessage, logt) +
                            fldsiz(E2LScriptLogMessage, value) +
@@ -744,6 +840,7 @@ struct LogProto_t {
         ssId << _id;
 
         headers->add("thread_id", ssId.str());
+
         return headers;
     }
 
@@ -756,36 +853,36 @@ private:
 
 typedef struct LogProto_t LogProto_t;
 
-#ifdef KAFKALOG
 inline LogProtoPtr_t elog;
-#define E2LOG(dptr, dsize, header)                        \
-    ({                                                    \
-        do {                                              \
-            if (e2q::FinFabr != nullptr &&                \
-                e2q::FinFabr->_source.length() > 0) {     \
-                e2q::elog.data(dptr, dsize, header);      \
-            }                                             \
-            else if (e2q::FixPtr != nullptr &&            \
-                     e2q::FixPtr->_source.length() > 0) { \
-                e2q::elog.data(dptr, dsize, header);      \
-            }                                             \
-            else {                                        \
-                std::hash<std::thread::id> hasher;        \
-                std::size_t idh = hasher(tid);            \
-                fprintf(stderr, "%s, %ld\n", dptr, idh);  \
-            }                                             \
-        } while (0);                                      \
+
+#ifdef KAFKALOG
+
+#define E2LOG(dptr, dsize, tid)                              \
+    ({                                                       \
+        do {                                                 \
+            if (e2q::FinFabr != nullptr &&                   \
+                e2q::FinFabr->_source.length() > 0) {        \
+                e2q::elog.data(dptr, dsize, lp.header(tid)); \
+            }                                                \
+            else if (e2q::FixPtr != nullptr &&               \
+                     e2q::FixPtr->_source.length() > 0) {    \
+                e2q::elog.data(dptr, dsize, lp.header(tid)); \
+            }                                                \
+            else {                                           \
+                std::hash<std::thread::id> hasher;           \
+                std::size_t idh = hasher(tid);               \
+                fprintf(stderr, "%s, %ld\n", dptr, idh);     \
+            }                                                \
+        } while (0);                                         \
     })
 
 #else
 
-#define E2LOG(arg, tid)                                     \
-    ({                                                      \
-        do {                                                \
-            std::hash<std::thread::id> hasher;              \
-            std::size_t idh = hasher(tid);                  \
-            fprintf(stderr, "%s, %ld\n", arg.c_str(), idh); \
-        } while (0);                                        \
+#define E2LOG(dptr, dsize, tid)               \
+    ({                                        \
+        do {                                  \
+            e2q::elog.data(dptr, dsize, tid); \
+        } while (0);                          \
     })
 #endif
 }  // namespace e2q

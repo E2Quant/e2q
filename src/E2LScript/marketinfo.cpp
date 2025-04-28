@@ -40,7 +40,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * =====================================================================================
  */
-#include <algorithm>
 #include <cstddef>
 #include <thread>
 
@@ -109,19 +108,24 @@ void SymbolName(e2::Int_e cfi) {} /* -----  end of function SymbolName  ----- */
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *  从 e2l cfi code to data stock code
+ *  从 oms 返回来的所有 cfi code 再选择的
  * ============================================
  */
-void SymbolCFICode(e2::Int_e cfi)
+e2::Int_e SymbolCFICode(e2::Int_e idx)
 {
-    int _id = (int)cfi;
-    if (e2q::FixPtr->_fix_symbols.count(_id) == 1) {
-        log::bug(e2q::FixPtr->_fix_symbols.at(_id));
+    std::size_t _id = (std::size_t)NUMBERVAL(idx);
+    if (_id >= e2q::FixPtr->_fix_symbols.size()) {
+        _id = 0;
     }
-    else {
-        log::info("error cfi id:", _id);
+    std::size_t m = 0;
+    std::size_t cfi = 0;
+    for (auto it : e2q::FixPtr->_fix_symbols) {
+        if (m == _id) {
+            cfi = it.first;
+        }
     }
 
+    return VALNUMBER(cfi);
 } /* -----  end of function SymbolCFICode  ----- */
 
 /*
@@ -132,15 +136,17 @@ void SymbolCFICode(e2::Int_e cfi)
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *  保存好，等 fix 连接上去之后，就可以初始化了
- *  不需要在这儿分析是不是在 fix 中
+ *
+ *  提前固定的 cfi code, 这个级别最高
  * ===========================================
  */
 void SymbolSelect(e2::Int_e id)
 {
-    std::size_t _id = NUMBERVAL(id);
-    e2q::FixPtr->_symbols.push_back(_id);
-
+    std::size_t cfi_code = NUMBERVAL(id);
+    if (std::find(e2q::FixPtr->_symbols.begin(), e2q::FixPtr->_symbols.end(),
+                  cfi_code) == e2q::FixPtr->_symbols.end()) {
+        e2q::FixPtr->_symbols.push_back(cfi_code);
+    }
 } /* -----  end of function SymbolSelect  ----- */
 
 /*
@@ -213,7 +219,7 @@ void BarVolumeAppend()
 e2::Int_e BarSize(e2::Int_e id, e2::Int_e timeframe)
 {
     size_t _id = NUMBERVAL(id);
-    timeframe = NUMBERVAL(timeframe);
+    timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
     e2::Int_e ret = 0;
     if (e2q::e2l_cnt != nullptr) {
         ret = e2q::e2l_cnt->data_ptr->writed(_id, timeframe);
@@ -250,7 +256,6 @@ e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
     if (e2q::e2l_cnt != nullptr) {
         idx = e2q::e2l_cnt->data_ptr->idx(stock, timeframe);
         ret = e2q::e2l_cnt->data_ptr->read(bar, stock, timeframe, shift);
-
         if (ret != -1) {
             e2q::e2l_bar_ohlc.update(pid, idx, bar);
 
@@ -269,7 +274,7 @@ e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  *  - size_t  arg
  *  Description:
  *
- * ============================================
+id* ============================================
  */
 e2::Int_e BarSeries(e2::BarType bt)
 {

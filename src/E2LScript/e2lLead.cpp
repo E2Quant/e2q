@@ -278,7 +278,7 @@ void E2LFunList()
      * market info
      */
 
-    AddFun(SymbolCFICode, 1, "FCFICode", E2L_NORETURN, "(cfi_id);");
+    AddFun(SymbolCFICode, 1, "FCFICode", E2L_RETURN, "(idx);");
 
     AddFun(SymbolsTotal, 0, "FSymbols", E2L_RETURN, "();");
 

@@ -47,6 +47,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "quickfix/SessionSettings.h"
 
@@ -215,7 +216,9 @@ void MachineOS::ctrl()
     /**
      * 4. 请求数据
      */
-    fix_application.QuoteRequest(FixPtr->_symbols);
+    if (FixPtr->_symbols.size() > 0) {
+        fix_application.QuoteRequest(FixPtr->_symbols);
+    }
 
 } /* -----  end of function MachineOS::ctrl  ----- */
 

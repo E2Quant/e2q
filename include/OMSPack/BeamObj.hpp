@@ -152,7 +152,9 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
                 _fix.MarketMessage(it->first, rec_data);
                 continue;
             }
+
             if (it->second.empty()) {
+                log::info("not symbol");
                 continue;
             }
             // session select symbols

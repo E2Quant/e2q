@@ -107,7 +107,8 @@ void FeedData::callback(std::shared_ptr<ConnectSignal> beam)
  *
  * ============================================
  */
-void FeedData::ctrl(func_type_ret<SeqType, SeqType, SeqType, SeqType> fix_call)
+void FeedData::ctrl(
+    func_type_ret<SeqType, SeqType, SeqType, SeqType, SeqType> fix_call)
 {
     if (_master == nullptr) {
         log::bug("_master is nullptr");
@@ -124,8 +125,9 @@ void FeedData::ctrl(func_type_ret<SeqType, SeqType, SeqType, SeqType> fix_call)
             // 计算 复权的
             SeqType price = data[e2q::Trading::t_price];
             SeqType now = data[e2q::Trading::t_time];
+            SeqType qty = data[e2q::Trading::t_qty];
 
-            SeqType ret = fix_call(sym_id, now, price);
+            SeqType ret = fix_call(sym_id, now, price, qty);
 
             if (ret > 0) {
                 data[Trading::t_adjprice] = ret;

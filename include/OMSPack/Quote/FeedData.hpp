@@ -90,7 +90,8 @@ public:
     /**
      * 控制，有可能不选择这个 feeddata 之类的
      */
-    void ctrl(func_type_ret<SeqType, SeqType, SeqType, SeqType> fix_call);
+    void ctrl(
+        func_type_ret<SeqType, SeqType, SeqType, SeqType, SeqType> fix_call);
     /* ====================  OPERATORS
      * =======================================
      */

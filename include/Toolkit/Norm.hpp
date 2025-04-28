@@ -665,7 +665,7 @@ struct AutoIncrement {
     void init() { _storeId.store(0, std::memory_order_release); }
 
     atomic_seqtype _storeId;  //
-    std::thread::id _tid;     // std::thread::id
+                              // std::thread::id _tid;
     std::size_t _number = 0;  // number in e2lscript
 }; /* ----------  end of struct AutoIncrement  ---------- */
 }  // namespace e2q

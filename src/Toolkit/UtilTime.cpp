@@ -42,12 +42,13 @@
  */
 #include "Toolkit/UtilTime.hpp"
 
-#include <bits/types/struct_timeval.h>
-
+#include <chrono>
 #include <cstddef>
 #include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <string>
+#include <system_error>
 
 namespace e2q {
 
@@ -108,6 +109,9 @@ _millisecond UtilTime::strtostamp(std::string timestr, const char *fmt)
  */
 std::string UtilTime::stamptostr(size_t now, const char *fmt)
 {
+    if (now > DEF_MIN_SECOND) {
+        std::cerr << "now is  millisecond:" << now << std::endl;
+    }
     std::time_t tmp = now;
     std::tm *t = std::localtime(&tmp);
 
@@ -161,8 +165,12 @@ std::string UtilTime::millitostr(_millisecond now, const char *fmt)
  */
 std::string UtilTime::millitostr(_millisecond now, const char *fmt, bool ext)
 {
+    if (now < DEF_MIN_SECOND) {
+        std::cerr << "now is not millisecond:" << now << std::endl;
+    }
     std::time_t tmp = now / 1000;
     int mill = now % 1000;
+
     std::tm *t = std::localtime(&tmp);
 
     std::stringstream day;

@@ -112,8 +112,9 @@ public:
     /**
      * init cell
      */
-    void Cell(std::vector<size_t> &, std::vector<e2::TimeFrames> &,
-              std::vector<TradeTime> &);
+    void Cell(std::vector<e2::TimeFrames> &, std::vector<TradeTime> &);
+
+    void InitCell();
 
     /**
      * get data
@@ -187,9 +188,10 @@ private:
     // symbol id
     std::map<size_t, std::vector<CellShape>> _cells;
 
-    std::vector<TradeTime> _trade_time;
-
     std::size_t _now = 0;
+
+    std::vector<e2::TimeFrames> _time_frames;
+    std::vector<TradeTime> _trade_time;
 }; /* -----  end of class Container  ----- */
 MsgStash(Container);
 

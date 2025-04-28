@@ -136,6 +136,7 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     GlobalDBPtr->release(gidx);
 
     if (sinit.Aligned == Aligned_t::PULL) {
+        log::info("SymbolInit ok");
         // log::echo("offer:", sinit.OfferTime);
         //  转成豪秒
         FinFabr->_offer_time = NUMBERVAL(sinit.OfferTime) * 1000;
@@ -543,7 +544,6 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
 
     //     }
     // }
-
     if (_lastTime > mtm.unix_time) {
         log::bug("bug tick: lastTime:", _lastTime,
                  " _unix_time:", mtm.unix_time, " offset:");
@@ -557,7 +557,11 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
 
     _call_data[Trading::t_time] = mtm.unix_time;
     _call_data[Trading::t_frame] = mtm.frame;
-    _call_data[Trading::t_side] = mtm.side;
+    _call_data[Trading::t_side] = e2::Side::os_Buy;
+    if (mtm.side != 'B') {
+        _call_data[Trading::t_side] = e2::Side::os_Sell;
+    }
+
     _call_data[Trading::t_qty] = mtm.qty;
     _call_data[Trading::t_price] = mtm.price;
     _call_data[Trading::t_msg] = mtm.number;

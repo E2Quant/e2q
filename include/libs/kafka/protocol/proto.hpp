@@ -47,6 +47,7 @@
 
 #include <cstddef>
 #include <cstdint>
+
 namespace e2q {
 
 enum e2l_pro_t {
@@ -76,12 +77,18 @@ typedef struct AlignedMessage AlignedMessage;
 
 #define E2QSTOCK_LENGTH 10
 
+// index or symbol
+enum InitType {
+    INDEX = 'i',
+    TRADE = 't'
+}; /* ----------  end of enum InitType  ---------- */
+
+typedef enum InitType InitType;
 struct SystemInitMessage : public BaseMessage {
     char Stock[E2QSTOCK_LENGTH] = {0};
     std::uint32_t CfiCode = 0;
-    char Itype = 'i';
+    char Itype = InitType::INDEX;
     std::uint32_t OfferTime = 0;
-
 }; /* ----------  end of struct SystemInitMessage  ---------- */
 
 typedef struct SystemInitMessage SystemInitMessage;
@@ -106,12 +113,13 @@ struct StockAXdxrMessage : public BaseMessage {
 
 typedef struct StockAXdxrMessage StockAXdxrMessage;
 
+// if qty == 0   // 涨跌停 不撮合交易
 struct MarketTickMessage : public BaseMessage {
     std::uint32_t CfiCode = 0;
     std::uint64_t unix_time = 0;
     std::uint16_t frame = 0;
-    char side = 'B';
-    std::uint64_t price = 0;
+    char side = 'B';          // BID OR ASK  change e2::Side
+    std::uint64_t price = 0;  // last price
     std::uint64_t qty = 0;
     std::uint32_t number = 0;
 }; /* ----------  end of struct MarketTickMessage  ---------- */

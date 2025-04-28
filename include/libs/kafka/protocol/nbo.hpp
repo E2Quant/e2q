@@ -58,7 +58,7 @@ inline double_t _deci = NUMBER_DECI;
 /**
  * 精度
  */
-static std::size_t _scale = 3;
+static std::size_t _scale = 4;
 inline double_t _deci = std::pow(10, _scale);
 #endif
 

@@ -294,6 +294,8 @@ private:
     fixType _call;
 
     bool _is_end = false;
+
+    _Resource_ptr _source_ptr{nullptr};
 }; /* -----  end of class FixAccount  ----- */
 
 /**

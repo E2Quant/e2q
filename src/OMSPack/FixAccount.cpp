@@ -193,6 +193,10 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
     count = msg.groupCount(nqs.field());
     FIX::EventDate edate;
     std::string dates = "";
+
+    // 如果不存在，就在这儿加上吧
+    std::size_t number_symbols = FixPtr->_symbols.size();
+
     for (int m = 1; m <= count; m++) {
         msg.getGroup(m, nqs);
 
@@ -213,6 +217,13 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
             std::size_t cfi_code = atoll(qeid.getValue().c_str());
 
             FixPtr->_fix_symbols.insert({cfi_code, symbol.getValue()});
+
+            if (number_symbols == 0 && cfi_code > 0) {
+                if (std::find(FixPtr->_symbols.begin(), FixPtr->_symbols.end(),
+                              cfi_code) == FixPtr->_symbols.end()) {
+                    FixPtr->_symbols.push_back(cfi_code);
+                }
+            }
 
             num = pid.groupCount(pdate.field());
             TradeTime tt;
@@ -242,6 +253,24 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
             }
         }
     }
+
+    if (number_symbols == 0) {
+        // 动态才需要再处理一次
+        QuoteRequest(FixPtr->_symbols);
+    }
+
+    ContainerStashSharePtr _cnt_ptr = nullptr;
+    if (_source_ptr != nullptr) {
+        size_t type = typeid(ContainerStash).hash_code();
+
+        _cnt_ptr = _source_ptr->fetch<ContainerStash>(type);
+    }
+    if (_cnt_ptr == nullptr) {
+        log::bug("OHLCBeam ContainerStash ptr is nullptr!");
+        return;
+    }
+
+    _cnt_ptr->data_ptr->InitCell();
 
 } /* -----  end of function FixAccount::onMessage  ----- */
 
@@ -832,6 +861,11 @@ void FixAccount::QuoteRequest(std::vector<std::size_t>& symbols)
     FIX44::QuoteRequest::NoRelatedSym relateGroup;
     int index = 0;
 
+    std::size_t size_sym = symbols.size();
+    if (size_sym == 0) {
+        log::bug("not request symbol");
+    }
+
     for (auto _sym : symbols) {
         FIX::Symbol sym(std::to_string(_sym));
         relateGroup.setField(sym);
@@ -1177,7 +1211,7 @@ void FixAccount::Init(_Resource_ptr ptr, std::shared_ptr<BeamData> beam_data,
     else {
         _beam_data = std::move(beam_data);
     }
-
+    _source_ptr = ptr;
     _fq.resource(ptr, FixPtr->_offer_time);
     _beam_data->assign<FixQuote, Connect_beam>(_fq);
 
@@ -1238,33 +1272,37 @@ void FixAccount::quit()
         e2q::GlobalDBPtr->release(idx);
         return;
     }
-    if (FixPtr->_cash._tsize > 0) {
-        for (auto it : FixPtr->_quantId) {
-            if (FixPtr->_cash._thread_pos.count(it.second.second) == 0) {
-                continue;
+
+    // log::echo("quant id size:", FixPtr->_quantId.size());
+
+    for (auto it : FixPtr->_quantId) {
+        total_cash = 0;
+        for (auto oc : FixPtr->_cash.order_cash) {
+            // log::echo(oc.second.thread_number, ". ticket:", oc.first,
+            //           " freeze:", oc.second.equity,
+            //           " margin:", oc.second.margin);
+            if (oc.second.thread_number == it.second.second) {
+                total_cash += oc.second.margin;
+                break;
             }
-            total_cash = 0;
-            for (auto oc : FixPtr->_cash.order_cash) {
-                log::echo(oc.second.thread_number, ". ticket:", oc.first,
-                          " freeze:", oc.second.equity,
-                          " margin:", oc.second.margin);
-                if (oc.second.thread_number == it.second.second) {
-                    total_cash += oc.second.margin;
-                    break;
-                }
-            }
+        }
+        if (FixPtr->_cash._tsize > 0 &&
+            FixPtr->_cash._thread_pos.count(it.second.second) > 0) {
             total_cash +=
                 FixPtr->_cash._thread_pos.at(it.second.second)._total_cash;
-            log::echo(
-                it.second.second, ". quantId:", it.second.first, " total:",
-                FixPtr->_cash._thread_pos.at(it.second.second)._total_cash,
-                " all total:", total_cash);
-
-            gsql->update_table("analse");
-            gsql->update_field("profit", total_cash, 3);
-            gsql->update_condition("quantid", it.second.first);
-            gsql->update_commit();
+            // log::echo(
+            //     it.second.second, ". quantId:", it.second.first, " total:",
+            //     FixPtr->_cash._thread_pos.at(it.second.second)._total_cash,
+            //     " all total:", total_cash);
         }
+
+        if (FixPtr->_cash._tsize == 0) {
+            total_cash = FixPtr->_cash.TotalCash(0);
+        }
+        gsql->update_table("analse");
+        gsql->update_field("profit", total_cash, 3);
+        gsql->update_condition("quantid", it.second.first);
+        gsql->update_commit();
     }
     e2q::GlobalDBPtr->release(idx);
 
