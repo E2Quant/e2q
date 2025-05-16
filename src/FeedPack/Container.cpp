@@ -152,7 +152,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     })
     std::size_t row = 0;
     bool pause = false;
-    bool exist_tf = true;
+
     SeqType stock = data[Trading::t_stock];
 
     SeqType frame = data[Trading::t_frame];
@@ -340,6 +340,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
  */
 void Container::CheckDefFrame(SeqType frame)
 {
+    bool exist_tf = true;
     FixPtr->_current_tf = EnumValid(frame);
     if (std::find(std::begin(e2q::FixPtr->_tf), std::end(e2q::FixPtr->_tf),
                   FixPtr->_current_tf) == std::end(e2q::FixPtr->_tf)) {
