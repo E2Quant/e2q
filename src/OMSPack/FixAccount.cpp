@@ -166,7 +166,7 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
 {
     FIX_PTR_IS_NULL();
     // log::echo(msg.toXML());
-    //  log::echo("massquote...");
+    log::echo("massquote...");
     FIX44::MassQuote::NoQuoteSets nqs;
     FIX44::MassQuote::NoQuoteSets::NoQuoteEntries pid;
     FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents pdate;
@@ -298,7 +298,6 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
     FIX::MDReqID mid;
     FIX::PriceDelta adjpx;
 
-    // log::echo(message.toXML());
     std::array<SeqType, trading_protocols> data;
     FIX44::MarketDataSnapshotFullRefresh::NoMDEntries md;
     if (message.hasGroup(md)) {

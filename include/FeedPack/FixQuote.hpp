@@ -45,7 +45,6 @@
 #ifndef FIXQUOTE_INC
 #define FIXQUOTE_INC
 #include <cstddef>
-#include <mutex>
 
 #include "FeedPack/foreign.hpp"
 namespace e2q {
@@ -59,7 +58,7 @@ namespace e2q {
 class FixQuote : public ConnectBeamClass<ConnectSignal> {
 public:
     /* =============  LIFECYCLE     =================== */
-    FixQuote(){}; /* constructor */
+    FixQuote() {}; /* constructor */
 
     /* =============  ACCESSORS     =================== */
     void callback(std::shared_ptr<ConnectSignal> beam);

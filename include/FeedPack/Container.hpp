@@ -53,6 +53,7 @@
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "FeedPack/foreign.hpp"
+#include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2q {
 
@@ -169,6 +170,7 @@ protected:
 private:
     /* ====================  METHODS =======================================
      */
+    void CheckDefFrame(SeqType);
     std::size_t deviation(std::size_t timestamp, size_t timeFlag);
 
     /* void save(SeqType stock, std::size_t m, */

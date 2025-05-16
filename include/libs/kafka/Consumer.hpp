@@ -187,7 +187,10 @@ public:
                         callback(p + 1, sz - 1, _lastoffset);
                         break;
                     case e2l_pro_t::SUSPEND:
-                        ExitOrder();
+                        StopOrder();
+                        break;
+                    case e2l_pro_t::CUSTOM:
+                        CustomMsg(p + 1, sz - 1, _lastoffset);
                         break;
                     case e2l_pro_t::EXIT:
                         ExitOrder();
@@ -234,6 +237,7 @@ private:
 
     void SymbolInit(const char *p, int sz);
     void SymbolExrd(const char *p, int sz);
+    void CustomMsg(const char *p, int sz, int64_t);
     void StopOrder();
     void ExitOrder();
     void MassQuote(const FIX::SessionID &);

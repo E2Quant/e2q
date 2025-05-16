@@ -103,6 +103,7 @@ void FixApplication::toFeedData(_Resource_ptr ptr,
 void FixApplication::onLogon(const FIX::SessionID& sid)
 {
     std::vector<std::size_t> symbols;
+    log::info("onlogin..");
     SessionSymList[sid] = symbols;
 
 } /* -----  end of function FixApplication::onLogon  ----- */
@@ -269,6 +270,9 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
             cash = coq.getValue();
             GlobalMatcher->traders(sid, cash);
         }
+    }
+    if (symbols.size() == 0) {
+        log::info("symbols is empty!");
     }
     if (SessionSymList.count(sid) == 0) {
         SessionSymList.insert({sid, symbols});
@@ -758,7 +762,6 @@ bool FixApplication::end()
 int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
                               double bot_qty, e2::Int_e symbol)
 {
-    Int_e ask_or_bid = 0;
     int risk = -1;
 
     if (_program != nullptr) {
@@ -766,11 +769,8 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
          * 2. {sender compid process } risk
          * bse -> supply and demand schedule (SDS)
          */
-        if (side == e2::Side::os_Buy) {
-            ask_or_bid = 1;
-        }
 
-        risk = _program->toScriptSafe(e2::OMSRisk::I_RISK, ask_or_bid);
+        risk = _program->toScriptSafe(e2::OMSRisk::I_RISK, symbol);
 
         if (FinFabr->_BookType == e2::BookType::BBook) {
             FIX::SessionID botsid;

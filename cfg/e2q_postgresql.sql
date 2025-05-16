@@ -39,6 +39,148 @@ CREATE EXTENSION IF NOT EXISTS tablefunc WITH SCHEMA public;
 COMMENT ON EXTENSION tablefunc IS 'functions that manipulate whole tables, including crosstab';
 
 
+--
+-- Name: quant_profit(integer); Type: FUNCTION; Schema: api; Owner: dbuser
+--
+
+CREATE FUNCTION api.quant_profit(_qid integer) RETURNS TABLE(id bigint, profit_x double precision, profit_sum double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+RETURN QUERY
+    SELECT
+    id,
+    "margin",
+    "profit",
+    to_timestamp("ctime") AS date,
+    "side",
+    diff as "profit_x",
+    sum(diff) over (
+        order by id
+    ) as "profit_sum"
+from (
+        SELECT
+            id, "margin", "profit", "ticket", "side", "ctime", (
+                 CASE WHEN "side" !=3 THEN  
+                    "profit" - coalesce(
+                    lag("margin", 1) OVER (
+                        ORDER BY id
+                    ), ~( SELECT (
+                            (
+                                1.0 / (
+                                    SELECT count(DISTINCT "quantid")
+                                    from "analse"
+                                )
+                            ) * 1000000.0
+                        )::numeric::integer -1)
+                    )
+                ELSE 
+                 "profit"                      
+                END                
+            ) as diff
+        from "trade_report"
+        WHERE
+            "ticket" in (
+                SELECT "ticket"
+                from "trades"
+                WHERE
+                    "quantid" = _qid
+                    AND "stat" = 2
+                    AND "side" != 3
+            )
+    ) as profitx;
+    
+END
+$$;
+
+
+ALTER FUNCTION api.quant_profit(_qid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_profit(integer, double precision); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_profit(_qid integer, _defcash double precision) RETURNS TABLE(id integer, margin double precision, profits double precision, pday text, pside integer, profit_x double precision, profit_sum double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+SELECT
+    _qid AS id,
+    profitx.margin,
+    profitx.profit,
+    to_char(profitx.ctime, 'YYYY-MM-DD HH24:MI:SS') AS pday,
+    profitx.side as pside,
+    profitx.diff as "profit_x",
+    sum(profitx.diff) over (
+        order by profitx.id
+    ) as "profit_sum"
+from (
+        SELECT ntrade_report.id,ntrade_report.margin, ntrade_report.profit,ntrade_report.ticket,ntrade_report.side, ntrade_report.ctime
+, (
+                 CASE WHEN ntrade_report.side != 3 THEN  
+                    ntrade_report.profit - coalesce(
+                    lag(ntrade_report.margin, 1) OVER (
+                        ORDER BY ntrade_report.id
+                    ), ~( SELECT (
+                            round(
+                                CAST(
+                                    float8 (
+                                        1.0 / (
+                                             SELECT  count(DISTINCT "argv") as num
+                                            from "analse"
+                                            WHERE
+                                                "verid" = (
+                                                    SELECT "verid"
+                                                    FROM "analse"
+                                                    WHERE
+                                                        "quantid" = _qid
+                                                    LIMIT 1
+                                                )
+                                                AND "name" = (
+                                                    SELECT "name"
+                                                    from "analse"
+                                                    WHERE
+                                                        "quantid" = _qid
+                                                ) 
+                                        )
+                                    ) as numeric
+                                ), 2
+                            ) * _defcash
+                        )::numeric::integer -1)
+                    )
+                ELSE 
+                ntrade_report.profit                      
+                END                
+            ) as diff            
+ FROM (
+    SELECT
+            tr.id,              
+            (CASE 
+                WHEN tr."side" != 2 THEN  
+               tr.margin - COALESCE( (SELECT sum(profit) FROM trade_report WHERE "ticket" =  tr."ticket" AND "side"= 3  ) ,0)
+                ELSE  
+                tr."margin"
+            END ) as margin , 
+            tr.profit,
+            tr.ticket, tr.side,    (to_timestamp(tr.ctime / 1000) + ((tr.ctime % 1000 ) || ' milliseconds') :: INTERVAL) AS ctime    
+        from "trade_report" tr
+        WHERE
+            tr."ticket" in (
+                SELECT "ticket"
+                from "trades"
+                WHERE
+                    "quantid" = _qid
+                    AND "stat" = 2
+                    AND trades.side != 3
+            )
+            AND tr."side"!=3 ) as ntrade_report 
+    ) as profitx;
+END; $$;
+
+
+ALTER FUNCTION public.quant_profit(_qid integer, _defcash double precision) OWNER TO dbuser;
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -52,7 +194,7 @@ CREATE TABLE api.analselog (
     quantid integer,
     "values" double precision,
     type integer,
-    ctime integer,
+    ctime bigint,
     key integer DEFAULT 0
 );
 
@@ -116,24 +258,44 @@ ALTER TABLE api.analselog ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: todos; Type: TABLE; Schema: api; Owner: dbuser
+-- Name: stockinfo; Type: TABLE; Schema: api; Owner: dbuser
 --
 
-CREATE TABLE api.todos (
+CREATE TABLE api.stockinfo (
     id integer NOT NULL,
-    done boolean DEFAULT false NOT NULL,
-    task text NOT NULL,
-    due timestamp with time zone
+    symbol integer DEFAULT 0,
+    stock character varying(255)
 );
 
 
-ALTER TABLE api.todos OWNER TO dbuser;
+ALTER TABLE api.stockinfo OWNER TO dbuser;
+
+--
+-- Name: TABLE stockinfo; Type: COMMENT; Schema: api; Owner: dbuser
+--
+
+COMMENT ON TABLE api.stockinfo IS '保存股票信息';
+
+
+--
+-- Name: COLUMN stockinfo.symbol; Type: COMMENT; Schema: api; Owner: dbuser
+--
+
+COMMENT ON COLUMN api.stockinfo.symbol IS 'cficode';
+
+
+--
+-- Name: COLUMN stockinfo.stock; Type: COMMENT; Schema: api; Owner: dbuser
+--
+
+COMMENT ON COLUMN api.stockinfo.stock IS 'stock name';
+
 
 --
 -- Name: todos_id_seq; Type: SEQUENCE; Schema: api; Owner: dbuser
 --
 
-ALTER TABLE api.todos ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+ALTER TABLE api.stockinfo ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
     SEQUENCE NAME api.todos_id_seq
     START WITH 1
     INCREMENT BY 1
@@ -259,7 +421,8 @@ CREATE TABLE public.analse (
     name character varying(255),
     argv character varying(255),
     verid integer,
-    ctime integer
+    ctime integer,
+    profit double precision DEFAULT 0
 );
 
 
@@ -312,6 +475,13 @@ COMMENT ON COLUMN public.analse.verid IS '版本 id';
 --
 
 COMMENT ON COLUMN public.analse.ctime IS '创建时间';
+
+
+--
+-- Name: COLUMN analse.profit; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analse.profit IS '回测最后的收益';
 
 
 --
@@ -569,8 +739,7 @@ CREATE TABLE public.exdr (
     outstanding double precision,
     outstandend double precision,
     marketcaping double precision,
-    marketcapend double precision,
-    stock character varying(255)
+    marketcapend double precision
 );
 
 
@@ -605,10 +774,295 @@ COMMENT ON COLUMN public.exdr.shares IS '转股数';
 
 
 --
--- Name: COLUMN exdr.stock; Type: COMMENT; Schema: public; Owner: dbuser
+-- Name: trades; Type: TABLE; Schema: public; Owner: dbuser
 --
 
-COMMENT ON COLUMN public.exdr.stock IS '原来的名字';
+CREATE TABLE public.trades (
+    id bigint NOT NULL,
+    symbol integer DEFAULT 0,
+    ticket bigint,
+    stat integer DEFAULT 0 NOT NULL,
+    side integer DEFAULT 0 NOT NULL,
+    qty bigint DEFAULT 0 NOT NULL,
+    price double precision DEFAULT 0 NOT NULL,
+    stoppx double precision DEFAULT 0,
+    slippage integer DEFAULT 0,
+    ordtype integer DEFAULT 0 NOT NULL,
+    cumqty bigint DEFAULT 0,
+    avgpx double precision DEFAULT 0,
+    leavesqty integer DEFAULT 0,
+    openqty integer DEFAULT 0,
+    closetck bigint DEFAULT 0,
+    ctime bigint DEFAULT 0,
+    quantid bigint DEFAULT 0,
+    otime bigint DEFAULT 0,
+    adjpx double precision DEFAULT 0,
+    amount double precision DEFAULT 0
+);
+
+
+ALTER TABLE public.trades OWNER TO dbuser;
+
+--
+-- Name: TABLE trades; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON TABLE public.trades IS '交易表';
+
+
+--
+-- Name: COLUMN trades.symbol; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.symbol IS '股票代码cfi code';
+
+
+--
+-- Name: COLUMN trades.ticket; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.ticket IS '订单号';
+
+
+--
+-- Name: COLUMN trades.stat; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.stat IS '状态
+0 = new
+1 = Partially_filled,
+2 = Filled';
+
+
+--
+-- Name: COLUMN trades.side; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.side IS 'side
+1 = buy
+2 = sell';
+
+
+--
+-- Name: COLUMN trades.qty; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.qty IS '订单量';
+
+
+--
+-- Name: COLUMN trades.price; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.price IS '开仓 交易价格';
+
+
+--
+-- Name: COLUMN trades.stoppx; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.stoppx IS '平仓价格';
+
+
+--
+-- Name: COLUMN trades.slippage; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.slippage IS '滑点';
+
+
+--
+-- Name: COLUMN trades.ordtype; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.ordtype IS 'market = 1
+limit = 2
+stop = 3
+stop_limit = 4';
+
+
+--
+-- Name: COLUMN trades.cumqty; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.cumqty IS '当前累计成交的量';
+
+
+--
+-- Name: COLUMN trades.avgpx; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.avgpx IS '平均价';
+
+
+--
+-- Name: COLUMN trades.leavesqty; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.leavesqty IS '剩下多少没成交';
+
+
+--
+-- Name: COLUMN trades.openqty; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.openqty IS '剩下多少没平仓';
+
+
+--
+-- Name: COLUMN trades.closetck; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.closetck IS '平仓哪个ticket';
+
+
+--
+-- Name: COLUMN trades.ctime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.ctime IS 'market time';
+
+
+--
+-- Name: COLUMN trades.quantid; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.quantid IS '策略 id ';
+
+
+--
+-- Name: COLUMN trades.otime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.otime IS 'order send tocket time';
+
+
+--
+-- Name: COLUMN trades.adjpx; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.adjpx IS '当前计算的adj价格';
+
+
+--
+-- Name: COLUMN trades.amount; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trades.amount IS '为此订单的成交累总金额';
+
+
+--
+-- Name: e2q_history; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_history AS
+ SELECT buy.symbol,
+    ( SELECT stockinfo.stock
+           FROM api.stockinfo
+          WHERE (buy.symbol = stockinfo.symbol)
+         LIMIT 1) AS stock,
+    buy.price AS buy_price,
+    (to_timestamp(((buy.ctime / 1000))::double precision) + (((buy.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS buy_time,
+    sell.stoppx AS stop_price,
+    (to_timestamp(((sell.ctime / 1000))::double precision) + (((sell.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS stop_time,
+    sell.adjpx AS sell_adjpx,
+    buy.adjpx AS buy_adjpx,
+    round(((((sell.adjpx - buy.adjpx) / buy.adjpx) * (100)::double precision))::numeric, 3) AS profit,
+    (sell.closetck)::text AS closetck,
+        CASE
+            WHEN (com.oe = 1) THEN 'StopLoss'::text
+            WHEN (com.oe = 2) THEN 'StopProfit'::text
+            ELSE 'StrategicClosing'::text
+        END AS "LossOrProfit",
+    COALESCE(( SELECT sum(exdr.cash) AS sum
+           FROM public.exdr
+          WHERE ((exdr.symbol = buy.symbol) AND ((to_char((((to_timestamp(((buy.ctime / 1000))::double precision) + (((buy.ctime % (1000)::bigint) || ' milliseconds'::text))::interval))::date)::timestamp with time zone, 'YYYYMMDD'::text))::integer <= exdr.ymd) AND (exdr.ymd <= (to_char((((to_timestamp(((sell.ctime / 1000))::double precision) + (((sell.ctime % (1000)::bigint) || ' milliseconds'::text))::interval))::date)::timestamp with time zone, 'YYYYMMDD'::text))::integer))), (0)::double precision) AS cash,
+    COALESCE(( SELECT sum(exdr.shares) AS sum
+           FROM public.exdr
+          WHERE ((exdr.symbol = buy.symbol) AND ((to_char((((to_timestamp(((buy.ctime / 1000))::double precision) + (((buy.ctime % (1000)::bigint) || ' milliseconds'::text))::interval))::date)::timestamp with time zone, 'YYYYMMDD'::text))::integer <= exdr.ymd) AND (exdr.ymd <= (to_char((((to_timestamp(((sell.ctime / 1000))::double precision) + (((sell.ctime % (1000)::bigint) || ' milliseconds'::text))::interval))::date)::timestamp with time zone, 'YYYYMMDD'::text))::integer))), (0)::double precision) AS share,
+    a.quantid,
+    buy.ticket AS bticket,
+    sell.ticket AS sticket,
+    ( SELECT analselog."values"
+           FROM api.analselog
+          WHERE (analselog.key = buy.ticket)
+         LIMIT 1) AS "position"
+   FROM public.trades buy,
+    public.trades sell,
+    public.analse a,
+    public.comment com
+  WHERE ((buy.ticket = sell.closetck) AND (buy.stat = 2) AND (sell.stat = 2) AND (sell.stoppx > (0)::double precision) AND (buy.price > (0)::double precision) AND (com.ticket = sell.closetck) AND (buy.quantid = a.quantid))
+  ORDER BY buy.id;
+
+
+ALTER TABLE public.e2q_history OWNER TO dbuser;
+
+--
+-- Name: e2q_postion; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_postion AS
+ SELECT a.quantid,
+    l."values",
+    l.type,
+    (to_timestamp(((l.ctime / 1000))::double precision) + (((l.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS date,
+    (((a.name)::text || '_'::text) || (a.argv)::text) AS rule
+   FROM api.analselog l,
+    public.analse a
+  WHERE (a.quantid = l.quantid)
+  ORDER BY l.ctime DESC;
+
+
+ALTER TABLE public.e2q_postion OWNER TO dbuser;
+
+--
+-- Name: e2q_primitive; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_primitive AS
+ SELECT t.id,
+    t.stat,
+    t.side,
+    t.price,
+    t.adjpx,
+    t.stoppx,
+    t.cumqty,
+    t.leavesqty,
+    t.openqty,
+    t.qty,
+    (to_timestamp(((t.ctime / 1000))::double precision) + (((t.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS date,
+    a.argv,
+    a.name,
+    t.ticket,
+    t.closetck,
+    t.amount
+   FROM public.trades t,
+    public.analse a
+  WHERE (t.quantid = a.quantid)
+  ORDER BY t.id;
+
+
+ALTER TABLE public.e2q_primitive OWNER TO dbuser;
+
+--
+-- Name: e2q_profit; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_profit AS
+ SELECT DISTINCT analse.argv,
+    sum(analse.profit) AS profits
+   FROM public.analse
+  GROUP BY analse.argv
+  ORDER BY (sum(analse.profit)) DESC;
+
+
+ALTER TABLE public.e2q_profit OWNER TO dbuser;
+
+--
+-- Name: VIEW e2q_profit; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON VIEW public.e2q_profit IS '各参数的收益';
 
 
 --
@@ -889,6 +1343,13 @@ CREATE TABLE public.trade_info (
 ALTER TABLE public.trade_info OWNER TO dbuser;
 
 --
+-- Name: TABLE trade_info; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON TABLE public.trade_info IS '策略的版本号';
+
+
+--
 -- Name: COLUMN trade_info.version; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
@@ -945,7 +1406,7 @@ CREATE TABLE public.trade_report (
     freemargin double precision DEFAULT 0,
     margin double precision DEFAULT 0,
     profit double precision DEFAULT 0,
-    ctime integer,
+    ctime bigint,
     side integer DEFAULT 1
 );
 
@@ -1052,184 +1513,6 @@ ALTER TABLE public.trade_report ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY
 
 
 --
--- Name: trades; Type: TABLE; Schema: public; Owner: dbuser
---
-
-CREATE TABLE public.trades (
-    id bigint NOT NULL,
-    symbol integer DEFAULT 0,
-    ticket bigint,
-    stat integer DEFAULT 0 NOT NULL,
-    side integer DEFAULT 0 NOT NULL,
-    qty bigint DEFAULT 0 NOT NULL,
-    price double precision DEFAULT 0 NOT NULL,
-    stoppx double precision DEFAULT 0,
-    slippage integer DEFAULT 0,
-    ordtype integer DEFAULT 0 NOT NULL,
-    cumqty bigint DEFAULT 0,
-    avgpx double precision DEFAULT 0,
-    leavesqty integer DEFAULT 0,
-    openqty integer DEFAULT 0,
-    closetck bigint DEFAULT 0,
-    ctime integer DEFAULT 0,
-    quantid bigint DEFAULT 0,
-    otime integer DEFAULT 0,
-    adjpx double precision DEFAULT 0,
-    amount double precision DEFAULT 0
-);
-
-
-ALTER TABLE public.trades OWNER TO dbuser;
-
---
--- Name: TABLE trades; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON TABLE public.trades IS '交易表';
-
-
---
--- Name: COLUMN trades.symbol; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.symbol IS '股票代码cfi code';
-
-
---
--- Name: COLUMN trades.ticket; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.ticket IS '订单号';
-
-
---
--- Name: COLUMN trades.stat; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.stat IS '状态
-0 = new
-1 = Partially_filled,
-2 = Filled';
-
-
---
--- Name: COLUMN trades.side; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.side IS 'side
-1 = buy
-2 = sell';
-
-
---
--- Name: COLUMN trades.qty; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.qty IS '订单量';
-
-
---
--- Name: COLUMN trades.price; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.price IS '开仓 交易价格';
-
-
---
--- Name: COLUMN trades.stoppx; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.stoppx IS '平仓价格';
-
-
---
--- Name: COLUMN trades.slippage; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.slippage IS '滑点';
-
-
---
--- Name: COLUMN trades.ordtype; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.ordtype IS 'market = 1
-limit = 2
-stop = 3
-stop_limit = 4';
-
-
---
--- Name: COLUMN trades.cumqty; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.cumqty IS '当前累计成交的量';
-
-
---
--- Name: COLUMN trades.avgpx; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.avgpx IS '平均价';
-
-
---
--- Name: COLUMN trades.leavesqty; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.leavesqty IS '剩下多少没成交';
-
-
---
--- Name: COLUMN trades.openqty; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.openqty IS '剩下多少没平仓';
-
-
---
--- Name: COLUMN trades.closetck; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.closetck IS '平仓哪个ticket';
-
-
---
--- Name: COLUMN trades.ctime; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.ctime IS 'market time';
-
-
---
--- Name: COLUMN trades.quantid; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.quantid IS '策略 id ';
-
-
---
--- Name: COLUMN trades.otime; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.otime IS 'order send tocket time';
-
-
---
--- Name: COLUMN trades.adjpx; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.adjpx IS '当前计算的adj价格';
-
-
---
--- Name: COLUMN trades.amount; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trades.amount IS '为此订单的成交累总金额';
-
-
---
 -- Name: trades_id_seq; Type: SEQUENCE; Schema: public; Owner: dbuser
 --
 
@@ -1280,10 +1563,10 @@ COPY api.analselog (id, quantid, "values", type, ctime, key) FROM stdin;
 
 
 --
--- Data for Name: todos; Type: TABLE DATA; Schema: api; Owner: dbuser
+-- Data for Name: stockinfo; Type: TABLE DATA; Schema: api; Owner: dbuser
 --
 
-COPY api.todos (id, done, task, due) FROM stdin;
+COPY api.stockinfo (id, symbol, stock) FROM stdin;
 \.
 
 
@@ -1336,12 +1619,12 @@ COPY public.account (id, sessionid, balance, credit, equity, leverage, freemargi
 36	36	0	0	0	1	0	0	0	1723003101
 37	37	0	0	0	1	0	0	0	1723003101
 20	20	0	0	0	1	0	0	0	1723003101
-1	1	0	0	0	1	0	0	0	1723003101
-2	2	0	0	0	1	0	0	0	1723003101
 18	18	0	0	0	1	0	0	0	1723003101
 11	11	0	0	0	1	0	0	0	1723003101
 43	43	0	0	0	1	0	0	0	1723003101
 32	32	0	0	0	1	0	0	0	1723003101
+2	2	0	0	0	1	0	0	0	1723003101
+1	1	0	0	0	1	0	0	0	1723003101
 \.
 
 
@@ -1349,7 +1632,7 @@ COPY public.account (id, sessionid, balance, credit, equity, leverage, freemargi
 -- Data for Name: analse; Type: TABLE DATA; Schema: public; Owner: dbuser
 --
 
-COPY public.analse (id, aid, quantid, name, argv, verid, ctime) FROM stdin;
+COPY public.analse (id, aid, quantid, name, argv, verid, ctime, profit) FROM stdin;
 \.
 
 
@@ -1373,7 +1656,7 @@ COPY public.comment (id, ticket, side, quantid, oe) FROM stdin;
 -- Data for Name: exdr; Type: TABLE DATA; Schema: public; Owner: dbuser
 --
 
-COPY public.exdr (id, symbol, cash, shares, extype, ymd, outstanding, outstandend, marketcaping, marketcapend, stock) FROM stdin;
+COPY public.exdr (id, symbol, cash, shares, extype, ymd, outstanding, outstandend, marketcaping, marketcapend) FROM stdin;
 \.
 
 
@@ -1461,7 +1744,11 @@ COPY public.trade_info (id, version, desz, ctime, active) FROM stdin;
 4	1.2.5	1.2.5	1722233331	0
 5	1.2.6	1.2.6	1722678439	0
 6	1.2.7	1.2.7	1722679135	0
-7	1.2.8	1.2.8	1728452488	1
+7	1.2.8	1.2.8	1728452488	0
+13	1.3.2	1.3.2	1744183496	0
+14	1.3.3	1.3.3	1744183532	0
+11	1.3.0	1.3.0	1744090538	0
+12	1.3.1	1.3.1	1744093993	1
 \.
 
 
@@ -1492,7 +1779,7 @@ SELECT pg_catalog.setval('api.analselog_id_seq', 1, false);
 -- Name: todos_id_seq; Type: SEQUENCE SET; Schema: api; Owner: dbuser
 --
 
-SELECT pg_catalog.setval('api.todos_id_seq', 2, true);
+SELECT pg_catalog.setval('api.todos_id_seq', 1, false);
 
 
 --
@@ -1548,7 +1835,7 @@ SELECT pg_catalog.setval('public.ohlc_id_seq', 1, false);
 -- Name: trade_info_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
 --
 
-SELECT pg_catalog.setval('public.trade_info_id_seq', 7, true);
+SELECT pg_catalog.setval('public.trade_info_id_seq', 14, true);
 
 
 --
@@ -1574,10 +1861,10 @@ ALTER TABLE ONLY api.analselog
 
 
 --
--- Name: todos todos_pkey; Type: CONSTRAINT; Schema: api; Owner: dbuser
+-- Name: stockinfo todos_pkey; Type: CONSTRAINT; Schema: api; Owner: dbuser
 --
 
-ALTER TABLE ONLY api.todos
+ALTER TABLE ONLY api.stockinfo
     ADD CONSTRAINT todos_pkey PRIMARY KEY (id);
 
 
@@ -1726,10 +2013,10 @@ GRANT SELECT ON TABLE api.analselog TO web_anon;
 
 
 --
--- Name: TABLE todos; Type: ACL; Schema: api; Owner: dbuser
+-- Name: TABLE stockinfo; Type: ACL; Schema: api; Owner: dbuser
 --
 
-GRANT SELECT ON TABLE api.todos TO web_anon;
+GRANT SELECT ON TABLE api.stockinfo TO web_anon;
 
 
 --

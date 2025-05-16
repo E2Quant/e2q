@@ -45,6 +45,7 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
+#include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
 
@@ -78,7 +79,7 @@ e2::Int_e TimeCurrent()
 e2::Int_e TimeLocal()
 {
     e2q::UtilTime ut;
-    std::size_t now = ut.time();
+    e2q::_millisecond now = ut.milliseconds();
 
     return now;
 } /* -----  end of function TimeLocal  ----- */

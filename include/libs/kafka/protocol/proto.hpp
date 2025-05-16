@@ -47,6 +47,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
+#include <vector>
+
+#include "Toolkit/Norm.hpp"
 
 namespace e2q {
 
@@ -55,6 +59,7 @@ enum e2l_pro_t {
     XDXR = 'X',
     SUSPEND = 'S',
     TICK = 'T',
+    CUSTOM = 'C',
     EXIT = 'E',
     LOG = 'L'
 }; /* ----------  end of enum e2l_pro_t  ---------- */
@@ -126,6 +131,105 @@ struct MarketTickMessage : public BaseMessage {
 
 typedef struct MarketTickMessage MarketTickMessage;
 
+/**
+ * 定义数据
+ *
+ */
+
+enum CmType {
+    UINT16 = '6',
+    UINT32 = '2',
+    UINT64 = '4'
+}; /* ----------  end of enum CmType  ---------- */
+
+typedef enum CmType CmType;
+
+struct CustomMessage : public BaseMessage {
+    std::uint32_t CfiCode = 0;
+    std::uint16_t index = 0;  // 可以用作 dict 的索引
+    std::uint16_t size = 0;
+    char type;  // CmType
+}; /* ----------  end of struct CustomMessage  ---------- */
+
+typedef struct CustomMessage CustomMessage;
+
+#define GetMsgData(array_data, index, value_uint)                    \
+    ({                                                               \
+        do {                                                         \
+            for (std::size_t m = 0; m < cmsg.size; m++) {            \
+                idx += parse_uint_t(ptr + idx, value_uint);          \
+                array_data.push_back(index, m, (SeqType)value_uint); \
+                if (idx >= (std::size_t)sz) {                        \
+                    break;                                           \
+                }                                                    \
+            }                                                        \
+        } while (0);                                                 \
+    })
+
+struct __CustomMsgStore {
+    void init(std::uint32_t cfi, std::uint16_t idx, std::size_t len)
+    {
+        _cfi = cfi;
+        _index = idx;
+        if (_datas.count(cfi) == 0) {
+            BasicLock _lock(_CMute);
+            std::vector<SeqType> v(len);
+            std::map<std::uint16_t, std::vector<SeqType>> vi;
+            vi.insert({idx, v});
+            _datas.insert({cfi, vi});
+        }
+
+        if (_datas[cfi].count(idx) == 0) {
+            BasicLock _lock(_CMute);
+            std::vector<SeqType> v(len);
+            _datas[cfi].insert({idx, v});
+        }
+    }
+    void push_back(std::uint16_t idx, std::size_t pos, SeqType data)
+    {
+        std::size_t _pos = pos % _datas[_cfi][idx].size();
+        _datas[_cfi][idx][_pos] = data;
+    }
+
+    std::size_t size(std::uint32_t cfi, std::uint16_t idx)
+    {
+        if (_datas.count(cfi) == 0) {
+            return 0;
+        }
+        if (_datas[cfi].count(idx) == 0) {
+            return 0;
+        }
+        return _datas[cfi][idx].size();
+    }
+
+    SeqType get(std::uint32_t cfi, std::uint16_t idx, std::size_t pos)
+    {
+        if (_datas.count(cfi) == 0) {
+            return 0;
+        }
+        if (_datas[cfi].count(idx) == 0) {
+            return 0;
+        }
+        if (pos >= _datas[cfi][idx].size()) {
+            return 0;
+        }
+        return _datas[cfi][idx][pos];
+    }
+
+private:
+    std::map<std::uint32_t, std::map<std::uint16_t, std::vector<SeqType>>>
+        _datas;
+    std::uint32_t _cfi = 0;
+    std::uint16_t _index = 0;
+    using CMute = BasicLock::mutex_type;
+    mutable CMute _CMute;
+}; /* ----------  end of struct __CustomMsgStore  ---------- */
+
+typedef struct __CustomMsgStore CustomMsgStore;
+
+/**
+ * log proto
+ */
 enum LogType_t {
     BASE = 'B',
     LINE = 'L',

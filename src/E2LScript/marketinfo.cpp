@@ -47,6 +47,7 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
 
@@ -220,6 +221,9 @@ e2::Int_e BarSize(e2::Int_e id, e2::Int_e timeframe)
 {
     size_t _id = NUMBERVAL(id);
     timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
+    if (timeframe == e2::TimeFrames::PERIOD_CURRENT) {
+        timeframe = e2q::FixPtr->_current_tf;
+    }
     e2::Int_e ret = 0;
     if (e2q::e2l_cnt != nullptr) {
         ret = e2q::e2l_cnt->data_ptr->writed(_id, timeframe);
@@ -244,6 +248,10 @@ e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
     size_t stock = NUMBERVAL(id);
     shift = NUMBERVAL(shift);
     timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
+
+    if (timeframe == e2::TimeFrames::PERIOD_CURRENT) {
+        timeframe = e2q::FixPtr->_current_tf;
+    }
     e2::Int_e ret = 0;
 
     std::thread::id pid;
@@ -589,4 +597,47 @@ e2::Int_e ExdiShare(e2::Int_e id)
     e2::Int_e ret = e2q::ExdiSymList.share(id);
     return ret;
 } /* -----  end of function ExdiShare  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  CustomDataSize
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e CustomDataSize(e2::Int_e cfi, e2::Int_e idx)
+{
+    cfi = NUMBERVAL(cfi);
+    idx = NUMBERVAL(idx);
+
+    std::size_t len = e2q::GlobalCustomMsg.size(cfi, idx);
+    return VALNUMBER(len);
+} /* -----  end of function CustomDataSize  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  CustomDataGet
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e CustomDataGet(e2::Int_e cfi, e2::Int_e idx, e2::Int_e pos)
+{
+    cfi = NUMBERVAL(cfi);
+    idx = NUMBERVAL(idx);
+    pos = NUMBERVAL(pos);
+
+    std::size_t val = e2q::GlobalCustomMsg.get(cfi, idx, pos);
+    return VALNUMBER(val);
+
+} /* -----  end of function CustomDataGet  ----- */
+
 }  // namespace e2l

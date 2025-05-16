@@ -50,6 +50,7 @@
 #include <string>
 
 #include "libs/DB/PGConnectPool.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 namespace e2q {
 
 enum FeedType {
@@ -69,7 +70,6 @@ typedef struct __Feed FEED;
 /**
  * to llvm function point
  */
-// typedef std::tuple<void *, std::string, retType *, ArgType, desc> E2lFun_t;
 
 typedef std::tuple<void *, size_t, std::string, bool, std::string> E2lFun_t;
 
@@ -92,22 +92,6 @@ typedef std::tuple<void *, size_t, std::string, bool, std::string> E2lFun_t;
     })
 
 /**
- * store type
- */
-typedef std::array<e2::Int_e, 2> Store_t;
-
-enum __OrderProperties {
-    OP_BUY = 0,    // Buy operation
-    OP_SELL,       // Sell operation
-    OP_BUYLIMIT,   // Buy limit pending order
-    OP_SELLLIMIT,  // Sell limit pending order
-    OP_BUYSTOP,    // Buy stop pending order
-    OP_SELLSTOP    // Sell stop pending order
-}; /* ----------  end of enum OrderProperties  ---------- */
-
-typedef enum __OrderProperties OrderPro_t;
-
-/**
  * global properties
  */
 // inline std::string GlobalProperties;
@@ -124,5 +108,6 @@ inline bool process_debug;
 #define pg_max_connect 3
 inline std::shared_ptr<PGConnectPool> GlobalDBPtr{nullptr};
 
+inline CustomMsgStore GlobalCustomMsg;
 }  // namespace e2q
 #endif /* ----- #ifndef GLOBALCONFIG_INC  ----- */

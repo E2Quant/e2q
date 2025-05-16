@@ -50,6 +50,8 @@
 #include <cstdlib>
 #include <vector>
 
+#include "E2LScript/ExternClazz.hpp"
+#include "E2LScript/e2lLead.hpp"
 #include "Toolkit/Norm.hpp"
 
 namespace e2q {
@@ -150,10 +152,14 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     })
     std::size_t row = 0;
     bool pause = false;
-
+    bool exist_tf = true;
     SeqType stock = data[Trading::t_stock];
 
     SeqType frame = data[Trading::t_frame];
+
+    if (FixPtr->_current_tf == e2::TimeFrames::PERIOD_CURRENT) {
+        CheckDefFrame(frame);
+    }
 
     auto search = _cells.find(stock);
     std::array<SeqType, ohlc_column> ohlc;
@@ -320,6 +326,66 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
 
     return stock;
 } /* -----  end of function Container::push  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Container::CheckDefFrame
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void Container::CheckDefFrame(SeqType frame)
+{
+    FixPtr->_current_tf = EnumValid(frame);
+    if (std::find(std::begin(e2q::FixPtr->_tf), std::end(e2q::FixPtr->_tf),
+                  FixPtr->_current_tf) == std::end(e2q::FixPtr->_tf)) {
+        e2q::FixPtr->_tf.push_back(FixPtr->_current_tf);
+    }
+    exist_tf = true;
+    for (auto it : _cells[0]) {
+        if (it.frame == FixPtr->_current_tf) {
+            exist_tf = false;
+        }
+    }
+
+    if (exist_tf) {
+        CellShape cell;
+        cell.frame = FixPtr->_current_tf;
+        cell.idx = 0;
+        cell.data = _source_ptr->MemPtr<SilkPermit<SeqType>>(ohlc_column);
+        _cells[0].push_back(cell);
+    }
+
+    std::vector<size_t> symId = FixPtr->_symbols;
+
+    for (auto id : symId) {
+        if (id == 0) {
+            continue;
+        }
+
+        if (_cells.count(id) == 1) {
+            exist_tf = true;
+            for (auto it : _cells[id]) {
+                if (it.frame == FixPtr->_current_tf) {
+                    exist_tf = false;
+                }
+            }
+
+            if (exist_tf) {
+                CellShape cell;
+                cell.frame = FixPtr->_current_tf;
+                cell.idx = 0;
+                cell.data =
+                    _source_ptr->MemPtr<SilkPermit<SeqType>>(ohlc_column);
+                _cells[id].push_back(cell);
+            }
+        }
+    }
+} /* -----  end of function Container::CheckDefFrame  ----- */
 
 /*
  * ===  FUNCTION  =============================
@@ -538,7 +604,7 @@ std::size_t Container::idx(std::size_t stock, std::size_t timeframe)
     }
 
     for (auto cell : _cells.at(stock)) {
-        if (cell.frame == timeframe || timeframe == 0) {
+        if (cell.frame == timeframe) {
             return cell.idx;
         }
     }
@@ -568,7 +634,7 @@ int Container::read(std::array<SeqType, ohlc_column>& ohlc, std::size_t stock,
     }
     int rows = 0;
     for (auto cell : _cells.at(stock)) {
-        if (cell.frame == timeframe || timeframe == 0) {
+        if (cell.frame == timeframe) {
             rows = _cells.at(stock).at(m).data->writed();
             if (rows >= (int)shift) {
                 ret = _cells.at(stock).at(m).data->read(&ohlc, shift);

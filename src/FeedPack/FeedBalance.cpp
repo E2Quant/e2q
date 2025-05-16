@@ -91,8 +91,6 @@ void FeedBalance::obtain()
         return;
     }
 
-    // std::vector<size_t> symId = FixPtr->_symbols;
-    // log::echo("symid.......symbols size:", symId.size());
     std::vector<e2::TimeFrames> tf = FixPtr->_tf;
 
     OHLCBeam _ohlc;

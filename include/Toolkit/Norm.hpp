@@ -513,6 +513,7 @@ typedef std::map<e2::Int_e, std::string> OrderTicketMap;
  */
 struct __FinancialInstrument : public MarketInfo {
     std::vector<e2::TimeFrames> _tf;
+    e2::TimeFrames _current_tf = e2::TimeFrames::PERIOD_CURRENT;
     //  弱匹配 id 不一定等于 symbol 的代码 ,以后再优化 吧
     std::vector<size_t> _symbols;
     e2::Offers _offers;  // Offers 报价的方式

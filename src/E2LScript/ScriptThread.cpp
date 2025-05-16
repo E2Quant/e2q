@@ -209,7 +209,7 @@ int ScriptThread::toScript(double argc, double argv)
  */
 int ScriptThread::toScriptSafe(Int_e argc, Int_e argv)
 {
-    BasicLock _lock(_SafeMutex);
+    //  BasicLock _lock(_SafeMutex);
     return toScript(argc, argv);
 } /* -----  end of function ScriptThread::toScriptSafe  ----- */
 /*

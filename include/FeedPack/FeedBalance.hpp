@@ -67,7 +67,7 @@ public:
     /* ====================  LIFECYCLE =======================================
      */
     FeedBalance(std::shared_ptr<Shuttle> cs, _Resource_ptr ptr)
-        : _resource(ptr), _shu_ptr(cs){}; /* constructor */
+        : _resource(ptr), _shu_ptr(cs) {}; /* constructor */
 
     /* ====================  ACCESSORS =======================================
      */

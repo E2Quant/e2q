@@ -145,6 +145,7 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
     {
         e2q::FixGuard _fix;
         SeqType stock = rec_data[Trading::t_stock];
+
         for (auto it = SessionSymList.begin(); it != SessionSymList.end();
              it++) {
             if (stock == 0) {
@@ -154,7 +155,10 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
             }
 
             if (it->second.empty()) {
-                log::info("not symbol");
+                log::info("sid:", it->first.getSenderCompID().getValue(),
+                          " sid:", it->first.getTargetCompID().getValue(),
+                          " size:", SessionSymList.size());
+                log::info("not symbol stock:", stock);
                 continue;
             }
             // session select symbols

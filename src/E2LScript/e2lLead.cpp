@@ -134,6 +134,7 @@ void E2LFunList()
     AddFun(topic_log, 1, "FTopicLog", E2L_NORETURN, "(log);");
 
     AddFun(tframe, 1, "FTFrame", E2L_NORETURN, "(frame);");
+    AddFun(deftframe, 0, "FDefTFrame", E2L_RETURN, "();");
 
     AddFun(index, 0, "FIndex", E2L_RETURN, "();");
     AddFun(offers, 1, "FOffers", E2L_NORETURN, "(istick);");
@@ -305,6 +306,9 @@ void E2LFunList()
     AddFun(ExdiCash, 1, "FExdiCash", E2L_RETURN, "(cfi_id);");
     AddFun(ExdiShare, 1, "FExdiShare", E2L_RETURN, "(cfi_id);");
 
+    AddFun(CustomDataSize, 2, "FCustomDataSize", E2L_RETURN, "(cfi_id, idx);");
+    AddFun(CustomDataGet, 3, "FCustomDataGet", E2L_RETURN,
+           "(cfi_id, idx, pos);");
     /**
      * market info end
      */

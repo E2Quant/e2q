@@ -60,6 +60,7 @@
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/SessionGlobal.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
 #include "Toolkit/UtilTime.hpp"
@@ -492,6 +493,56 @@ void KfConsumeCb::QuoteStatusReport(const FIX::SessionID &session, ExRD node,
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  KfConsumeCb::CustomMsg
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void KfConsumeCb::CustomMsg(const char *ptr, int sz, int64_t moffset)
+{
+    CustomMessage cmsg;
+    std::size_t idx = 0;
+
+    idx += parse_uint_t(ptr + idx, cmsg.CfiCode);
+
+    if (cmsg.CfiCode > 0) {
+        cmsg.CfiCode += E2QCfiStart;
+    }
+    idx += parse_uint_t(ptr + idx, cmsg.index);
+    idx += parse_uint_t(ptr + idx, cmsg.size);
+    cmsg.type = *(ptr + idx);
+    idx++;
+    GlobalCustomMsg.init(cmsg.CfiCode, cmsg.index, cmsg.size);
+    switch (cmsg.type) {
+        case CmType::UINT16: {
+            std::uint16_t data_uint16;
+            GetMsgData(GlobalCustomMsg, cmsg.index, data_uint16);
+
+            break;
+        }
+        case CmType::UINT32: {
+            std::uint32_t data_uint32;
+            GetMsgData(GlobalCustomMsg, cmsg.index, data_uint32);
+
+            break;
+        }
+        case CmType::UINT64: {
+            std::uint64_t data_uint64;
+            GetMsgData(GlobalCustomMsg, cmsg.index, data_uint64);
+            break;
+        }
+        default:
+            log::bug("bad type!");
+            break;
+    }
+} /* -----  end of function KfConsumeCb::CustomMsg  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  KfConsumeCb::callback
  *  ->  void *
  *  Parameters:
@@ -567,10 +618,6 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
     _call_data[Trading::t_msg] = mtm.number;
     _call_data[Trading::t_stock] = mtm.CfiCode;
     _call_data[Trading::t_adjprice] = mtm.price;
-
-    if (mtm.number == 0) {
-        logs(_call_data, moffset);
-    }
 
     if (_TunCall != nullptr) {
         _TunCall(_call_data);

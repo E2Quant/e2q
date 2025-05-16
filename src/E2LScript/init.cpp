@@ -286,6 +286,21 @@ void tframe(e2::Int_e t)
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  deftframe
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e deftframe()
+{
+    return VALNUMBER(e2q::FixPtr->_current_tf);
+} /* -----  end of function deftframe  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  index
  *  ->  void *
  *  Parameters:
