@@ -17,15 +17,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: api; Type: SCHEMA; Schema: -; Owner: dbuser
---
-
-CREATE SCHEMA api;
-
-
-ALTER SCHEMA api OWNER TO dbuser;
-
---
 -- Name: tablefunc; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -40,73 +31,16 @@ COMMENT ON EXTENSION tablefunc IS 'functions that manipulate whole tables, inclu
 
 
 --
--- Name: quant_profit(integer); Type: FUNCTION; Schema: api; Owner: dbuser
+-- Name: quant_profit(bigint, double precision); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION api.quant_profit(_qid integer) RETURNS TABLE(id bigint, profit_x double precision, profit_sum double precision)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-RETURN QUERY
-    SELECT
-    id,
-    "margin",
-    "profit",
-    to_timestamp("ctime") AS date,
-    "side",
-    diff as "profit_x",
-    sum(diff) over (
-        order by id
-    ) as "profit_sum"
-from (
-        SELECT
-            id, "margin", "profit", "ticket", "side", "ctime", (
-                 CASE WHEN "side" !=3 THEN  
-                    "profit" - coalesce(
-                    lag("margin", 1) OVER (
-                        ORDER BY id
-                    ), ~( SELECT (
-                            (
-                                1.0 / (
-                                    SELECT count(DISTINCT "quantid")
-                                    from "analse"
-                                )
-                            ) * 1000000.0
-                        )::numeric::integer -1)
-                    )
-                ELSE 
-                 "profit"                      
-                END                
-            ) as diff
-        from "trade_report"
-        WHERE
-            "ticket" in (
-                SELECT "ticket"
-                from "trades"
-                WHERE
-                    "quantid" = _qid
-                    AND "stat" = 2
-                    AND "side" != 3
-            )
-    ) as profitx;
-    
-END
-$$;
-
-
-ALTER FUNCTION api.quant_profit(_qid integer) OWNER TO dbuser;
-
---
--- Name: quant_profit(integer, double precision); Type: FUNCTION; Schema: public; Owner: dbuser
---
-
-CREATE FUNCTION public.quant_profit(_qid integer, _defcash double precision) RETURNS TABLE(id integer, margin double precision, profits double precision, pday text, pside integer, profit_x double precision, profit_sum double precision)
+CREATE FUNCTION public.quant_profit(_qid bigint, _defcash double precision) RETURNS TABLE(qid bigint, margin double precision, profits double precision, pday text, pside integer, profit_x double precision, profit_sum double precision)
     LANGUAGE plpgsql
     AS $$
 BEGIN
     RETURN QUERY 
 SELECT
-    _qid AS id,
+    _qid AS qid,
     profitx.margin,
     profitx.profit,
     to_char(profitx.ctime, 'YYYY-MM-DD HH24:MI:SS') AS pday,
@@ -115,7 +49,7 @@ SELECT
     sum(profitx.diff) over (
         order by profitx.id
     ) as "profit_sum"
-from (
+FROM (
         SELECT ntrade_report.id,ntrade_report.margin, ntrade_report.profit,ntrade_report.ticket,ntrade_report.side, ntrade_report.ctime
 , (
                  CASE WHEN ntrade_report.side != 3 THEN  
@@ -128,7 +62,7 @@ from (
                                     float8 (
                                         1.0 / (
                                              SELECT  count(DISTINCT "argv") as num
-                                            from "analse"
+                                            FROM "analse"
                                             WHERE
                                                 "verid" = (
                                                     SELECT "verid"
@@ -164,14 +98,14 @@ from (
             END ) as margin , 
             tr.profit,
             tr.ticket, tr.side,    (to_timestamp(tr.ctime / 1000) + ((tr.ctime % 1000 ) || ' milliseconds') :: INTERVAL) AS ctime    
-        from "trade_report" tr
+        FROM "trade_report" tr
         WHERE
             tr."ticket" in (
-                SELECT "ticket"
-                from "trades"
+                SELECT id
+                FROM "trades"
                 WHERE
                     "quantid" = _qid
-                    AND "stat" = 2
+                    AND "stat" = 0
                     AND trades.side != 3
             )
             AND tr."side"!=3 ) as ntrade_report 
@@ -179,131 +113,171 @@ from (
 END; $$;
 
 
-ALTER FUNCTION public.quant_profit(_qid integer, _defcash double precision) OWNER TO dbuser;
+ALTER FUNCTION public.quant_profit(_qid bigint, _defcash double precision) OWNER TO dbuser;
+
+--
+-- Name: quant_profit_one_verid(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_profit_one_verid(ver_id integer) RETURNS TABLE(vday text, vprofit_sum double precision, stat text, verid integer)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	return query
+SELECT
+    pday AS vday,
+    profit_sum AS vprofit_sum ,
+    CASE
+        WHEN pside = 1 THEN '开仓'
+        ELSE '平仓'
+    END AS stat,
+    ver_id AS verid
+FROM "quant_profit" (
+        (
+            SELECT a."quantid"
+            FROM
+                "trade_report" r, "trades" t, "analse" a
+            WHERE
+                t."quantid" = a."quantid"
+                AND r."ticket" = t.id
+                AND a."verid" = ver_id
+            ORDER BY a.id
+            LIMIT 1
+        ), (
+            SELECT r."credit"
+            FROM
+                "trade_report" r, "trades" t, "analse" a
+            WHERE
+                t."quantid" = a."quantid"
+                AND r."ticket" = t.id
+                AND a."verid" = ver_id
+            ORDER BY a.id
+            LIMIT 1
+        )
+    );
+end;
+$$;
+
+
+ALTER FUNCTION public.quant_profit_one_verid(ver_id integer) OWNER TO dbuser;
+
+--
+-- Name: quant_return(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_return(_cficode integer) RETURNS TABLE(pday text, price double precision, return_value double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (SELECT to_char( to_timestamp(
+            ((ctime / 1000))::double precision
+                ) , 'YYYY-MM-DD HH24:MI:SS') as pday,
+        "values" as price, 
+         (
+        ("values" - first_value("values") OVER (ORDER BY id ))/first_value("values") OVER (ORDER BY id ) * 100
+        ) as return_value
+    FROM "analselog"
+    WHERE
+        "type" = 3
+        AND "key" = _cficode * 10000
+    ORDER BY id);
+END; $$;
+
+
+ALTER FUNCTION public.quant_return(_cficode integer) OWNER TO dbuser;
+
+--
+-- Name: quant_return_fmonth(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_return_fmonth(_cficode integer) RETURNS TABLE(pday text, price double precision, return_value double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+        
+       SELECT return_month.ctime, return_month.price, COALESCE(
+        (
+            (
+                return_month.price - lag(return_month.price, 1) OVER (
+                    ORDER BY return_month.ctime
+                )
+            ) / lag(return_month.price, 1) OVER (
+                ORDER BY return_month.ctime
+            ) * 100
+        ), 0
+    ) as return_value
+FROM (
+        SELECT DISTINCT
+            on (data.ctime) data.ctime, data.price
+        FROM (
+                SELECT to_char(
+                        to_timestamp(
+                            ((ctime / 1000))::double precision
+                        ), 'YYYY-MM'
+                    ) as ctime, "values" as price
+                FROM "analselog"
+                WHERE
+                    "type" = 3
+                    AND "key" = _cficode * 10000
+                ORDER BY id
+            ) data
+    ) return_month
+
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_return_fmonth(_cficode integer) OWNER TO dbuser;
+
+--
+-- Name: quant_return_month(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_return_month(_cficode integer) RETURNS TABLE(pday text, price double precision, return_value double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+        
+        SELECT return_month.ctime, return_month.price, (
+        (
+            return_month.price - first_value(return_month.price) OVER (
+                ORDER BY return_month.ctime
+            )
+        ) / first_value(return_month.price) OVER (
+            ORDER BY return_month.ctime
+        ) * 100
+    ) as return_value
+FROM (
+        SELECT DISTINCT
+            on (data.ctime) data.ctime, data.price
+        FROM (
+                SELECT to_char(
+                        to_timestamp(
+                            ((ctime / 1000))::double precision
+                        ), 'YYYY-MM'
+                    ) as ctime, "values" as price
+                FROM "analselog"
+                WHERE
+                    "type" = 3
+                    AND "key" = _cficode * 10000
+                ORDER BY id
+            ) data
+    ) return_month
+
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_return_month(_cficode integer) OWNER TO dbuser;
 
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: analselog; Type: TABLE; Schema: api; Owner: dbuser
---
-
-CREATE TABLE api.analselog (
-    id integer NOT NULL,
-    quantid integer,
-    "values" double precision,
-    type integer,
-    ctime bigint,
-    key integer DEFAULT 0
-);
-
-
-ALTER TABLE api.analselog OWNER TO dbuser;
-
---
--- Name: TABLE analselog; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON TABLE api.analselog IS '记录指标数值的';
-
-
---
--- Name: COLUMN analselog.quantid; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON COLUMN api.analselog.quantid IS '对应 analse 的 quantid';
-
-
---
--- Name: COLUMN analselog."values"; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON COLUMN api.analselog."values" IS '数据';
-
-
---
--- Name: COLUMN analselog.type; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON COLUMN api.analselog.type IS '类型';
-
-
---
--- Name: COLUMN analselog.ctime; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON COLUMN api.analselog.ctime IS '时间';
-
-
---
--- Name: COLUMN analselog.key; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON COLUMN api.analselog.key IS 'key';
-
-
---
--- Name: analselog_id_seq; Type: SEQUENCE; Schema: api; Owner: dbuser
---
-
-ALTER TABLE api.analselog ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME api.analselog_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
--- Name: stockinfo; Type: TABLE; Schema: api; Owner: dbuser
---
-
-CREATE TABLE api.stockinfo (
-    id integer NOT NULL,
-    symbol integer DEFAULT 0,
-    stock character varying(255)
-);
-
-
-ALTER TABLE api.stockinfo OWNER TO dbuser;
-
---
--- Name: TABLE stockinfo; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON TABLE api.stockinfo IS '保存股票信息';
-
-
---
--- Name: COLUMN stockinfo.symbol; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON COLUMN api.stockinfo.symbol IS 'cficode';
-
-
---
--- Name: COLUMN stockinfo.stock; Type: COMMENT; Schema: api; Owner: dbuser
---
-
-COMMENT ON COLUMN api.stockinfo.stock IS 'stock name';
-
-
---
--- Name: todos_id_seq; Type: SEQUENCE; Schema: api; Owner: dbuser
---
-
-ALTER TABLE api.stockinfo ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME api.todos_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
 
 --
 -- Name: account; Type: TABLE; Schema: public; Owner: dbuser
@@ -417,7 +391,7 @@ ALTER TABLE public.account ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 CREATE TABLE public.analse (
     id integer NOT NULL,
     aid integer,
-    quantid integer,
+    quantid bigint,
     name character varying(255),
     argv character varying(255),
     verid integer,
@@ -482,6 +456,78 @@ COMMENT ON COLUMN public.analse.ctime IS '创建时间';
 --
 
 COMMENT ON COLUMN public.analse.profit IS '回测最后的收益';
+
+
+--
+-- Name: analselog; Type: TABLE; Schema: public; Owner: dbuser
+--
+
+CREATE TABLE public.analselog (
+    id integer NOT NULL,
+    quantid bigint,
+    "values" double precision,
+    type integer,
+    ctime bigint,
+    key integer DEFAULT 0
+);
+
+
+ALTER TABLE public.analselog OWNER TO dbuser;
+
+--
+-- Name: TABLE analselog; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON TABLE public.analselog IS '记录指标数值的';
+
+
+--
+-- Name: COLUMN analselog.quantid; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analselog.quantid IS '对应 analse 的 quantid';
+
+
+--
+-- Name: COLUMN analselog."values"; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analselog."values" IS '数据';
+
+
+--
+-- Name: COLUMN analselog.type; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analselog.type IS '类型';
+
+
+--
+-- Name: COLUMN analselog.ctime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analselog.ctime IS '时间';
+
+
+--
+-- Name: COLUMN analselog.key; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analselog.key IS 'key';
+
+
+--
+-- Name: analselog_id_seq; Type: SEQUENCE; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE public.analselog ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.analselog_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 --
@@ -667,7 +713,7 @@ ALTER SEQUENCE public.analytics_id_seq OWNED BY public.analytics.id;
 
 CREATE TABLE public.comment (
     id integer NOT NULL,
-    ticket bigint DEFAULT 0,
+    ticket bigint DEFAULT 0 NOT NULL,
     side integer,
     quantid integer,
     oe integer
@@ -680,7 +726,7 @@ ALTER TABLE public.comment OWNER TO dbuser;
 -- Name: TABLE comment; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
-COMMENT ON TABLE public.comment IS 'ticket的日志';
+COMMENT ON TABLE public.comment IS 'ticket的日志,止赢止损的情况';
 
 
 --
@@ -726,51 +772,152 @@ ALTER TABLE public.comment ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: exdr; Type: TABLE; Schema: public; Owner: dbuser
+-- Name: stockinfo; Type: TABLE; Schema: public; Owner: dbuser
 --
 
-CREATE TABLE public.exdr (
+CREATE TABLE public.stockinfo (
     id integer NOT NULL,
-    symbol integer,
-    cash double precision,
-    shares double precision,
-    extype integer,
-    ymd integer,
-    outstanding double precision,
-    outstandend double precision,
-    marketcaping double precision,
-    marketcapend double precision
+    symbol integer DEFAULT 0,
+    stock character varying(255),
+    verid integer
 );
 
 
-ALTER TABLE public.exdr OWNER TO dbuser;
+ALTER TABLE public.stockinfo OWNER TO dbuser;
 
 --
--- Name: TABLE exdr; Type: COMMENT; Schema: public; Owner: dbuser
+-- Name: TABLE stockinfo; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
-COMMENT ON TABLE public.exdr IS '除权除息';
-
-
---
--- Name: COLUMN exdr.symbol; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.exdr.symbol IS '股票名 cficode';
+COMMENT ON TABLE public.stockinfo IS '保存股票信息';
 
 
 --
--- Name: COLUMN exdr.cash; Type: COMMENT; Schema: public; Owner: dbuser
+-- Name: COLUMN stockinfo.symbol; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
-COMMENT ON COLUMN public.exdr.cash IS '分红';
+COMMENT ON COLUMN public.stockinfo.symbol IS 'cficode';
 
 
 --
--- Name: COLUMN exdr.shares; Type: COMMENT; Schema: public; Owner: dbuser
+-- Name: COLUMN stockinfo.stock; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
-COMMENT ON COLUMN public.exdr.shares IS '转股数';
+COMMENT ON COLUMN public.stockinfo.stock IS 'stock name';
+
+
+--
+-- Name: COLUMN stockinfo.verid; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.stockinfo.verid IS '版本 id';
+
+
+--
+-- Name: trade_report; Type: TABLE; Schema: public; Owner: dbuser
+--
+
+CREATE TABLE public.trade_report (
+    id integer NOT NULL,
+    ticket bigint NOT NULL,
+    sessionid integer,
+    balance double precision,
+    credit double precision DEFAULT 0,
+    equity double precision DEFAULT 0,
+    leverage double precision DEFAULT 1,
+    freemargin double precision DEFAULT 0,
+    margin double precision DEFAULT 0,
+    profit double precision DEFAULT 0,
+    ctime bigint,
+    side integer DEFAULT 1
+);
+
+
+ALTER TABLE public.trade_report OWNER TO dbuser;
+
+--
+-- Name: TABLE trade_report; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON TABLE public.trade_report IS '订单报表';
+
+
+--
+-- Name: COLUMN trade_report.ticket; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.ticket IS 'ticket';
+
+
+--
+-- Name: COLUMN trade_report.sessionid; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.sessionid IS 'fixsession id';
+
+
+--
+-- Name: COLUMN trade_report.balance; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.balance IS '账户余额';
+
+
+--
+-- Name: COLUMN trade_report.credit; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.credit IS '帐户信用
+';
+
+
+--
+-- Name: COLUMN trade_report.equity; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.equity IS '账户的权益价值';
+
+
+--
+-- Name: COLUMN trade_report.leverage; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.leverage IS '账户杠杆';
+
+
+--
+-- Name: COLUMN trade_report.freemargin; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.freemargin IS '可用保证金';
+
+
+--
+-- Name: COLUMN trade_report.margin; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.margin IS '账户保证金';
+
+
+--
+-- Name: COLUMN trade_report.profit; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.profit IS '账户利润';
+
+
+--
+-- Name: COLUMN trade_report.ctime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.ctime IS 'ctime';
+
+
+--
+-- Name: COLUMN trade_report.side; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_report.side IS '开仓平仓,1:buy,2:sell,3exdr';
 
 
 --
@@ -952,14 +1099,170 @@ COMMENT ON COLUMN public.trades.amount IS '为此订单的成交累总金额';
 
 
 --
+-- Name: e2q_cash; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_cash AS
+ SELECT cash_info.stock,
+    cash_info.verid,
+    cash_info.credit AS init_cash,
+    cash_info.end_credit AS now_cash,
+    (cash_info.end_credit - cash_info.credit) AS diff_cash,
+    ((cash_info.end_credit - cash_info.credit) / cash_info.credit) AS diff_per,
+    cash_info.day,
+    cash_info.end_day
+   FROM ( SELECT DISTINCT ON (t.symbol) t.symbol,
+            s.stock,
+            s.verid,
+            r.credit,
+            to_timestamp(((r.ctime / 1000))::double precision) AS day,
+            ( SELECT end_cash.credit AS end_credit
+                   FROM ( SELECT t_1.symbol,
+                            s_1.stock,
+                            t_1.tid,
+                            r_1.credit,
+                            s_1.verid
+                           FROM ( SELECT DISTINCT ON (t_2.symbol) t_2.symbol,
+                                    max(t_2.id) AS tid
+                                   FROM public.trades t_2,
+                                    public.stockinfo s_2,
+                                    public.trade_report r_2
+                                  WHERE ((t_2.symbol = s_2.id) AND (s_2.symbol > 0) AND (r_2.ticket = t_2.id) AND (t_2.side = 2))
+                                  GROUP BY t_2.symbol) t_1,
+                            public.stockinfo s_1,
+                            public.trade_report r_1
+                          WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.tid))) end_cash
+                  WHERE (end_cash.verid = s.verid)
+                 LIMIT 1) AS end_credit,
+            ( SELECT end_cash.day AS end_day
+                   FROM ( SELECT t_1.symbol,
+                            s_1.stock,
+                            t_1.tid,
+                            r_1.credit,
+                            s_1.verid,
+                            to_timestamp(((r_1.ctime / 1000))::double precision) AS day
+                           FROM ( SELECT DISTINCT ON (t_2.symbol) t_2.symbol,
+                                    max(t_2.id) AS tid
+                                   FROM public.trades t_2,
+                                    public.stockinfo s_2,
+                                    public.trade_report r_2
+                                  WHERE ((t_2.symbol = s_2.id) AND (s_2.symbol > 0) AND (r_2.ticket = t_2.id))
+                                  GROUP BY t_2.symbol) t_1,
+                            public.stockinfo s_1,
+                            public.trade_report r_1
+                          WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.tid))) end_cash
+                  WHERE (end_cash.verid = s.verid)
+                 LIMIT 1) AS end_day
+           FROM public.trades t,
+            public.stockinfo s,
+            public.trade_report r
+          WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.id))) cash_info;
+
+
+ALTER TABLE public.e2q_cash OWNER TO dbuser;
+
+--
+-- Name: e2q_cash_se; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_cash_se AS
+ SELECT DISTINCT ON (t.symbol) t.symbol,
+    s.stock,
+    t.id AS tid,
+    r.credit,
+    s.verid,
+    to_timestamp(((r.ctime / 1000))::double precision) AS day
+   FROM public.trades t,
+    public.stockinfo s,
+    public.trade_report r
+  WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.id))
+UNION
+ SELECT t.symbol,
+    s.stock,
+    t.tid,
+    r.credit,
+    s.verid,
+    to_timestamp(((r.ctime / 1000))::double precision) AS day
+   FROM ( SELECT DISTINCT ON (t_1.symbol) t_1.symbol,
+            max(t_1.id) AS tid
+           FROM public.trades t_1,
+            public.stockinfo s_1,
+            public.trade_report r_1
+          WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.id) AND (t_1.side = 2))
+          GROUP BY t_1.symbol) t,
+    public.stockinfo s,
+    public.trade_report r
+  WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.tid))
+  ORDER BY 3;
+
+
+ALTER TABLE public.e2q_cash_se OWNER TO dbuser;
+
+--
+-- Name: exdr; Type: TABLE; Schema: public; Owner: dbuser
+--
+
+CREATE TABLE public.exdr (
+    id integer NOT NULL,
+    symbol integer,
+    cash double precision,
+    shares double precision,
+    extype integer,
+    ymd integer,
+    outstanding double precision,
+    outstandend double precision,
+    marketcaping double precision,
+    marketcapend double precision
+);
+
+
+ALTER TABLE public.exdr OWNER TO dbuser;
+
+--
+-- Name: TABLE exdr; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON TABLE public.exdr IS '除权除息';
+
+
+--
+-- Name: COLUMN exdr.symbol; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.exdr.symbol IS '股票名 cficode';
+
+
+--
+-- Name: COLUMN exdr.cash; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.exdr.cash IS '分红';
+
+
+--
+-- Name: COLUMN exdr.shares; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.exdr.shares IS '转股数';
+
+
+--
 -- Name: e2q_history; Type: VIEW; Schema: public; Owner: dbuser
 --
 
 CREATE VIEW public.e2q_history AS
- SELECT buy.symbol,
+ SELECT buy.id AS sid,
+    ( SELECT stockinfo.verid
+           FROM public.stockinfo
+          WHERE (buy.symbol = stockinfo.id)
+         LIMIT 1) AS verid,
+    ( SELECT stockinfo.symbol
+           FROM public.stockinfo
+          WHERE (buy.symbol = stockinfo.id)
+         LIMIT 1) AS symobl,
     ( SELECT stockinfo.stock
-           FROM api.stockinfo
-          WHERE (buy.symbol = stockinfo.symbol)
+           FROM public.stockinfo
+          WHERE (buy.symbol = stockinfo.id)
          LIMIT 1) AS stock,
     buy.price AS buy_price,
     (to_timestamp(((buy.ctime / 1000))::double precision) + (((buy.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS buy_time,
@@ -984,14 +1287,19 @@ CREATE VIEW public.e2q_history AS
     buy.ticket AS bticket,
     sell.ticket AS sticket,
     ( SELECT analselog."values"
-           FROM api.analselog
+           FROM public.analselog
           WHERE (analselog.key = buy.ticket)
-         LIMIT 1) AS "position"
+         LIMIT 1) AS "position",
+    (sell.amount - buy.amount) AS amount,
+    sell.qty
    FROM public.trades buy,
     public.trades sell,
     public.analse a,
     public.comment com
-  WHERE ((buy.ticket = sell.closetck) AND (buy.stat = 2) AND (sell.stat = 2) AND (sell.stoppx > (0)::double precision) AND (buy.price > (0)::double precision) AND (com.ticket = sell.closetck) AND (buy.quantid = a.quantid))
+  WHERE ((buy.ticket = sell.closetck) AND (buy.stat = 2) AND (sell.stat = 2) AND (sell.stoppx > (0)::double precision) AND (buy.price > (0)::double precision) AND (( SELECT trades.ticket
+           FROM public.trades
+          WHERE (trades.id = com.ticket)
+         LIMIT 1) = sell.closetck) AND (buy.quantid = a.quantid))
   ORDER BY buy.id;
 
 
@@ -1002,14 +1310,15 @@ ALTER TABLE public.e2q_history OWNER TO dbuser;
 --
 
 CREATE VIEW public.e2q_postion AS
- SELECT a.quantid,
+ SELECT a.verid,
+    a.quantid,
     l."values",
     l.type,
     (to_timestamp(((l.ctime / 1000))::double precision) + (((l.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS date,
     (((a.name)::text || '_'::text) || (a.argv)::text) AS rule
-   FROM api.analselog l,
+   FROM public.analselog l,
     public.analse a
-  WHERE (a.quantid = l.quantid)
+  WHERE ((a.quantid = l.quantid) AND (l.type = 2))
   ORDER BY l.ctime DESC;
 
 
@@ -1020,7 +1329,8 @@ ALTER TABLE public.e2q_postion OWNER TO dbuser;
 --
 
 CREATE VIEW public.e2q_primitive AS
- SELECT t.id,
+ SELECT a.verid,
+    t.id,
     t.stat,
     t.side,
     t.price,
@@ -1050,20 +1360,74 @@ ALTER TABLE public.e2q_primitive OWNER TO dbuser;
 
 CREATE VIEW public.e2q_profit AS
  SELECT DISTINCT analse.argv,
-    sum(analse.profit) AS profits
+    sum(analse.profit) AS profits,
+    analse.verid
    FROM public.analse
-  GROUP BY analse.argv
+  GROUP BY analse.argv, analse.verid
   ORDER BY (sum(analse.profit)) DESC;
 
 
 ALTER TABLE public.e2q_profit OWNER TO dbuser;
 
 --
--- Name: VIEW e2q_profit; Type: COMMENT; Schema: public; Owner: dbuser
+-- Name: e2q_symbol_pool; Type: VIEW; Schema: public; Owner: dbuser
 --
 
-COMMENT ON VIEW public.e2q_profit IS '各参数的收益';
+CREATE VIEW public.e2q_symbol_pool AS
+ SELECT symbol_info.verid,
+    symbol_info.stock,
+    symbol_info.trader_number,
+    (symbol_info.trading_number - symbol_info.trader_number) AS trading_number
+   FROM ( SELECT si.verid,
+            si.stock,
+            ( SELECT count(*) AS count
+                   FROM public.trades
+                  WHERE ((trades.symbol = si.id) AND (trades.side = 1) AND (trades.stat = 2))) AS trading_number,
+            ( SELECT count(*) AS count
+                   FROM public.trades
+                  WHERE ((trades.symbol = si.id) AND (trades.side = 2) AND (trades.stat = 2))) AS trader_number
+           FROM public.stockinfo si
+          WHERE (si.symbol > 0)
+          ORDER BY si.id) symbol_info;
 
+
+ALTER TABLE public.e2q_symbol_pool OWNER TO dbuser;
+
+--
+-- Name: e2q_trading; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_trading AS
+ SELECT buy.id,
+    ( SELECT stockinfo.verid
+           FROM public.stockinfo
+          WHERE (buy.symbol = stockinfo.id)
+         LIMIT 1) AS verid,
+    ( SELECT stockinfo.symbol
+           FROM public.stockinfo
+          WHERE (stockinfo.id = buy.symbol)
+         LIMIT 1) AS symbol,
+    ( SELECT stockinfo.stock
+           FROM public.stockinfo
+          WHERE (stockinfo.id = buy.symbol)
+         LIMIT 1) AS stock,
+    buy.price AS open_price,
+    buy.qty AS open_qty,
+    to_char(to_timestamp(((buy.ctime / 1000))::double precision), 'YYYY/MM/DD'::text) AS open_time,
+    (buy.ticket)::text AS ticket,
+    buy.amount,
+    (buy.quantid)::text AS quantid,
+    ana.name,
+    ana.argv
+   FROM public.trades buy,
+    public.analse ana
+  WHERE ((buy.side = 1) AND (buy.stat = 2) AND (NOT (buy.ticket IN ( SELECT trades.closetck
+           FROM public.trades
+          WHERE ((trades.side = 2) AND (trades.stat = 2))))) AND (ana.quantid = buy.quantid))
+  ORDER BY buy.ctime;
+
+
+ALTER TABLE public.e2q_trading OWNER TO dbuser;
 
 --
 -- Name: exdr_id_seq; Type: SEQUENCE; Schema: public; Owner: dbuser
@@ -1328,6 +1692,20 @@ COMMENT ON COLUMN public.profit."KellyCriterion" IS 'Kelly Criterion            
 
 
 --
+-- Name: todos_id_seq; Type: SEQUENCE; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE public.stockinfo ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.todos_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: trade_info; Type: TABLE; Schema: public; Owner: dbuser
 --
 
@@ -1392,113 +1770,6 @@ ALTER TABLE public.trade_info ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: trade_report; Type: TABLE; Schema: public; Owner: dbuser
---
-
-CREATE TABLE public.trade_report (
-    id integer NOT NULL,
-    ticket bigint,
-    sessionid integer,
-    balance double precision,
-    credit double precision DEFAULT 0,
-    equity double precision DEFAULT 0,
-    leverage double precision DEFAULT 1,
-    freemargin double precision DEFAULT 0,
-    margin double precision DEFAULT 0,
-    profit double precision DEFAULT 0,
-    ctime bigint,
-    side integer DEFAULT 1
-);
-
-
-ALTER TABLE public.trade_report OWNER TO dbuser;
-
---
--- Name: TABLE trade_report; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON TABLE public.trade_report IS '订单报表';
-
-
---
--- Name: COLUMN trade_report.ticket; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.ticket IS 'ticket';
-
-
---
--- Name: COLUMN trade_report.sessionid; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.sessionid IS 'fixsession id';
-
-
---
--- Name: COLUMN trade_report.balance; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.balance IS '账户余额';
-
-
---
--- Name: COLUMN trade_report.credit; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.credit IS '帐户信用
-';
-
-
---
--- Name: COLUMN trade_report.equity; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.equity IS '账户的权益价值';
-
-
---
--- Name: COLUMN trade_report.leverage; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.leverage IS '账户杠杆';
-
-
---
--- Name: COLUMN trade_report.freemargin; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.freemargin IS '可用保证金';
-
-
---
--- Name: COLUMN trade_report.margin; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.margin IS '账户保证金';
-
-
---
--- Name: COLUMN trade_report.profit; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.profit IS '账户利润';
-
-
---
--- Name: COLUMN trade_report.ctime; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.ctime IS 'ctime';
-
-
---
--- Name: COLUMN trade_report.side; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_report.side IS '开仓平仓,1:buy,2:sell,3exdr';
-
-
---
 -- Name: trade_report_id_seq; Type: SEQUENCE; Schema: public; Owner: dbuser
 --
 
@@ -1555,320 +1826,6 @@ ALTER TABLE ONLY public.trades ALTER COLUMN id SET DEFAULT nextval('public.trade
 
 
 --
--- Data for Name: analselog; Type: TABLE DATA; Schema: api; Owner: dbuser
---
-
-COPY api.analselog (id, quantid, "values", type, ctime, key) FROM stdin;
-\.
-
-
---
--- Data for Name: stockinfo; Type: TABLE DATA; Schema: api; Owner: dbuser
---
-
-COPY api.stockinfo (id, symbol, stock) FROM stdin;
-\.
-
-
---
--- Data for Name: account; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.account (id, sessionid, balance, credit, equity, leverage, freemargin, margin, profit, ctime) FROM stdin;
-3	3	0	0	0	1	0	0	0	1723003101
-4	4	0	0	0	1	0	0	0	1723003101
-15	15	0	0	0	1	0	0	0	1723003101
-14	14	0	0	0	1	0	0	0	1723003101
-24	24	0	0	0	1	0	0	0	1723003101
-25	25	0	0	0	1	0	0	0	1723003101
-38	38	0	0	0	1	0	0	0	1723003101
-21	21	0	0	0	1	0	0	0	1723003101
-12	12	0	0	0	1	0	0	0	1723003101
-13	13	0	0	0	1	0	0	0	1723003101
-16	16	0	0	0	1	0	0	0	1723003101
-17	17	0	0	0	1	0	0	0	1723003101
-45	45	0	0	0	1	0	0	0	1723003101
-48	48	0	0	0	1	0	0	0	1723003101
-50	50	0	0	0	1	0	0	0	1723003101
-34	34	0	0	0	1	0	0	0	1723003101
-35	35	0	0	0	1	0	0	0	1723003101
-19	19	0	0	0	1	0	0	0	1723003101
-26	26	0	0	0	1	0	0	0	1723003101
-27	27	0	0	0	1	0	0	0	1723003101
-28	28	0	0	0	1	0	0	0	1723003101
-29	29	0	0	0	1	0	0	0	1723003101
-30	30	0	0	0	1	0	0	0	1723003101
-31	31	0	0	0	1	0	0	0	1723003101
-23	23	0	0	0	1	0	0	0	1723003101
-7	7	0	0	0	1	0	0	0	1723003101
-9	9	0	0	0	1	0	0	0	1723003101
-10	10	0	0	0	1	0	0	0	1723003101
-8	8	0	0	0	1	0	0	0	1723003101
-6	6	0	0	0	1	0	0	0	1723003101
-5	5	0	0	0	1	0	0	0	1723003101
-42	42	0	0	0	1	0	0	0	1723003101
-41	41	0	0	0	1	0	0	0	1723003101
-49	49	0	0	0	1	0	0	0	1723003101
-22	22	0	0	0	1	0	0	0	1723003101
-46	46	0	0	0	1	0	0	0	1723003101
-47	47	0	0	0	1	0	0	0	1723003101
-33	33	0	0	0	1	0	0	0	1723003101
-39	39	0	0	0	1	0	0	0	1723003101
-40	40	0	0	0	1	0	0	0	1723003101
-44	44	0	0	0	1	0	0	0	1723003101
-36	36	0	0	0	1	0	0	0	1723003101
-37	37	0	0	0	1	0	0	0	1723003101
-20	20	0	0	0	1	0	0	0	1723003101
-18	18	0	0	0	1	0	0	0	1723003101
-11	11	0	0	0	1	0	0	0	1723003101
-43	43	0	0	0	1	0	0	0	1723003101
-32	32	0	0	0	1	0	0	0	1723003101
-2	2	0	0	0	1	0	0	0	1723003101
-1	1	0	0	0	1	0	0	0	1723003101
-\.
-
-
---
--- Data for Name: analse; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.analse (id, aid, quantid, name, argv, verid, ctime, profit) FROM stdin;
-\.
-
-
---
--- Data for Name: analytics; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.analytics ("Start", "End", "Duration", "ExposureTime", "EquityFinal", "EquityPeak", "Return", "BuyAndHold", "ReturnAnn", "VolatilityAnn", "SharpeRatio", "SortinoRatio", "CalmarRatio", "MaxDrawdown", "AvgDrawdown", "MaxDrawdownDuration", "AvgDrawdownDuration", "Alpha", "Beta", id) FROM stdin;
-\.
-
-
---
--- Data for Name: comment; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.comment (id, ticket, side, quantid, oe) FROM stdin;
-\.
-
-
---
--- Data for Name: exdr; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.exdr (id, symbol, cash, shares, extype, ymd, outstanding, outstandend, marketcaping, marketcapend) FROM stdin;
-\.
-
-
---
--- Data for Name: fixsession; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.fixsession (id, beginstring, sendercompid, targetcompid, filestorepath, datadictionary, ctime, host, port) FROM stdin;
-1	FIX.4.4	EXECUTOR	CLIENT1	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-2	FIX.4.4	EXECUTOR	CLIENT2	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-3	FIX.4.4	EXECUTOR	CLIENT3	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-4	FIX.4.4	EXECUTOR	CLIENT4	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-5	FIX.4.4	EXECUTOR	CLIENT5	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-6	FIX.4.4	EXECUTOR	CLIENT6	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-7	FIX.4.4	EXECUTOR	CLIENT7	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-8	FIX.4.4	EXECUTOR	CLIENT8	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-9	FIX.4.4	EXECUTOR	CLIENT9	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-10	FIX.4.4	EXECUTOR	CLIENT10	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-11	FIX.4.4	EXECUTOR	CLIENT11	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-12	FIX.4.4	EXECUTOR	CLIENT12	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-13	FIX.4.4	EXECUTOR	CLIENT13	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-14	FIX.4.4	EXECUTOR	CLIENT14	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-15	FIX.4.4	EXECUTOR	CLIENT15	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-16	FIX.4.4	EXECUTOR	CLIENT16	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-17	FIX.4.4	EXECUTOR	CLIENT17	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-18	FIX.4.4	EXECUTOR	CLIENT18	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-19	FIX.4.4	EXECUTOR	CLIENT19	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-20	FIX.4.4	EXECUTOR	CLIENT20	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-21	FIX.4.4	EXECUTOR	CLIENT21	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-22	FIX.4.4	EXECUTOR	CLIENT22	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-23	FIX.4.4	EXECUTOR	CLIENT23	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-24	FIX.4.4	EXECUTOR	CLIENT24	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-25	FIX.4.4	EXECUTOR	CLIENT25	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-26	FIX.4.4	EXECUTOR	CLIENT26	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-27	FIX.4.4	EXECUTOR	CLIENT27	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-28	FIX.4.4	EXECUTOR	CLIENT28	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-29	FIX.4.4	EXECUTOR	CLIENT29	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-30	FIX.4.4	EXECUTOR	CLIENT30	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-31	FIX.4.4	EXECUTOR	CLIENT31	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-32	FIX.4.4	EXECUTOR	CLIENT32	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-33	FIX.4.4	EXECUTOR	CLIENT33	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-34	FIX.4.4	EXECUTOR	CLIENT34	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-35	FIX.4.4	EXECUTOR	CLIENT35	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-36	FIX.4.4	EXECUTOR	CLIENT36	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-37	FIX.4.4	EXECUTOR	CLIENT37	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-38	FIX.4.4	EXECUTOR	CLIENT38	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-39	FIX.4.4	EXECUTOR	CLIENT39	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-40	FIX.4.4	EXECUTOR	CLIENT40	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-41	FIX.4.4	EXECUTOR	CLIENT41	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-42	FIX.4.4	EXECUTOR	CLIENT42	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-43	FIX.4.4	EXECUTOR	CLIENT43	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-44	FIX.4.4	EXECUTOR	CLIENT44	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-45	FIX.4.4	EXECUTOR	CLIENT45	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-46	FIX.4.4	EXECUTOR	CLIENT46	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-47	FIX.4.4	EXECUTOR	CLIENT47	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-48	FIX.4.4	EXECUTOR	CLIENT48	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-49	FIX.4.4	EXECUTOR	CLIENT49	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-50	FIX.4.4	EXECUTOR	CLIENT50	store	/opt/e2q/spec/FIX44.xml	1723003101	127.0.0.1	5001
-\.
-
-
---
--- Data for Name: ohlc; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.ohlc (date, open, low, high, close, volume, key, id) FROM stdin;
-\.
-
-
---
--- Data for Name: profit; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.profit (id, "WinRate", "BestTrade", "WorstTrade", "AvgTrade", "MaxTradeDuration", "AvgTradeDuration", "ProfitFactor", "Expectancy", "SQN", "KellyCriterion") FROM stdin;
-\.
-
-
---
--- Data for Name: trade_info; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.trade_info (id, version, desz, ctime, active) FROM stdin;
-1	1.2.3	1.2.3	1721724103	0
-2	1.2.4	1.2.4	1721898359	0
-4	1.2.5	1.2.5	1722233331	0
-5	1.2.6	1.2.6	1722678439	0
-6	1.2.7	1.2.7	1722679135	0
-7	1.2.8	1.2.8	1728452488	0
-13	1.3.2	1.3.2	1744183496	0
-14	1.3.3	1.3.3	1744183532	0
-11	1.3.0	1.3.0	1744090538	0
-12	1.3.1	1.3.1	1744093993	1
-\.
-
-
---
--- Data for Name: trade_report; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.trade_report (id, ticket, sessionid, balance, credit, equity, leverage, freemargin, margin, profit, ctime, side) FROM stdin;
-\.
-
-
---
--- Data for Name: trades; Type: TABLE DATA; Schema: public; Owner: dbuser
---
-
-COPY public.trades (id, symbol, ticket, stat, side, qty, price, stoppx, slippage, ordtype, cumqty, avgpx, leavesqty, openqty, closetck, ctime, quantid, otime, adjpx, amount) FROM stdin;
-\.
-
-
---
--- Name: analselog_id_seq; Type: SEQUENCE SET; Schema: api; Owner: dbuser
---
-
-SELECT pg_catalog.setval('api.analselog_id_seq', 1, false);
-
-
---
--- Name: todos_id_seq; Type: SEQUENCE SET; Schema: api; Owner: dbuser
---
-
-SELECT pg_catalog.setval('api.todos_id_seq', 1, false);
-
-
---
--- Name: account_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.account_id_seq', 50, true);
-
-
---
--- Name: analytics_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.analytics_id_seq', 1, false);
-
-
---
--- Name: comment_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.comment_id_seq', 1, false);
-
-
---
--- Name: exdr_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.exdr_id_seq', 1, false);
-
-
---
--- Name: fixsession_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.fixsession_id_seq', 50, true);
-
-
---
--- Name: indicator_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.indicator_id_seq', 1, false);
-
-
---
--- Name: ohlc_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.ohlc_id_seq', 1, false);
-
-
---
--- Name: trade_info_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.trade_info_id_seq', 14, true);
-
-
---
--- Name: trade_report_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.trade_report_id_seq', 1, false);
-
-
---
--- Name: trades_id_seq; Type: SEQUENCE SET; Schema: public; Owner: dbuser
---
-
-SELECT pg_catalog.setval('public.trades_id_seq', 1, false);
-
-
---
--- Name: analselog analselog_pkey; Type: CONSTRAINT; Schema: api; Owner: dbuser
---
-
-ALTER TABLE ONLY api.analselog
-    ADD CONSTRAINT analselog_pkey PRIMARY KEY (id);
-
-
---
--- Name: stockinfo todos_pkey; Type: CONSTRAINT; Schema: api; Owner: dbuser
---
-
-ALTER TABLE ONLY api.stockinfo
-    ADD CONSTRAINT todos_pkey PRIMARY KEY (id);
-
-
---
 -- Name: profit Trades_pkey; Type: CONSTRAINT; Schema: public; Owner: dbuser
 --
 
@@ -1882,6 +1839,14 @@ ALTER TABLE ONLY public.profit
 
 ALTER TABLE ONLY public.account
     ADD CONSTRAINT account_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: analselog analselog_pkey; Type: CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.analselog
+    ADD CONSTRAINT analselog_pkey PRIMARY KEY (id);
 
 
 --
@@ -1925,6 +1890,14 @@ ALTER TABLE ONLY public.ohlc
 
 
 --
+-- Name: stockinfo todos_pkey; Type: CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.stockinfo
+    ADD CONSTRAINT todos_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: trade_info trade_info_pkey; Type: CONSTRAINT; Schema: public; Owner: dbuser
 --
 
@@ -1949,17 +1922,17 @@ ALTER TABLE ONLY public.trades
 
 
 --
--- Name: ctime_1731564753404_index; Type: INDEX; Schema: api; Owner: dbuser
+-- Name: ctime_1731564753404_index; Type: INDEX; Schema: public; Owner: dbuser
 --
 
-CREATE INDEX ctime_1731564753404_index ON api.analselog USING btree (ctime);
+CREATE INDEX ctime_1731564753404_index ON public.analselog USING btree (ctime);
 
 
 --
--- Name: idx_1731564760831_index; Type: INDEX; Schema: api; Owner: dbuser
+-- Name: idx_1731564760831_index; Type: INDEX; Schema: public; Owner: dbuser
 --
 
-CREATE INDEX idx_1731564760831_index ON api.analselog USING btree (type);
+CREATE INDEX idx_1731564760831_index ON public.analselog USING btree (type);
 
 
 --
@@ -1970,24 +1943,38 @@ CREATE UNIQUE INDEX index_ohlc_on_key_and_date ON public.ohlc USING btree (key, 
 
 
 --
--- Name: tckidx; Type: INDEX; Schema: public; Owner: dbuser
+-- Name: key_1746496119188_index; Type: INDEX; Schema: public; Owner: dbuser
 --
 
-CREATE INDEX tckidx ON public.trades USING btree (ticket);
-
-
---
--- Name: tckstatidx; Type: INDEX; Schema: public; Owner: dbuser
---
-
-CREATE INDEX tckstatidx ON public.trades USING btree (ticket, stat);
+CREATE INDEX key_1746496119188_index ON public.analselog USING btree (key);
 
 
 --
--- Name: ticket_1731489144408_index; Type: INDEX; Schema: public; Owner: dbuser
+-- Name: quantid_1748398520595_index; Type: INDEX; Schema: public; Owner: dbuser
 --
 
-CREATE UNIQUE INDEX ticket_1731489144408_index ON public.comment USING btree (ticket);
+CREATE UNIQUE INDEX quantid_1748398520595_index ON public.analse USING btree (quantid);
+
+
+--
+-- Name: stat_price_1746496685474_index; Type: INDEX; Schema: public; Owner: dbuser
+--
+
+CREATE INDEX stat_price_1746496685474_index ON public.trades USING btree (stat, price);
+
+
+--
+-- Name: stat_stoppx_1746496694259_index; Type: INDEX; Schema: public; Owner: dbuser
+--
+
+CREATE INDEX stat_stoppx_1746496694259_index ON public.trades USING btree (stat, stoppx);
+
+
+--
+-- Name: ticket_1748400505161_index; Type: INDEX; Schema: public; Owner: dbuser
+--
+
+CREATE INDEX ticket_1748400505161_index ON public.trades USING btree (ticket);
 
 
 --
@@ -1999,24 +1986,89 @@ ALTER TABLE ONLY public.account
 
 
 --
--- Name: SCHEMA api; Type: ACL; Schema: -; Owner: dbuser
+-- Name: analse analse_verid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
 --
 
-GRANT USAGE ON SCHEMA api TO web_anon;
-
-
---
--- Name: TABLE analselog; Type: ACL; Schema: api; Owner: dbuser
---
-
-GRANT SELECT ON TABLE api.analselog TO web_anon;
+ALTER TABLE ONLY public.analse
+    ADD CONSTRAINT analse_verid_fkey FOREIGN KEY (verid) REFERENCES public.trade_info(id);
 
 
 --
--- Name: TABLE stockinfo; Type: ACL; Schema: api; Owner: dbuser
+-- Name: analselog analselog_quantid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
 --
 
-GRANT SELECT ON TABLE api.stockinfo TO web_anon;
+ALTER TABLE ONLY public.analselog
+    ADD CONSTRAINT analselog_quantid_fkey FOREIGN KEY (quantid) REFERENCES public.analse(quantid);
+
+
+--
+-- Name: comment comment_ticket_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.comment
+    ADD CONSTRAINT comment_ticket_fkey FOREIGN KEY (ticket) REFERENCES public.trades(id);
+
+
+--
+-- Name: exdr exdr_symbol_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.exdr
+    ADD CONSTRAINT exdr_symbol_fkey FOREIGN KEY (symbol) REFERENCES public.stockinfo(id);
+
+
+--
+-- Name: stockinfo stockinfo_verid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.stockinfo
+    ADD CONSTRAINT stockinfo_verid_fkey FOREIGN KEY (verid) REFERENCES public.trade_info(id);
+
+
+--
+-- Name: trade_report trade_report_sessionid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.trade_report
+    ADD CONSTRAINT trade_report_sessionid_fkey FOREIGN KEY (sessionid) REFERENCES public.fixsession(id);
+
+
+--
+-- Name: trade_report trade_report_ticket_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.trade_report
+    ADD CONSTRAINT trade_report_ticket_fkey FOREIGN KEY (ticket) REFERENCES public.trades(id);
+
+
+--
+-- Name: trades trades_quantid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.trades
+    ADD CONSTRAINT trades_quantid_fkey FOREIGN KEY (quantid) REFERENCES public.analse(quantid);
+
+
+--
+-- Name: trades trades_symbol_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.trades
+    ADD CONSTRAINT trades_symbol_fkey FOREIGN KEY (symbol) REFERENCES public.stockinfo(id);
+
+
+--
+-- Name: TABLE analselog; Type: ACL; Schema: public; Owner: dbuser
+--
+
+GRANT SELECT ON TABLE public.analselog TO web_anon;
+
+
+--
+-- Name: TABLE stockinfo; Type: ACL; Schema: public; Owner: dbuser
+--
+
+GRANT SELECT ON TABLE public.stockinfo TO web_anon;
 
 
 --

@@ -82,8 +82,10 @@ void STLog::TicketComment(std::size_t quantid, std::size_t ticket, int side,
 
     if (gval == nullptr) {
         pgsql->insert_table("comment");
+        std::string ticket_to_id = log::format(
+            "(select id from trades where ticket='%ld'  limit 1)", ticket);
         pgsql->insert_field("quantid", quantid);
-        pgsql->insert_field("ticket", ticket);
+        pgsql->insert_field("ticket", ticket_to_id);
         pgsql->insert_field("side", side);
         pgsql->insert_field("oe", oe);
         pgsql->insert_commit();

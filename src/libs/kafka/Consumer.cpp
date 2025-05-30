@@ -113,7 +113,6 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     if (sinit.CfiCode > 0) {
         sinit.CfiCode += E2QCfiStart;
     }
-
     sinit.Itype = *(p + idx);
     idx++;
 
@@ -125,12 +124,13 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
 
     std::size_t gidx = GlobalDBPtr->getId();
     Pgsql *gsql = GlobalDBPtr->ptr(gidx);
-    std::string table = "api.";
+    std::string table = "public.";
     if (gsql != nullptr) {
         gsql->public_table(table);
         gsql->insert_table("stockinfo");
         gsql->insert_field("symbol", sinit.CfiCode);
         gsql->insert_field("stock", sinit.Stock);
+        gsql->insert_field("verid", FinFabr->_QuantVerId);
         gsql->insert_commit();
     }
 
@@ -232,15 +232,23 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         FinFabr->_exrd.insert({cfiCode, nodes});
     }
     else {
+        ExRD c_node = FinFabr->_exrd[cfiCode].back();
+        if (c_node._ymd == node._ymd && c_node._extype == node._extype) {
+            // 小于日是线级别的时候，可能会重复传送这个数据
+            // 在这儿过滤一下
+            return;
+        }
         FinFabr->_exrd.at(cfiCode).push_back(node);
     }
 
     std::size_t gidx = GlobalDBPtr->getId();
     Pgsql *gsql = GlobalDBPtr->ptr(gidx);
-
+    std::string cfi_str = log::format(
+        "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC LIMIT 1 )",
+        saxm.CfiCode);
     if (gsql != nullptr) {
         gsql->insert_table("exdr");
-        gsql->insert_field("symbol", saxm.CfiCode);
+        gsql->insert_field("symbol", cfi_str);
         gsql->insert_field("cash", cash);
         gsql->insert_field("shares", shares);
         gsql->insert_field("extype", (int)node._extype);
@@ -269,12 +277,13 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         char *field = nullptr;
         char *val = nullptr;
 
-        std::string sql =
-            "SELECT \"ticket\" from \"trades\" WHERE \"symbol\"=" +
-            std::to_string(saxm.CfiCode) +
-            " AND  \"side\" = 1 "
-            "AND \"stat\" = 2 AND \"ticket\" not IN (SELECT \"closetck\" from "
-            "\"trades\") ORDER BY id;  ";
+        std::string sql = log::format(
+            "SELECT ticket from trades WHERE symbol = (SELECT id FROM "
+            "stockinfo "
+            "WHERE symbol =%d ORDER BY id DESC LIMIT 1)  AND  side = 1  AND "
+            "stat = 2 AND ticket not IN (SELECT closetck from  trades) ORDER "
+            "BY id; ",
+            saxm.CfiCode);
 
         bool r = gsql->select_sql(sql);
 

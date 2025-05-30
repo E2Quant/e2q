@@ -42,7 +42,9 @@
  */
 #include "E2L/general.hpp"
 
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <thread>
 
@@ -71,7 +73,8 @@ void log(e2::Int_e s, const char *_vname, e2::Int_e loc, const char *_path)
 {
     std::thread::id tid = std::this_thread::get_id();
 
-    char *p = e2q::elog.log(tid);
+    char *p = nullptr;
+    e2q::elog.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);
@@ -121,7 +124,8 @@ void PrintLine(e2::Int_e s, const char *_vname, e2::Int_e loc,
     // }
     std::thread::id tid = std::this_thread::get_id();
 
-    char *p = e2q::elog.log(tid);
+    char *p = nullptr;
+    e2q::elog.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);
@@ -157,7 +161,9 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
 
     std::thread::id tid = std::this_thread::get_id();
 
-    char *p = e2q::elog.log(tid);
+    char *p = nullptr;
+
+    e2q::elog.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);
@@ -206,7 +212,8 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
 
     std::thread::id tid = std::this_thread::get_id();
 
-    char *p = e2q::elog.log(tid);
+    char *p = nullptr;
+    e2q::elog.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);

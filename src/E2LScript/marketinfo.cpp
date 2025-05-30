@@ -47,6 +47,7 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
@@ -118,12 +119,15 @@ e2::Int_e SymbolCFICode(e2::Int_e idx)
     if (_id >= e2q::FixPtr->_fix_symbols.size()) {
         _id = 0;
     }
+
     std::size_t m = 0;
     std::size_t cfi = 0;
     for (auto it : e2q::FixPtr->_fix_symbols) {
         if (m == _id) {
             cfi = it.first;
+            break;
         }
+        m++;
     }
 
     return VALNUMBER(cfi);
@@ -252,24 +256,11 @@ e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
     if (timeframe == e2::TimeFrames::PERIOD_CURRENT) {
         timeframe = e2q::FixPtr->_current_tf;
     }
-    e2::Int_e ret = 0;
 
     std::thread::id pid;
     E2LBAR(pid);
+    e2::Bool _bool = e2q::e2l_bar_ohlc.update(pid, stock, timeframe, shift);
 
-    e2::Bool _bool = e2::Bool::B_FALSE;
-    std::array<e2q::SeqType, ohlc_column> bar;
-    std::size_t idx = 0;
-
-    if (e2q::e2l_cnt != nullptr) {
-        idx = e2q::e2l_cnt->data_ptr->idx(stock, timeframe);
-        ret = e2q::e2l_cnt->data_ptr->read(bar, stock, timeframe, shift);
-        if (ret != -1) {
-            e2q::e2l_bar_ohlc.update(pid, idx, bar);
-
-            _bool = e2::Bool::B_TRUE;
-        }
-    }
     return _bool;
 } /* -----  end of function Bar  ----- */
 
@@ -315,7 +306,7 @@ e2::Int_e BarSeries(e2::BarType bt)
  */
 e2::Int_e iOpen(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -340,7 +331,7 @@ e2::Int_e iOpen(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iHigh(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
         return ret;
@@ -372,7 +363,7 @@ e2::Int_e iHighest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
     start = NUMBERVAL(start);
 
     int isread = 0;
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
     std::array<e2q::SeqType, ohlc_column> ohlc;
     if (e2q::e2l_cnt != nullptr) {
         e2::Int_e next = count + start;
@@ -402,7 +393,7 @@ e2::Int_e iHighest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
  */
 e2::Int_e iLow(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
         return ret;
@@ -443,7 +434,7 @@ e2::Int_e iLowest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
  */
 e2::Int_e iClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -467,7 +458,7 @@ e2::Int_e iClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iAdjClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -493,7 +484,7 @@ e2::Int_e iAdjClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iVolume(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -517,7 +508,7 @@ e2::Int_e iVolume(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iTime(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = 0;
+    e2::Int_e ret = -1;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {

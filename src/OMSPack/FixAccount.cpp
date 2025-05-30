@@ -94,6 +94,8 @@ FixAccount::FixAccount() {
 void FixAccount::onMessage(const FIX44::Heartbeat& message,
                            const FIX::SessionID&)
 {
+    log::echo("2");
+
 } /* -----  end of function FixAccount::onMessage  ----- */
 
 /*
@@ -166,7 +168,6 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
 {
     FIX_PTR_IS_NULL();
     // log::echo(msg.toXML());
-    log::echo("massquote...");
     FIX44::MassQuote::NoQuoteSets nqs;
     FIX44::MassQuote::NoQuoteSets::NoQuoteEntries pid;
     FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents pdate;
@@ -1272,14 +1273,9 @@ void FixAccount::quit()
         return;
     }
 
-    // log::echo("quant id size:", FixPtr->_quantId.size());
-
     for (auto it : FixPtr->_quantId) {
         total_cash = 0;
         for (auto oc : FixPtr->_cash.order_cash) {
-            // log::echo(oc.second.thread_number, ". ticket:", oc.first,
-            //           " freeze:", oc.second.equity,
-            //           " margin:", oc.second.margin);
             if (oc.second.thread_number == it.second.second) {
                 total_cash += oc.second.margin;
                 break;
@@ -1289,10 +1285,6 @@ void FixAccount::quit()
             FixPtr->_cash._thread_pos.count(it.second.second) > 0) {
             total_cash +=
                 FixPtr->_cash._thread_pos.at(it.second.second)._total_cash;
-            // log::echo(
-            //     it.second.second, ". quantId:", it.second.first, " total:",
-            //     FixPtr->_cash._thread_pos.at(it.second.second)._total_cash,
-            //     " all total:", total_cash);
         }
 
         if (FixPtr->_cash._tsize == 0) {

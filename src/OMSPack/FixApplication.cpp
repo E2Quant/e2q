@@ -103,8 +103,12 @@ void FixApplication::toFeedData(_Resource_ptr ptr,
 void FixApplication::onLogon(const FIX::SessionID& sid)
 {
     std::vector<std::size_t> symbols;
-    log::info("onlogin..");
-    SessionSymList[sid] = symbols;
+    if (SessionSymList.count(sid) == 0) {
+        SessionSymList[sid] = symbols;
+    }
+    else {
+        log::info("sid is login ok");
+    }
 
 } /* -----  end of function FixApplication::onLogon  ----- */
 
@@ -231,6 +235,7 @@ void FixApplication::fromApp(const FIX::Message& msg, const FIX::SessionID& sid)
 void FixApplication::onMessage(const FIX44::Heartbeat& message,
                                const FIX::SessionID&)
 {
+    log::echo("11");
 } /* -----  end of function FixApplication::onMessage  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -597,8 +602,13 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
                     break;
                 }
             }
+            std::string cfi_str = log::format(
+                "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC "
+                "LIMIT "
+                "1 )",
+                cfi);
             gsql->insert_table("trades");
-            gsql->insert_field("symbol", cfi);
+            gsql->insert_field("symbol", cfi_str);
             gsql->insert_field("ticket", ticket);
             gsql->insert_field("stat", 8);
             gsql->insert_field("ctime", ticket_now);
@@ -654,6 +664,7 @@ void FixApplication::FeedDataHandle()
         if (price == 0) {
             return adj_ret;
         }
+
         std::string sym = "";
         for (auto it : FinFabr->_fix_symbols) {
             if (it.first == cfi) {
@@ -661,20 +672,21 @@ void FixApplication::FeedDataHandle()
                 break;
             }
         }
+
         if (GlobalMatcher->OrdTypePending()) {
             GlobalMatcher->TopLevelPrice(sym, price);
         }
+
         if (this->_program != nullptr) {
             //  先这样吧，以后再优化
 
-            double cfi_d = VALNUMBER(cfi);
-            ExdiSymList.addPrice(cfi_d, price);
             ticket_now = now;
+            adj_ret = price;
+
             if (FinFabr->_enable_exrd == e2::Bool::B_TRUE) {
+                double cfi_d = VALNUMBER(cfi);
+                ExdiSymList.addPrice(cfi_d, price);
                 adj_ret = this->_program->toScript(e2::OMSRisk::I_OMS, cfi);
-            }
-            else {
-                adj_ret = price;
             }
         }
 
@@ -772,7 +784,7 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
 
         risk = _program->toScriptSafe(e2::OMSRisk::I_RISK, symbol);
 
-        if (FinFabr->_BookType == e2::BookType::BBook) {
+        if (FinFabr->_BookType == e2::BookType::BBook && risk == 0) {
             FIX::SessionID botsid;
 
             SeqType ticket = GlobalMatcher->sequence(botsid, side);
@@ -916,8 +928,8 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
         }
         if (ret == false) {
             GlobalMatcher->freeMargin(sid, ticket, margin);
-            rejectOrder(sid, clOrdID, symbol, side, "process order", ticket,
-                        qid, order_qty, order_price);
+            rejectOrder(sid, clOrdID, symbol, side, "risk == -1, process order",
+                        ticket, qid, order_qty, order_price);
         }
     }
     catch (std::exception& e) {

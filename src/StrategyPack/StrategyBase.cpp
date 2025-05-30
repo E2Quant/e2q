@@ -49,15 +49,12 @@
 #include <ctime>
 #include <exception>
 #include <memory>
-#include <stdexcept>
 #include <thread>
 #include <utility>
-#include <vector>
 
 #include "E2L/E2LType.hpp"
 #include "E2L/general.hpp"
 #include "E2LScript/util_inline.hpp"
-#include "libs/kafka/protocol/proto.hpp"
 
 namespace e2q {
 
@@ -178,6 +175,10 @@ void StrategyBase::runScript()
             FixPtr->_quantId.insert({_id, {_uuid, num}});
 
             e2q::e2_analse.init(_id);
+
+#ifndef KAFKALOG
+            elog.init(_id);
+#endif
         }
     };  // -----  end lambda  -----
 
@@ -191,6 +192,7 @@ void StrategyBase::runScript()
 
         // try {
         this->_program.toScript(tk_size, num);
+        e2l_thread_map.runs(_id);
         // }
         // catch (std::exception &e) {
         //     log::bug(e.what(), " num:", num);
@@ -230,6 +232,7 @@ void StrategyBase::runScript()
 
     elog.exist();
 
+    //    e2l_thread_map.dump();
     /**
      * 先不管，到时候 优化再做
      */

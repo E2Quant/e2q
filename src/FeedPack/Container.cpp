@@ -50,6 +50,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "Toolkit/Norm.hpp"
@@ -293,8 +294,6 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
             ohlc[OHLC_T::volume_t] = data[Trading::t_qty];
             ohlc[OHLC_T::adjclose_t] = data[Trading::t_adjprice];
 
-            _cells.at(stock).at(m).idx++;
-
             if (pause) {
                 _cells.at(stock).at(m).data->push(0, ohlc);
             }
@@ -318,10 +317,10 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
                 ohlc[OHLC_T::volume_t] += data[Trading::t_qty];
             }
 
-            _cells.at(stock).at(m).idx++;
-
             _cells.at(stock).at(m).data->push(0, ohlc);
         }
+
+        _cells.at(stock).at(m).idx++;
     }
 
     return stock;
@@ -525,6 +524,7 @@ void Container::emit()
 void Container::quit()
 {
     SeqType n = 1;
+    //  dump();
     while (n > 0) {
         _trigger->turn(E2Q_EXIST);
         _trigger->emit();
@@ -673,4 +673,68 @@ int Container::tail(std::array<SeqType, ohlc_column>& ohlc)
     }
     return ret;
 } /* -----  end of function Container::tail  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Container::dump
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void Container::dump()
+{
+    size_t stock = 0;
+    std::array<std::array<e2q::SeqType, ohlc_column>, 5> bar;
+
+    for (auto it : _cells) {
+        stock = it.first;
+        log::echo("cfi:", stock);
+
+        for (auto cs : it.second) {
+            log::info("idx:", cs.idx, " frame:", cs.frame);
+            cs.data->read(&bar);
+            logs(bar);
+        }
+    }
+} /* -----  end of function Container::dump  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Container::logs
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void Container::logs(std::array<std::array<e2q::SeqType, ohlc_column>, 5> bar)
+{
+    UtilTime ut;
+    const char* fmt = "%Y-%m-%d %H:%M";
+
+    bprinter::TablePrinter tp(&std::cout);
+    tp.AddColumn("time", 20);
+    tp.AddColumn("open", 10);
+    tp.AddColumn("high", 10);
+    tp.AddColumn("low", 10);
+    tp.AddColumn("close", 10);
+    tp.AddColumn("volume", 10);
+
+    tp.PrintHeader();
+
+    for (auto bnum : bar) {
+        tp << ut.millitostr(bnum[OHLC_T::ohlc_t], fmt) << bnum[OHLC_T::open_t]
+           << bnum[OHLC_T::high_t] << bnum[OHLC_T::low_t]
+           << bnum[OHLC_T::close_t] << bnum[OHLC_T::volume_t];
+    }
+
+    tp.PrintFooter();
+
+} /* -----  end of function Container::logs  ----- */
 }  // namespace e2q

@@ -52,6 +52,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <iterator>
 #include <map>
@@ -108,7 +109,7 @@ struct __AutoInc_t {
             _autoinc.at(_id)->_number = num;
         }
     }
-
+    void runs(std::thread::id _id) { _autoinc.at(_id)->_run_number += 1; }
     e2::Int_e Id(std::thread::id _id)
     {
         if (_autoinc.count(_id) == 1) {
@@ -130,6 +131,12 @@ struct __AutoInc_t {
             return _autoinc.at(_id)->_number;
         }
         return 0;
+    }
+    void dump()
+    {
+        for (auto it : _autoinc) {
+            log::echo("it:", it.second->_run_number);
+        }
     }
 
 private:
@@ -209,10 +216,10 @@ inline Silk_t e2l_silk;
 struct __BarOHLC_t {
     void init(std::thread::id _id)
     {
-        BasicLock _lock(_EMute);
         std::array<e2q::SeqType, ohlc_column> bar{0};
 
         if (_bar_ohlc.count(_id) == 0) {
+            BasicLock _lock(_EMute);
             std::size_t idx = 0;
             _bar_ohlc.insert({_id, {idx, bar}});
         }
@@ -224,40 +231,62 @@ struct __BarOHLC_t {
             log::bug("bad thread id");
             return 0;
         }
-        return _bar_ohlc.at(_id).second.size();
+        return _bar_ohlc.at(_id).ohlc.size();
     }
 
     e2::Int_e value(std::thread::id _id, e2::BarType bt)
     {
         if (_bar_ohlc.count(_id) == 0) {
-            log::bug("bad thread id");
             return 0;
         }
-        return _bar_ohlc.at(_id).second[bt];
+        e2::Int_e r = _bar_ohlc.at(_id).ohlc[bt];
+
+        return r;
     }
 
-    void update(std::thread::id _id, size_t idx,
-                std::array<e2q::SeqType, ohlc_column> bar)
+    e2::Bool update(std::thread::id _id, size_t stock, e2::TimeFrames timeframe,
+                    e2::Int_e shift)
     {
-        if (_bar_ohlc.count(_id) == 0) {
-            log::bug("bad thread id");
-            return;
+        e2::Bool _bool = e2::Bool::B_FALSE;
+
+        if (_bar_ohlc.count(_id) == 0 || e2q::e2l_cnt == nullptr) {
+            log::bug("e2l_cnt is null");
+            return _bool;
         }
+        std::size_t idx = e2q::e2l_cnt->data_ptr->idx(stock, timeframe);
+        // if (idx == _bar_ohlc.at(_id).idx) {
+        //     return e2::Bool::B_TRUE;
+        // }
+
         BasicLock _lock(_EMute);
         clear(_id);
-        _bar_ohlc.at(_id).second = bar;
-        _bar_ohlc.at(_id).first = idx;
+        e2::Int_e ret = 0;
+
+        ret = e2q::e2l_cnt->data_ptr->read(_bar_ohlc.at(_id).ohlc, stock,
+                                           timeframe, shift);
+        if (ret != -1) {
+            _bar_ohlc.at(_id).idx = idx;
+            _bool = e2::Bool::B_TRUE;
+        }
+
+        return _bool;
     }
 
 private:
     void clear(std::thread::id _id)
     {
-        std::fill(_bar_ohlc.at(_id).second.begin(),
-                  _bar_ohlc.at(_id).second.end(), 0);
+        for (std::size_t m = 0; m < ohlc_column; m++) {
+            _bar_ohlc.at(_id).ohlc[m] = 0;
+        }
     }
-    std::map<std::thread::id,
-             std::pair<std::size_t, std::array<e2q::SeqType, ohlc_column>>>
-        _bar_ohlc;
+
+    struct __ohlc_t {
+        std::size_t idx;
+        std::array<e2q::SeqType, ohlc_column> ohlc;
+        std::size_t shift;
+    }; /* ----------  end of struct __ohlc_t  ---------- */
+
+    std::map<std::thread::id, __ohlc_t> _bar_ohlc;
 
     using EMute = BasicLock::mutex_type;
     mutable EMute _EMute;
@@ -268,11 +297,12 @@ typedef struct __BarOHLC_t BarOHLC_t;
 
 inline BarOHLC_t e2l_bar_ohlc;
 
-#define E2LBAR(id)                      \
-    ({                                  \
-        do {                            \
-            e2q::e2l_bar_ohlc.init(id); \
-        } while (0);                    \
+#define E2LBAR(id)                           \
+    ({                                       \
+        do {                                 \
+            id = std::this_thread::get_id(); \
+            e2q::e2l_bar_ohlc.init(id);      \
+        } while (0);                         \
     })
 
 struct __OrderStruct {
@@ -628,137 +658,6 @@ typedef struct __ExdiType ExdiType;
 inline ExdiType ExdiSymList;
 
 // 二进制记录日是志
-struct LogProtoBin_t {
-    void init(std::thread::id tid)
-    {
-        if (_ldata.count(tid) == 0) {
-            BasicLock _lock(_EMute);
-            FILE *pFile;
-            std::size_t idh = _idx++;
-            auto dirIter = std::filesystem::directory_iterator(_dir);
-
-            for (auto &entry : dirIter) {
-                if (entry.is_regular_file()) {
-                    ++idh;
-                }
-            }
-
-            struct stat info;
-
-            if (stat(_dir.c_str(), &info) != 0) {
-                mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            }
-            else if (info.st_mode & S_IFDIR) {
-            }
-            else {
-                mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            }
-
-            std::string path = _dir + log::format("%d_%ld_.log", getpid(), idh);
-            pFile = fopen(path.c_str(), "wb");
-            _ldata.insert({tid, pFile});
-        }
-    }
-    void release()
-    {
-        for (auto it : _ldata) {
-            fflush(it.second);
-            fclose(it.second);
-        }
-    }
-    void data(const char *p, std::size_t len, std::thread::id tid)
-    {
-        FILE *pFile = nullptr;
-        if (_ldata.count(tid) == 0) {
-            init(tid);
-        }
-        if (p == nullptr || len <= 0) {
-            return;
-        }
-        pFile = _ldata.at(tid);
-        fwrite(p, sizeof(char), len, pFile);
-
-        fputc('\0', pFile);
-
-        auto fun = [this](std::thread::id tid) {
-            if (_isFlush == 0) {
-                _isFlush = ticket_now;
-                return;
-            }
-            if (_isFlush == ticket_now) {
-                return;
-            }
-            _isFlush = ticket_now;
-            FILE *pFile = this->_ldata.at(tid);
-            fflush(pFile);
-        };  // -----  end lambda  -----
-
-        THREAD_FUN(fun, tid);
-    }
-
-private:
-    std::map<std::thread::id, FILE *> _ldata;
-
-    std::size_t _idx = 0;
-    std::size_t _isFlush = 0;
-    using EMute = BasicLock::mutex_type;
-    mutable EMute _EMute;
-
-    // 以后再自定义吧
-    std::string _dir = "./log/";
-}; /* ----------  end of struct LogProtoBin_t  ---------- */
-
-typedef struct LogProtoBin_t LogProtoBin_t;
-
-#ifdef KAFKALOG
-struct LogProtoPtr_t : public Producer {
-#else
-struct LogProtoPtr_t : public LogProtoBin_t {
-#endif
-    char *log(std::thread::id tid)
-    {
-        BasicLock _lock(_EMute);
-        std::hash<std::thread::id> hasher;
-        std::size_t idh = hasher(tid);
-        char *ptr = nullptr;
-        if (_data.count(idh) == 0) {
-            ptr = (char *)calloc(elm_size, sizeof(char *));
-            _data.insert({idh, ptr});
-        }
-        else {
-            ptr = _data.at(idh);
-        }
-        return ptr;
-    }
-    void exist()
-    {
-        for (auto it : _data) {
-            free(it.second);
-            it.second = nullptr;
-        }
-#ifdef KAFKALOG
-        Producer::exist();
-#else
-        LogProtoBin_t::release();
-#endif
-    }
-
-private:
-    std::size_t elm_size = fldsiz(E2LScriptLogMessage, MsgType) +
-                           fldsiz(E2LScriptLogMessage, logt) +
-                           fldsiz(E2LScriptLogMessage, value) +
-                           fldsiz(E2LScriptLogMessage, loc) +
-                           fldsiz(E2LScriptLogMessage, ticket_now) +
-                           fldsiz(E2LScriptLogMessage, pid) +
-                           fldsiz(E2LScriptLogMessage, vname_len) +
-                           fldsiz(E2LScriptLogMessage, path_len) +
-                           fldsiz(E2LScriptLogMessage, alpha);
-    std::map<std::size_t, char *> _data;
-    using EMute = BasicLock::mutex_type;
-    mutable EMute _EMute;
-}; /* ----------  end of struct LogProtoPtr_t  ---------- */
-
-typedef struct LogProtoPtr_t LogProtoPtr_t;
 
 struct LogProto_t {
     void data(char *ptr)
@@ -852,6 +751,144 @@ private:
 }; /* ----------  end of struct LogProto_t  ---------- */
 
 typedef struct LogProto_t LogProto_t;
+
+struct LogProtoBin_t {
+    void init(std::thread::id tid)
+    {
+        if (_ldata.count(tid) == 1) {
+            return;
+        }
+        BasicLock _lock(_EMute);
+        FILE *pFile;
+        std::size_t idh = _idx++;
+        auto dirIter = std::filesystem::directory_iterator(_dir);
+
+        for (auto &entry : dirIter) {
+            if (entry.is_regular_file()) {
+                ++idh;
+            }
+        }
+
+        struct stat info;
+
+        if (stat(_dir.c_str(), &info) != 0) {
+            mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        }
+        else if (info.st_mode & S_IFDIR) {
+        }
+        else {
+            mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        }
+
+        std::string path = _dir + log::format("%d_%ld_.log", getpid(), idh);
+        pFile = fopen(path.c_str(), "wb");
+        _ldata.insert({tid, pFile});
+    }
+    void release()
+    {
+        for (auto it : _ldata) {
+            fflush(it.second);
+            fclose(it.second);
+        }
+    }
+    void data(const char *p, std::size_t len, std::thread::id tid)
+    {
+        if (p == nullptr || len <= 0 || _ldata.count(tid) == 0) {
+            log::bug("data tid");
+            return;
+        }
+        BasicLock _lock(_EMute);
+        FILE *pFile = _ldata.at(tid);
+        std::size_t size_l = fwrite(p, sizeof(char), len, pFile);
+        if (size_l != (len)) {
+            log::echo("size_l:", size_l, " len:", len);
+        }
+        fputc('\0', pFile);
+
+        auto fun = [this](std::thread::id tid, FILE *pFile) {
+            if (_isFlush == 0) {
+                _isFlush = ticket_now;
+                return;
+            }
+            if (_isFlush == ticket_now) {
+                return;
+            }
+            _isFlush = ticket_now;
+            fflush(pFile);
+        };  // -----  end lambda  -----
+
+        THREAD_FUN(fun, tid, pFile);
+    }
+
+private:
+    std::map<std::thread::id, FILE *> _ldata;
+
+    std::size_t _idx = 0;
+    std::size_t _isFlush = 0;
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+
+    // 以后再自定义吧
+    std::string _dir = "./log/";
+}; /* ----------  end of struct LogProtoBin_t  ---------- */
+
+typedef struct LogProtoBin_t LogProtoBin_t;
+
+#ifdef KAFKALOG
+struct LogProtoPtr_t : public Producer {
+#else
+struct LogProtoPtr_t : public LogProtoBin_t {
+#endif
+    void log(std::thread::id tid, char **ptr)
+    {
+        BasicLock _lock(_EMute);
+        std::hash<std::thread::id> hasher;
+        std::size_t idh = hasher(tid);
+
+        if (_data.count(idh) == 0) {
+            char *ptr_t = (char *)calloc(elm_size, sizeof(char *));
+            std::pair<char *, std::size_t> aval = {ptr_t, 0};
+            _data.insert({idh, aval});
+        }
+
+        _data.at(idh).second += 1;
+        *ptr = _data.at(idh).first;
+        memset(*ptr, '\0', elm_size);
+    }
+
+    std::size_t len() { return elm_size; }
+    void exist()
+    {
+        // for (auto it : _data) {
+        //     free(it.second.first);
+        //     it.second.first = nullptr;
+
+        //     log::info("use size:", it.second.second);
+        // }
+#ifdef KAFKALOG
+        Producer::exist();
+#else
+        LogProtoBin_t::release();
+#endif
+    }
+
+private:
+    std::size_t elm_size = fldsiz(E2LScriptLogMessage, MsgType) +
+                           fldsiz(E2LScriptLogMessage, logt) +
+                           fldsiz(E2LScriptLogMessage, value) +
+                           fldsiz(E2LScriptLogMessage, loc) +
+                           fldsiz(E2LScriptLogMessage, ticket_now) +
+                           fldsiz(E2LScriptLogMessage, pid) +
+                           fldsiz(E2LScriptLogMessage, vname_len) +
+                           fldsiz(E2LScriptLogMessage, path_len) +
+                           fldsiz(E2LScriptLogMessage, alpha);
+
+    std::map<std::size_t, std::pair<char *, std::size_t>> _data;
+    using EMute = BasicLock::mutex_type;
+    mutable EMute _EMute;
+}; /* ----------  end of struct LogProtoPtr_t  ---------- */
+
+typedef struct LogProtoPtr_t LogProtoPtr_t;
 
 inline LogProtoPtr_t elog;
 

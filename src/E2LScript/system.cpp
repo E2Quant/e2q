@@ -46,6 +46,7 @@
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
 /*
@@ -116,7 +117,9 @@ void ethread(e2::Int_e num)
         _num = 1;
     }
     const auto processor_count = std::thread::hardware_concurrency();
+
     if (_num > processor_count) {
+        log::info("arg > thread size:", processor_count);
         _num = processor_count;
     }
     e2q::e2l_thread_num = _num;

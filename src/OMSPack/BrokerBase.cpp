@@ -454,9 +454,12 @@ void BrokerBase::trade_report(OrderLots& lots)
     std::string sessionid =
         log::format(fmt, sid.getTargetCompID().getString().c_str());
 
+    std::string ticket_to_id = log::format(
+        "(select id from trades where ticket='%ld'  limit 1)", ticket);
+
     credit = balance + margin;
     pgsql->insert_table("trade_report");
-    pgsql->insert_field("ticket", ticket);
+    pgsql->insert_field("ticket", ticket_to_id);
     pgsql->insert_field("sessionid", sessionid);
     pgsql->insert_field("balance", balance, 3);
     pgsql->insert_field("margin", margin, 3);
@@ -506,8 +509,14 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
 
                 std::string sessionid = log::format(
                     fmt, it.first.getTargetCompID().getString().c_str());
+
+                std::string ticket_to_id = log::format(
+                    "(select id from trades where ticket='%ld'  "
+                    "limit 1)",
+                    (std::size_t)ticket);
+
                 pgsql->insert_table("trade_report");
-                pgsql->insert_field("ticket", ticket);
+                pgsql->insert_field("ticket", ticket_to_id);
                 pgsql->insert_field("sessionid", sessionid);
                 pgsql->insert_field("balance", _traders.at(it.first).total_cash,
                                     3);

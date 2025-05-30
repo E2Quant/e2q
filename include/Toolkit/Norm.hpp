@@ -404,7 +404,7 @@ typedef struct __Shares MShares;
 struct __ExRD {
     float _cash = 0;         // cash dividend 分红
     std::size_t _share = 0;  // 送转股
-    ExType _extype;          //
+    ExType _extype;          // category
     MShares _mshare;
     e2::Int_e _ymd = 0;  // 20070626 ->  yyyymmdd
 }; /* ----------  end of struct __ExRD  ---------- */
@@ -665,6 +665,7 @@ struct AutoIncrement {
     SeqType Id() { return _storeId.load(std::memory_order_acquire); }
     void init() { _storeId.store(0, std::memory_order_release); }
 
+    std::size_t _run_number = 0;
     atomic_seqtype _storeId;  //
                               // std::thread::id _tid;
     std::size_t _number = 0;  // number in e2lscript

@@ -203,8 +203,7 @@ void Fusion::enter(const char *e2l_script)
         case 0: {
             printf("[Child] I'm Child process\n");
             printf("[Child] Child's PID is %d\n", getpid());
-            /* MachineOS mos(node_next); */
-            /* mos.enter(e2l_script); */
+
             break;
         }
 
@@ -216,106 +215,8 @@ void Fusion::enter(const char *e2l_script)
             wait(&exit_status);
         }
     }
-    /* int proce = 1; */
-    /* pid_t pids[proce]; */
-    /* int m = 0; */
-    /* for (m = 0; m < proce; m++) { */
-    /*     pids[m] = fork(); */
-    /*     switch (pids[m]) { */
-    /*         // PID == -1 代表 fork 出錯 */
-    /*         case -1: */
-    /*             perror("fork()"); */
-    /*             exit(-1); */
-
-    /*         // PID == 0 代表是子程序 */
-    /*         case 0: { */
-    /*             printf("[Child] I'm Child process\n"); */
-    /*             printf("[Child] Child's PID is %d\n", getpid()); */
-    /*             MachineOS mos; */
-    /*             mos.enter(e2l_script); */
-    /*             sleep(5); */
-    /*             break; */
-    /*         } */
-    /*         // PID > 0 代表是父程序 */
-    /*         default: */
-
-    /*             break; */
-    /*     } */
-    /* } */
-
-    /* int exit_status; */
-    /* pid_t pid; */
-    /* for (m = 0; m < proce; m++) { */
-    /*     pid = wait(&exit_status); */
-    /*     log::echo("child pid ", pid, " status 0x%x", (long)pid, exit_status);
-     */
-    /* } */
-
-    /**
-     *
-     * 2. Risk for all Investors
-     *
-     */
-
-    /* RiskBeam _rbeam; */
-    /* _rbeam.shareptr(_resource); */
-    /* _beam_data->assign<RiskBeam, Func_beam>(_rbeam); */
-
-    /* auto fun_script = [&_sbase]() { */
-    /*     _sbase.runScript(); */
-    /* };  // -----  end lambda  ----- */
-
-    /* THREAD_FUN(fun_script); */
-
-    /*
-     *
-     * 3. Exchange
-     *
-     */
-    /* next(); */
-
-    /* Exchange ex(_shu_ptr); */
-    /* ex.callback(_beam_data); */
-    /* ex.resource(_resource); */
-    /* ex.drift(); */
 
 } /* -----  end of function Fusion::enter  ----- */
 
-void Fusion::next()
-{
-    /*
-     *  StrategyBeam link RiskBeam
-     *
-     */
-
-    /*auto _fun_Signal = [this](SigId id) { */
-    /*    /1** */
-    /*     * */
-    /*     * 先跑 func */
-    /*     *1/ */
-    /*    std::shared_ptr<FuncSignal> risk_sig = */
-    /*        std::make_shared<FuncSignal>(this->_shu_ptr); */
-    /*    risk_sig->id = id; */
-
-    /*    for (auto fn : this->_beam_data->fetch<Func_beam>()) { */
-    /*        fn(risk_sig); */
-    /*    } */
-    /*    /1** */
-    /*     * 再跑 connect ,否则没有数据 */
-    /*     *1/ */
-    /*    std::shared_ptr<ConnectSignal> st_sig = */
-    /*        std::make_shared<ConnectSignal>(this->_shu_ptr); */
-    /*    st_sig->id = id; */
-
-    /*    for (auto cn : this->_beam_data->fetch<Connect_beam>()) { */
-    /*        cn(st_sig); */
-    /*    } */
-    /*};  // -----  end lambda  ----- */
-
-    /*/1** */
-    /* * */
-    /* *1/ */
-
-    /*THREAD_FUN(_fun_Signal, SigId::_strategy_id); */
-}
+void Fusion::next() {}
 }  // namespace e2q

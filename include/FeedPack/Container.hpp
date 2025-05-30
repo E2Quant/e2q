@@ -173,8 +173,8 @@ private:
     void CheckDefFrame(SeqType);
     std::size_t deviation(std::size_t timestamp, size_t timeFlag);
 
-    /* void save(SeqType stock, std::size_t m, */
-    /*           std::array<e2q::SeqType, trading_protocols> &data); */
+    void dump();
+    void logs(std::array<std::array<SeqType, ohlc_column>, 5> trad_data);
     /* ====================  DATA MEMBERS
      * ======================================= */
     trigger_ptr _trigger = std::make_shared<Trigger>();

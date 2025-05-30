@@ -208,8 +208,12 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
                 break;
             }
         }
+        std::string cfi_str = log::format(
+            "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC LIMIT "
+            "1 )",
+            cfi);
         gsql->insert_table("trades");
-        gsql->insert_field("symbol", cfi);
+        gsql->insert_field("symbol", cfi_str);
         gsql->insert_field("ticket", order.ticket);
         gsql->insert_field("stat", (int)convert(ostat));
         gsql->insert_field("side", (int)order.side);

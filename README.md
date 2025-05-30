@@ -42,6 +42,14 @@
     - Alert 订单报警机制
 
 
+### 运程流程
+
+- 读取报价: C++ [ITCH](https://github.com/E2Quant/e2q_ticket/tree/main/ITCH) or python [TickForPy](https://github.com/E2Quant/e2q_ticket/tree/main/TickForPy)
+- 发送报价进入 kafka
+- E2Q 主程序从 kafka 接到到报价 (参数 -s oms.e2) 参考: [Quickstart](https://github.com/E2Quant/e2q_doc/blob/main/docs/Quickstart.md), 进行订单撮合 并且 通过( [FIX Protocol](https://www.fixtrading.org/) ) 发送报价到名个 节点 
+- 节点 EA (-e ea.e2) 进行策略定制，如果有 new  order, 通过 [FIX Protocol](https://www.fixtrading.org/) 返回 主程序
+- 订单记录到 PostGreSql 数据库
+- BI 软件系统进行订单分析
 
 ### 文档
 访问 Wiki 查看[完整文档](https://github.com/E2Quant/e2q_doc)

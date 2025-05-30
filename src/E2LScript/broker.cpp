@@ -165,7 +165,7 @@ void MatchEventInit(e2::MatchEvent me)
  */
 void EnableExdividend(e2::Bool e)
 {
-    log::info("e:", e);
+    //log::info("e:", e);
 
     e2q::FinFabr->_enable_exrd = e;
 } /* -----  end of function EnableExdividend  ----- */

@@ -123,7 +123,9 @@ public:
     void onLogon(const FIX::SessionID&) override {};
 
     // Notification of a session logging off or disconnecting
-    void onLogout(const FIX::SessionID&) override {};
+    void onLogout(const FIX::SessionID& sid) override {
+        // log::echo("onLogout:", sid.getSenderCompID().getValue());
+    };
     // Notification of admin message being sent to target
     void toAdmin(FIX::Message&, const FIX::SessionID&) override {};
     // Notification of app message being sent to target
