@@ -47,6 +47,7 @@
 
 #include "OMSPack/Matcher/TraderAlgorithms.hpp"
 #include "OMSPack/SessionGlobal.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "quickfix/Dictionary.h"
 #include "quickfix/SessionID.h"
 
@@ -91,7 +92,7 @@ Exchange::Exchange(std::string& e2l)
  *
  * ============================================
  */
-void Exchange::RiskFix()
+void Exchange::RiskFix(int process)
 {
     FIN_FABR_IS_NULL();
 
@@ -112,7 +113,7 @@ void Exchange::RiskFix()
 
         application.toFeedData(_resource, _beam_data);
 
-        FIX::SessionSettings settings = ExSetting();
+        FIX::SessionSettings settings = ExSetting(process);
 
         FIX::FileStoreFactory storeFactory(settings);
 
@@ -181,14 +182,14 @@ void Exchange::match()
  *
  * ============================================
  */
-FIX::SessionSettings Exchange::ExSetting()
+FIX::SessionSettings Exchange::ExSetting(int process)
 {
     FIX::SessionSettings settings(FinFabr->_fix_cfg);
 
     char* field = nullptr;
     char* val = nullptr;
     bool isDb = GlobalDBPtr->isInit();
-
+    int insert_id = 0;
     if (isDb == false) {
         return settings;
     }
@@ -200,10 +201,41 @@ FIX::SessionSettings Exchange::ExSetting()
         return settings;
     }
     std::string sql =
+        "INSERT INTO   fixsession "
+        "(beginstring,sendercompid,targetcompid,filestorepath, "
+        "datadictionary,ctime,host,port)  (SELECT beginstring, "
+        "sendercompid,targetcompid,filestorepath,datadictionary,ctime,host,"
+        "port from fixsession WHERE id = 1) RETURNING id;";
+    std::string usql = "";
+    bool r;
+
+    // log::bug("procee :", sql);
+    for (int m = 0; m < process; m++) {
+        pg->pgbegin();
+        r = pg->insert_sql(sql);
+        if (r) {
+            pg->OneHead(&field, &val);
+            if (val != nullptr) {
+                insert_id = stoi(val);
+            }
+        }
+        if (insert_id == 0) {
+            continue;
+        }
+        usql = log::format(
+            "UPDATE fixsession SET targetcompid = 'CLIENT%d' WHERE id = %d ",
+            insert_id, insert_id);
+
+        pg->update_sql(usql);
+        pg->update_commit();
+
+        pg->pgcommit();
+    }
+    sql =
         "SELECT  beginstring, sendercompid,targetcompid, "
         "filestorepath,datadictionary from fixsession ORDER BY id;";
 
-    bool r = pg->select_sql(sql);
+    r = pg->select_sql(sql);
     FIX::Dictionary dict_session;
     dict_session.setDouble("LogonTimeout", 30);
     dict_session.setBool("ResetOnLogon", true);
@@ -217,10 +249,10 @@ FIX::SessionSettings Exchange::ExSetting()
     if (r) {
         for (pg->begin(); pg->end(); pg->next()) {
             int m = pg->PGResult(&field, &val);
+
             if (m == -1) {
                 break;
             }
-
             if (pg->row()) {
                 FIX::SessionID session(begin, seder, target);
 
@@ -245,7 +277,15 @@ FIX::SessionSettings Exchange::ExSetting()
                 col++;
             }
         }
+        if (pg->row()) {
+            FIX::SessionID session(begin, seder, target);
+
+            settings.set(session, dict_session);
+            // idx++;
+            col = 0;
+        }
     }
+
     GlobalDBPtr->release(gidx);
     return settings;
 } /* -----  end of function Exchange::ExSetting  ----- */

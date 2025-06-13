@@ -109,5 +109,53 @@ inline bool process_debug;
 inline std::shared_ptr<PGConnectPool> GlobalDBPtr{nullptr};
 
 inline CustomMsgStore GlobalCustomMsg;
+
+#define PushGCM(ptr, sz)                                                      \
+    ({                                                                        \
+        do {                                                                  \
+            CustomMessage cmsg;                                               \
+            std::size_t idx = 0;                                              \
+            do {                                                              \
+                idx += parse_uint_t(ptr + idx, cmsg.CfiCode);                 \
+                if (cmsg.CfiCode > 0) {                                       \
+                    cmsg.CfiCode += E2QCfiStart;                              \
+                }                                                             \
+                idx += parse_uint_t(ptr + idx, cmsg.index);                   \
+                idx += parse_uint_t(ptr + idx, cmsg.size);                    \
+                cmsg.type = *(ptr + idx);                                     \
+                idx++;                                                        \
+                GlobalCustomMsg.init(cmsg.CfiCode, cmsg.index, cmsg.size);    \
+                switch (cmsg.type) {                                          \
+                    case CmType::UINT16: {                                    \
+                        std::uint16_t data_uint16;                            \
+                        GetMsgData(GlobalCustomMsg, cmsg.index, data_uint16); \
+                        break;                                                \
+                    }                                                         \
+                    case CmType::UINT32: {                                    \
+                        std::uint32_t data_uint32;                            \
+                        GetMsgData(GlobalCustomMsg, cmsg.index, data_uint32); \
+                        break;                                                \
+                    }                                                         \
+                    case CmType::UINT64: {                                    \
+                        std::uint64_t data_uint64;                            \
+                        GetMsgData(GlobalCustomMsg, cmsg.index, data_uint64); \
+                        break;                                                \
+                    }                                                         \
+                    default:                                                  \
+                        log::bug("bad type!");                                \
+                        break;                                                \
+                }                                                             \
+                cmsg.Aligned = *(ptr + idx);                                  \
+                /* msgtype == 1 bit */                                        \
+                idx += 2;                                                     \
+                if (idx < (std::size_t)sz &&                                  \
+                    cmsg.Aligned == Aligned_t::PULL) {                        \
+                    log::info("cif:", cmsg.CfiCode, " A:", cmsg.Aligned,      \
+                              " idx:", idx, " sz:", sz);                      \
+                }                                                             \
+            } while (idx < (std::size_t)sz &&                                 \
+                     cmsg.Aligned == Aligned_t::UNDER);                       \
+        } while (0);                                                          \
+    })
 }  // namespace e2q
 #endif /* ----- #ifndef GLOBALCONFIG_INC  ----- */

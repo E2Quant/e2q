@@ -71,7 +71,10 @@ void Array(e2::Int_e id, e2::Int_e asize, const char *_vname, e2::Int_e loc,
            const char *_path)
 {
     id = NUMBERVAL(id);
-
+    if (id <= 0) {
+        log::bug("bad id:", id);
+        return;
+    }
     std::size_t len = (std::size_t)NUMBERVAL(asize);
 
     bool ret = e2q::e2_share_array.init(id, len);

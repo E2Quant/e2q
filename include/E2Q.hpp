@@ -71,9 +71,10 @@ public:
 
     /* ====================  OPERATORS =======================================
      */
-    void exchange();
+    void exchange(int pros);
 
-    void trader(size_t n, std::size_t quant_start, int run);
+    void trader(size_t n, std::size_t quant_start, int run,
+                std::size_t total_pro);
 
 protected:
     /* ====================  METHODS =======================================

@@ -65,7 +65,7 @@ class StrategyBase {
 public:
     /* ====================  LIFECYCLE =======================================
      */
-    StrategyBase(){};
+    StrategyBase() {};
     StrategyBase(_Resource_ptr ptr, std::shared_ptr<BeamData> beam_data,
                  std::size_t); /* constructor */
 
@@ -102,6 +102,8 @@ private:
     _Resource_ptr _source_ptr{nullptr};
 
     std::size_t _quantIdStart = 0;
+
+    std::size_t thread_map_size = 0;
 }; /* -----  end of class StrategyBase  ----- */
 
 struct StrategyBeam : public ConnectBeamClass<ConnectSignal> {

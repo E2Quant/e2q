@@ -62,7 +62,7 @@ void FixQuote::callback(std::shared_ptr<ConnectSignal> beam)
 
         return;
     }
-    if (_master == nullptr) {
+    if (_master == nullptr || _master->data_ptr == nullptr) {
         log::bug("master is null");
         return;
     }
@@ -115,6 +115,10 @@ void FixQuote::resource(_Resource_ptr ptr, std::size_t sleep_time)
  */
 void FixQuote::handle(std::array<SeqType, trading_protocols> &data)
 {
+    if (_master == nullptr || _master->data_ptr == nullptr) {
+        log::bug("master is nullptr!");
+        return;
+    }
     _master->data_ptr->wait_next();
     int ret = _master->data_ptr->deposit(data);
     if (ret == -1) {

@@ -31,10 +31,84 @@ COMMENT ON EXTENSION tablefunc IS 'functions that manipulate whole tables, inclu
 
 
 --
--- Name: quant_profit(bigint, double precision); Type: FUNCTION; Schema: public; Owner: dbuser
+-- Name: quant_account(integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION public.quant_profit(_qid bigint, _defcash double precision) RETURNS TABLE(qid bigint, margin double precision, profits double precision, pday text, pside integer, profit_x double precision, profit_sum double precision)
+CREATE FUNCTION public.quant_account(_verid integer) RETURNS TABLE(targetcompid text, sessionid integer, balance double precision, margin double precision, all_cash double precision, mode text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+        
+        SELECT f."targetcompid"::text, a."sessionid", a."balance", a."margin", (a."balance" + a."margin") as all_cash , (
+        SELECT ana."name"::text
+        from "trade_report" tr, trades t, analse ana
+        WHERE
+            tr."sessionid" = f.id
+            AND t.id = tr."ticket"
+            AND ana."quantid" = t."quantid"
+        LIMIT 1
+    )::text as "mode"
+from "account" a, fixsession f
+WHERE
+    a."sessionid" = f.id
+    AND a."verid" = _verid
+
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_account(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_bands(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_bands(_verid integer) RETURNS TABLE(idxs bigint, quantid bigint, name text, argv text, init_cash double precision, min_pro double precision, max_pro double precision, min_diff double precision, max_diff double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+        
+        SELECT data.idx::bigint as idxs ,data.quantid,data.name::text,data.argv::text,data.init_cash,data.min_pro,data.max_pro, (
+        (data.min_pro - data.init_cash) / data.init_cash
+    ) as min_diff, (
+        (data.max_pro - data.init_cash) / data.init_cash
+    ) as max_diff
+FROM (
+       SELECT *, (
+                SELECT vprofit_sum
+                from quant_profit_one_verid (_verid, idx::INT - 1)
+                ORDER BY vprofit_sum
+                LIMIT 1
+            ) min_pro, (
+                SELECT vprofit_sum
+                from quant_profit_one_verid (_verid,  idx::INT - 1)
+                ORDER BY vprofit_sum DESC
+                LIMIT 1
+            ) max_pro
+            FROM (
+       
+        SELECT ROW_NUMBER() OVER (ORDER BY id) AS idx, ana."quantid", ana."name", ana.argv, ana.init_cash
+        from "public"."analse" ana
+        WHERE
+            ana."verid" = _verid
+        ORDER BY id) dd
+    ) data
+
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_bands(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_profit(bigint); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_profit(_qid bigint) RETURNS TABLE(qid bigint, margin double precision, profits double precision, pday text, pside integer, profit_x double precision, profit_sum double precision)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -56,32 +130,7 @@ FROM (
                     ntrade_report.profit - coalesce(
                     lag(ntrade_report.margin, 1) OVER (
                         ORDER BY ntrade_report.id
-                    ), ~( SELECT (
-                            round(
-                                CAST(
-                                    float8 (
-                                        1.0 / (
-                                             SELECT  count(DISTINCT "argv") as num
-                                            FROM "analse"
-                                            WHERE
-                                                "verid" = (
-                                                    SELECT "verid"
-                                                    FROM "analse"
-                                                    WHERE
-                                                        "quantid" = _qid
-                                                    LIMIT 1
-                                                )
-                                                AND "name" = (
-                                                    SELECT "name"
-                                                    from "analse"
-                                                    WHERE
-                                                        "quantid" = _qid
-                                                ) 
-                                        )
-                                    ) as numeric
-                                ), 2
-                            ) * _defcash
-                        )::numeric::integer -1)
+                    ), ~( SELECT ( SELECT "init_cash" FROM "analse" WHERE "quantid"=_qid)::numeric::integer -1)
                     )
                 ELSE 
                 ntrade_report.profit                      
@@ -113,13 +162,69 @@ FROM (
 END; $$;
 
 
-ALTER FUNCTION public.quant_profit(_qid bigint, _defcash double precision) OWNER TO dbuser;
+ALTER FUNCTION public.quant_profit(_qid bigint) OWNER TO dbuser;
 
 --
--- Name: quant_profit_one_verid(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+-- Name: quant_profit_mvo(integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION public.quant_profit_one_verid(ver_id integer) RETURNS TABLE(vday text, vprofit_sum double precision, stat text, verid integer)
+CREATE FUNCTION public.quant_profit_mvo(atype integer) RETURNS TABLE(name text, argv text, version text, quantid_mvo bigint, init_cash double precision, profit double precision, postion double precision, verid integer, targetcompid text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+SELECT
+    a.name::text as name ,
+    a.argv::text as argv,
+    t.version::text as version,
+    a.quantid::BIGINT as quantid_mvo ,
+    a.init_cash,
+    a.profit,
+    mvo.values,
+    a.verid,
+    (
+        SELECT f.targetcompid
+        FROM trade_report t_1, fixsession f
+        WHERE (
+                (t_1.sessionid = f.id)
+                AND (
+                    t_1.ticket IN (
+                        SELECT trades.id
+                        FROM trades
+                        WHERE (trades.quantid = a.quantid)
+                    )
+                )
+            )
+        LIMIT 1
+    )::text AS targetcompid
+FROM analse a, trade_info t, (
+        SELECT DISTINCT
+            on (ana."quantid") ana."quantid", (
+                SELECT "values"
+                from "analselog"
+                WHERE
+                    "type" = atype
+                    AND "quantid" = ana."quantid"
+                ORDER BY id DESC
+                LIMIT 1
+            ) as
+        values
+        from "analselog" ana
+        WHERE
+            ana."type" = atype
+    ) mvo
+WHERE t.id = a.verid
+AND a."quantid" = mvo.quantid;
+END; $$;
+
+
+ALTER FUNCTION public.quant_profit_mvo(atype integer) OWNER TO dbuser;
+
+--
+-- Name: quant_profit_one_verid(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_profit_one_verid(ver_id integer, offset_t integer) RETURNS TABLE(vday text, vprofit_sum double precision, stat text, pqid text, qverid integer)
     LANGUAGE plpgsql
     AS $$
 begin
@@ -131,35 +236,23 @@ SELECT
         WHEN pside = 1 THEN '开仓'
         ELSE '平仓'
     END AS stat,
-    ver_id AS verid
+    qid::text AS pqid,
+    ver_id AS qverid
 FROM "quant_profit" (
         (
-            SELECT a."quantid"
+            SELECT  a."quantid"
             FROM
-                "trade_report" r, "trades" t, "analse" a
-            WHERE
-                t."quantid" = a."quantid"
-                AND r."ticket" = t.id
-                AND a."verid" = ver_id
-            ORDER BY a.id
-            LIMIT 1
-        ), (
-            SELECT r."credit"
-            FROM
-                "trade_report" r, "trades" t, "analse" a
-            WHERE
-                t."quantid" = a."quantid"
-                AND r."ticket" = t.id
-                AND a."verid" = ver_id
-            ORDER BY a.id
-            LIMIT 1
+                "analse" a
+            WHERE a."verid" = ver_id
+            ORDER BY id
+            OFFSET offset_t LIMIT 1
         )
     );
 end;
 $$;
 
 
-ALTER FUNCTION public.quant_profit_one_verid(ver_id integer) OWNER TO dbuser;
+ALTER FUNCTION public.quant_profit_one_verid(ver_id integer, offset_t integer) OWNER TO dbuser;
 
 --
 -- Name: quant_return(integer); Type: FUNCTION; Schema: public; Owner: dbuser
@@ -286,14 +379,15 @@ SET default_table_access_method = heap;
 CREATE TABLE public.account (
     id integer NOT NULL,
     sessionid integer,
-    balance double precision,
-    credit double precision,
-    equity double precision,
-    leverage double precision,
-    freemargin double precision,
-    margin double precision,
-    profit double precision,
-    ctime integer
+    balance double precision DEFAULT 0,
+    credit double precision DEFAULT 0,
+    equity double precision DEFAULT 0,
+    leverage double precision DEFAULT 1,
+    freemargin double precision DEFAULT 0,
+    margin double precision DEFAULT 0,
+    profit double precision DEFAULT 0,
+    ctime integer DEFAULT 0,
+    verid integer
 );
 
 
@@ -396,7 +490,9 @@ CREATE TABLE public.analse (
     argv character varying(255),
     verid integer,
     ctime integer,
-    profit double precision DEFAULT 0
+    profit double precision DEFAULT 0,
+    postion double precision DEFAULT 0,
+    init_cash double precision DEFAULT 0
 );
 
 
@@ -456,6 +552,20 @@ COMMENT ON COLUMN public.analse.ctime IS '创建时间';
 --
 
 COMMENT ON COLUMN public.analse.profit IS '回测最后的收益';
+
+
+--
+-- Name: COLUMN analse.postion; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analse.postion IS '仓位百分比';
+
+
+--
+-- Name: COLUMN analse.init_cash; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.analse.init_cash IS '初始化资金';
 
 
 --
@@ -769,6 +879,88 @@ ALTER TABLE public.comment ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: fixsession; Type: TABLE; Schema: public; Owner: dbuser
+--
+
+CREATE TABLE public.fixsession (
+    id integer NOT NULL,
+    beginstring character varying(255) NOT NULL,
+    sendercompid character varying(255),
+    targetcompid character varying(255) NOT NULL,
+    filestorepath character varying(255),
+    datadictionary character varying(255) NOT NULL,
+    ctime integer,
+    host character varying(255),
+    port integer
+);
+
+
+ALTER TABLE public.fixsession OWNER TO dbuser;
+
+--
+-- Name: TABLE fixsession; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON TABLE public.fixsession IS '记录 fix session';
+
+
+--
+-- Name: COLUMN fixsession.beginstring; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.beginstring IS 'beginstring';
+
+
+--
+-- Name: COLUMN fixsession.sendercompid; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.sendercompid IS 'sendercompid';
+
+
+--
+-- Name: COLUMN fixsession.targetcompid; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.targetcompid IS 'targetcompid';
+
+
+--
+-- Name: COLUMN fixsession.filestorepath; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.filestorepath IS 'filestorepath';
+
+
+--
+-- Name: COLUMN fixsession.datadictionary; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.datadictionary IS 'datadictionary';
+
+
+--
+-- Name: COLUMN fixsession.ctime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.ctime IS 'ctime';
+
+
+--
+-- Name: COLUMN fixsession.host; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.host IS 'SocketConnectHost';
+
+
+--
+-- Name: COLUMN fixsession.port; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.port IS 'SocketConnectPort';
 
 
 --
@@ -1103,7 +1295,9 @@ COMMENT ON COLUMN public.trades.amount IS '为此订单的成交累总金额';
 --
 
 CREATE VIEW public.e2q_cash AS
- SELECT cash_info.stock,
+ SELECT cash_info.quantid,
+    cash_info.name,
+    cash_info.stock,
     cash_info.verid,
     cash_info.credit AS init_cash,
     cash_info.end_credit AS now_cash,
@@ -1111,52 +1305,64 @@ CREATE VIEW public.e2q_cash AS
     ((cash_info.end_credit - cash_info.credit) / cash_info.credit) AS diff_per,
     cash_info.day,
     cash_info.end_day
-   FROM ( SELECT DISTINCT ON (t.symbol) t.symbol,
+   FROM ( SELECT t.quantid,
             s.stock,
             s.verid,
+            s.symbol,
             r.credit,
+            ( SELECT fixsession.targetcompid
+                   FROM public.fixsession
+                  WHERE (fixsession.id = r.sessionid)
+                 LIMIT 1) AS name,
             to_timestamp(((r.ctime / 1000))::double precision) AS day,
             ( SELECT end_cash.credit AS end_credit
-                   FROM ( SELECT t_1.symbol,
+                   FROM ( SELECT t_1.quantid,
                             s_1.stock,
                             t_1.tid,
                             r_1.credit,
-                            s_1.verid
-                           FROM ( SELECT DISTINCT ON (t_2.symbol) t_2.symbol,
-                                    max(t_2.id) AS tid
+                            s_1.verid,
+                            t_1.symbol
+                           FROM ( SELECT DISTINCT ON (t_2.quantid) t_2.quantid,
+                                    max(t_2.id) AS tid,
+                                    t_2.symbol
                                    FROM public.trades t_2,
                                     public.stockinfo s_2,
                                     public.trade_report r_2
-                                  WHERE ((t_2.symbol = s_2.id) AND (s_2.symbol > 0) AND (r_2.ticket = t_2.id) AND (t_2.side = 2))
-                                  GROUP BY t_2.symbol) t_1,
+                                  WHERE ((t_2.symbol = s_2.id) AND (s_2.symbol > 0) AND (r_2.ticket = t_2.id))
+                                  GROUP BY t_2.quantid, t_2.symbol) t_1,
                             public.stockinfo s_1,
                             public.trade_report r_1
                           WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.tid))) end_cash
-                  WHERE (end_cash.verid = s.verid)
+                  WHERE ((end_cash.verid = s.verid) AND (end_cash.quantid = t.quantid))
                  LIMIT 1) AS end_credit,
             ( SELECT end_cash.day AS end_day
-                   FROM ( SELECT t_1.symbol,
+                   FROM ( SELECT t_1.quantid,
                             s_1.stock,
                             t_1.tid,
                             r_1.credit,
                             s_1.verid,
                             to_timestamp(((r_1.ctime / 1000))::double precision) AS day
-                           FROM ( SELECT DISTINCT ON (t_2.symbol) t_2.symbol,
-                                    max(t_2.id) AS tid
+                           FROM ( SELECT DISTINCT ON (t_2.quantid) t_2.quantid,
+                                    max(t_2.id) AS tid,
+                                    t_2.symbol
                                    FROM public.trades t_2,
                                     public.stockinfo s_2,
                                     public.trade_report r_2
                                   WHERE ((t_2.symbol = s_2.id) AND (s_2.symbol > 0) AND (r_2.ticket = t_2.id))
-                                  GROUP BY t_2.symbol) t_1,
+                                  GROUP BY t_2.quantid, t_2.symbol) t_1,
                             public.stockinfo s_1,
                             public.trade_report r_1
                           WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.tid))) end_cash
-                  WHERE (end_cash.verid = s.verid)
+                  WHERE ((end_cash.verid = s.verid) AND (end_cash.quantid = t.quantid))
                  LIMIT 1) AS end_day
            FROM public.trades t,
             public.stockinfo s,
             public.trade_report r
-          WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.id))) cash_info;
+          WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.id) AND (r.id IN ( SELECT trp.rid
+                   FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
+                            min(trade_report.id) AS rid
+                           FROM public.trade_report
+                          GROUP BY trade_report.sessionid) trp)))) cash_info;
 
 
 ALTER TABLE public.e2q_cash OWNER TO dbuser;
@@ -1166,37 +1372,108 @@ ALTER TABLE public.e2q_cash OWNER TO dbuser;
 --
 
 CREATE VIEW public.e2q_cash_se AS
- SELECT DISTINCT ON (t.symbol) t.symbol,
-    s.stock,
-    t.id AS tid,
-    r.credit,
-    s.verid,
-    to_timestamp(((r.ctime / 1000))::double precision) AS day
-   FROM public.trades t,
-    public.stockinfo s,
-    public.trade_report r
-  WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.id))
-UNION
- SELECT t.symbol,
-    s.stock,
-    t.tid,
-    r.credit,
-    s.verid,
-    to_timestamp(((r.ctime / 1000))::double precision) AS day
-   FROM ( SELECT DISTINCT ON (t_1.symbol) t_1.symbol,
-            max(t_1.id) AS tid
-           FROM public.trades t_1,
-            public.stockinfo s_1,
-            public.trade_report r_1
-          WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.id) AND (t_1.side = 2))
-          GROUP BY t_1.symbol) t,
-    public.stockinfo s,
-    public.trade_report r
-  WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.tid))
-  ORDER BY 3;
+ SELECT cash_data.quantid,
+    cash_data.name,
+    cash_data.stock,
+    cash_data.tid,
+    cash_data.credit,
+    cash_data.verid,
+    cash_data.symbol,
+    cash_data.day,
+    cash_data.stat
+   FROM ( SELECT t.quantid,
+            s.stock,
+            t.id AS tid,
+            r.credit,
+            ( SELECT fixsession.targetcompid
+                   FROM public.fixsession
+                  WHERE (fixsession.id = r.sessionid)
+                 LIMIT 1) AS name,
+            s.verid,
+            t.symbol,
+            to_timestamp(((r.ctime / 1000))::double precision) AS day,
+            'init'::text AS stat
+           FROM public.trades t,
+            public.stockinfo s,
+            public.trade_report r
+          WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.id) AND (r.id IN ( SELECT trp.rid
+                   FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
+                            min(trade_report.id) AS rid
+                           FROM public.trade_report
+                          GROUP BY trade_report.sessionid) trp)))
+        UNION
+         SELECT t.quantid,
+            s.stock,
+            t.tid,
+            r.credit,
+            ( SELECT fixsession.targetcompid
+                   FROM public.fixsession
+                  WHERE (fixsession.id = r.sessionid)
+                 LIMIT 1) AS name,
+            s.verid,
+            t.symbol,
+            to_timestamp(((r.ctime / 1000))::double precision) AS day,
+            'end'::text AS stat
+           FROM ( SELECT t_1.quantid,
+                    max(t_1.id) AS tid,
+                    t_1.symbol
+                   FROM public.trades t_1,
+                    public.stockinfo s_1,
+                    public.trade_report r_1
+                  WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.id) AND (r_1.id IN ( SELECT trp.rid
+                           FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
+                                    max(trade_report.id) AS rid
+                                   FROM public.trade_report
+                                  GROUP BY trade_report.sessionid) trp)))
+                  GROUP BY t_1.symbol, t_1.quantid) t,
+            public.stockinfo s,
+            public.trade_report r
+          WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.tid))) cash_data
+  ORDER BY cash_data.quantid, cash_data.tid;
 
 
 ALTER TABLE public.e2q_cash_se OWNER TO dbuser;
+
+--
+-- Name: e2q_fix_cash; Type: VIEW; Schema: public; Owner: dbuser
+--
+
+CREATE VIEW public.e2q_fix_cash AS
+ SELECT mix_c.targetcompid,
+    max_c.max_credit,
+    mix_c.mix_credit,
+    base_c.credit,
+    ((mix_c.mix_credit - base_c.credit) / base_c.credit) AS pre_mix_credit,
+    ((max_c.max_credit - base_c.credit) / base_c.credit) AS pre_max_credit
+   FROM ( SELECT DISTINCT ON (fix.targetcompid) fix.targetcompid,
+            tr.credit AS max_credit
+           FROM public.trade_report tr,
+            public.fixsession fix
+          WHERE ((tr.sessionid = fix.id) AND (tr.side <> 3))
+          ORDER BY fix.targetcompid, tr.credit DESC) max_c,
+    ( SELECT DISTINCT ON (fix.targetcompid) fix.targetcompid,
+            tr.credit AS mix_credit
+           FROM public.trade_report tr,
+            public.fixsession fix
+          WHERE ((tr.sessionid = fix.id) AND (tr.side <> 3))
+          ORDER BY fix.targetcompid, tr.credit) mix_c,
+    ( SELECT tr.credit,
+            ( SELECT fixsession.targetcompid
+                   FROM public.fixsession
+                  WHERE (fixsession.id = tr.sessionid)
+                 LIMIT 1) AS targetcompid
+           FROM public.trade_report tr
+          WHERE (tr.id IN ( SELECT data.id
+                   FROM ( SELECT DISTINCT ON (fix.targetcompid) fix.targetcompid,
+                            tr_1.id
+                           FROM public.trade_report tr_1,
+                            public.fixsession fix
+                          WHERE (tr_1.sessionid = fix.id)
+                          GROUP BY fix.targetcompid, tr_1.id) data))) base_c
+  WHERE (((max_c.targetcompid)::text = (mix_c.targetcompid)::text) AND ((base_c.targetcompid)::text = (mix_c.targetcompid)::text));
+
+
+ALTER TABLE public.e2q_fix_cash OWNER TO dbuser;
 
 --
 -- Name: exdr; Type: TABLE; Schema: public; Owner: dbuser
@@ -1355,16 +1632,78 @@ CREATE VIEW public.e2q_primitive AS
 ALTER TABLE public.e2q_primitive OWNER TO dbuser;
 
 --
+-- Name: trade_info; Type: TABLE; Schema: public; Owner: dbuser
+--
+
+CREATE TABLE public.trade_info (
+    id integer NOT NULL,
+    version character varying(255),
+    desz text,
+    ctime integer DEFAULT 0 NOT NULL,
+    active integer DEFAULT 0
+);
+
+
+ALTER TABLE public.trade_info OWNER TO dbuser;
+
+--
+-- Name: TABLE trade_info; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON TABLE public.trade_info IS '策略的版本号';
+
+
+--
+-- Name: COLUMN trade_info.version; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_info.version IS '版本号';
+
+
+--
+-- Name: COLUMN trade_info.desz; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_info.desz IS '备注';
+
+
+--
+-- Name: COLUMN trade_info.ctime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_info.ctime IS 'create time';
+
+
+--
+-- Name: COLUMN trade_info.active; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.trade_info.active IS '当前活跃的版本';
+
+
+--
 -- Name: e2q_profit; Type: VIEW; Schema: public; Owner: dbuser
 --
 
 CREATE VIEW public.e2q_profit AS
- SELECT DISTINCT analse.argv,
-    sum(analse.profit) AS profits,
-    analse.verid
-   FROM public.analse
-  GROUP BY analse.argv, analse.verid
-  ORDER BY (sum(analse.profit)) DESC;
+ SELECT a.name,
+    a.argv,
+    t.version,
+    (a.quantid)::text AS quantid,
+    a.init_cash,
+    a.profit,
+    a.postion,
+    a.verid,
+    ( SELECT f.targetcompid
+           FROM public.trade_report t_1,
+            public.fixsession f
+          WHERE ((t_1.sessionid = f.id) AND (t_1.ticket IN ( SELECT trades.id
+                   FROM public.trades
+                  WHERE (trades.quantid = a.quantid))))
+         LIMIT 1) AS targetcompid
+   FROM public.analse a,
+    public.trade_info t
+  WHERE (t.id = a.verid);
 
 
 ALTER TABLE public.e2q_profit OWNER TO dbuser;
@@ -1374,21 +1713,37 @@ ALTER TABLE public.e2q_profit OWNER TO dbuser;
 --
 
 CREATE VIEW public.e2q_symbol_pool AS
- SELECT symbol_info.verid,
-    symbol_info.stock,
-    symbol_info.trader_number,
-    (symbol_info.trading_number - symbol_info.trader_number) AS trading_number
-   FROM ( SELECT si.verid,
-            si.stock,
-            ( SELECT count(*) AS count
-                   FROM public.trades
-                  WHERE ((trades.symbol = si.id) AND (trades.side = 1) AND (trades.stat = 2))) AS trading_number,
-            ( SELECT count(*) AS count
-                   FROM public.trades
-                  WHERE ((trades.symbol = si.id) AND (trades.side = 2) AND (trades.stat = 2))) AS trader_number
-           FROM public.stockinfo si
-          WHERE (si.symbol > 0)
-          ORDER BY si.id) symbol_info;
+ SELECT data.quantid,
+    data.count,
+    data.verid,
+    data.stock,
+    data.trader_number,
+    (data.count - data.trader_number) AS trading_number
+   FROM ( SELECT ings.quantid,
+            ings.count,
+            ings.verid,
+            ings.stock,
+            ( SELECT ends.count
+                   FROM ( SELECT DISTINCT ON (trend.quantid) trend.quantid,
+                            count(trend.id) AS count,
+                            siend.verid,
+                            siend.stock,
+                            (trend.side - 1) AS stat
+                           FROM public.trades trend,
+                            public.stockinfo siend
+                          WHERE ((trend.side = 2) AND (trend.stat = 2) AND (siend.id = trend.symbol))
+                          GROUP BY trend.quantid, siend.verid, siend.stock, trend.side) ends
+                  WHERE (ends.quantid = ings.quantid)
+                 LIMIT 1) AS trader_number
+           FROM ( SELECT DISTINCT ON (tr.quantid) tr.quantid,
+                    count(tr.id) AS count,
+                    si.verid,
+                    si.stock,
+                    (tr.side - 1) AS stat
+                   FROM public.trades tr,
+                    public.stockinfo si
+                  WHERE ((tr.side = 1) AND (tr.stat = 2) AND (si.id = tr.symbol))
+                  GROUP BY tr.quantid, si.verid, si.stock, tr.side) ings) data;
 
 
 ALTER TABLE public.e2q_symbol_pool OWNER TO dbuser;
@@ -1441,88 +1796,6 @@ ALTER TABLE public.exdr ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     NO MAXVALUE
     CACHE 1
 );
-
-
---
--- Name: fixsession; Type: TABLE; Schema: public; Owner: dbuser
---
-
-CREATE TABLE public.fixsession (
-    id integer NOT NULL,
-    beginstring character varying(255) NOT NULL,
-    sendercompid character varying(255),
-    targetcompid character varying(255) NOT NULL,
-    filestorepath character varying(255),
-    datadictionary character varying(255) NOT NULL,
-    ctime integer,
-    host character varying(255),
-    port integer
-);
-
-
-ALTER TABLE public.fixsession OWNER TO dbuser;
-
---
--- Name: TABLE fixsession; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON TABLE public.fixsession IS '记录 fix session';
-
-
---
--- Name: COLUMN fixsession.beginstring; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.beginstring IS 'beginstring';
-
-
---
--- Name: COLUMN fixsession.sendercompid; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.sendercompid IS 'sendercompid';
-
-
---
--- Name: COLUMN fixsession.targetcompid; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.targetcompid IS 'targetcompid';
-
-
---
--- Name: COLUMN fixsession.filestorepath; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.filestorepath IS 'filestorepath';
-
-
---
--- Name: COLUMN fixsession.datadictionary; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.datadictionary IS 'datadictionary';
-
-
---
--- Name: COLUMN fixsession.ctime; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.ctime IS 'ctime';
-
-
---
--- Name: COLUMN fixsession.host; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.host IS 'SocketConnectHost';
-
-
---
--- Name: COLUMN fixsession.port; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.fixsession.port IS 'SocketConnectPort';
 
 
 --
@@ -1703,56 +1976,6 @@ ALTER TABLE public.stockinfo ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTIT
     NO MAXVALUE
     CACHE 1
 );
-
-
---
--- Name: trade_info; Type: TABLE; Schema: public; Owner: dbuser
---
-
-CREATE TABLE public.trade_info (
-    id integer NOT NULL,
-    version character varying(255),
-    desz text,
-    ctime integer DEFAULT 0 NOT NULL,
-    active integer DEFAULT 0
-);
-
-
-ALTER TABLE public.trade_info OWNER TO dbuser;
-
---
--- Name: TABLE trade_info; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON TABLE public.trade_info IS '策略的版本号';
-
-
---
--- Name: COLUMN trade_info.version; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_info.version IS '版本号';
-
-
---
--- Name: COLUMN trade_info.desz; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_info.desz IS '备注';
-
-
---
--- Name: COLUMN trade_info.ctime; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_info.ctime IS 'create time';
-
-
---
--- Name: COLUMN trade_info.active; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.trade_info.active IS '当前活跃的版本';
 
 
 --
@@ -1983,6 +2206,14 @@ CREATE INDEX ticket_1748400505161_index ON public.trades USING btree (ticket);
 
 ALTER TABLE ONLY public.account
     ADD CONSTRAINT account_sessionid_fkey FOREIGN KEY (sessionid) REFERENCES public.fixsession(id);
+
+
+--
+-- Name: account account_verid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.account
+    ADD CONSTRAINT account_verid_fkey FOREIGN KEY (verid) REFERENCES public.trade_info(id);
 
 
 --

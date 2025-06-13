@@ -46,6 +46,7 @@
 #include <sys/wait.h>
 
 #include <cstdlib>
+#include <vector>
 
 #include "E2Q.hpp"
 #include "Toolkit/DaemonProcess.hpp"
@@ -235,12 +236,15 @@ int e2q_action(int argc, char* argv[])
     std::size_t now = ut.time() - 718281828;
 
     int proce = eas_el.size();
-
-    pid_t pids[proce];
+    e2q::process_run_number = run;
+    pid_t pid;
+    std::vector<pid_t> pids;
     int m = 0;
     e2q::E2Q _e2q;
     for (m = 0; m < proce; m++) {
-        pids[m] = fork();
+        pid = fork();
+        pids.push_back(pid);
+
         switch (pids[m]) {
             // PID == -1 代表 fork 出錯
             case -1:
@@ -254,7 +258,7 @@ int e2q_action(int argc, char* argv[])
                        eas_el[m].c_str());
                 if (eas_el.size() != 0) {
                     _e2q.setCfg(eas_el[m], properties);
-                    _e2q.trader(m, now, run);
+                    _e2q.trader(m, now, run, proce);
                 }
                 return 0;
             }
@@ -267,12 +271,11 @@ int e2q_action(int argc, char* argv[])
     }
 
     if (oms_el.size() != 0) {
-        e2q::process_run_number = run;
         _e2q.setCfg(oms_el, properties);
-        _e2q.exchange();
+        _e2q.exchange(proce);
     }
     int exit_status;
-    pid_t pid;
+
     for (m = 0; m < proce; m++) {
         pid = wait(&exit_status);
         log::echo("child pid ", pid, " status 0x%x", (long)pid, exit_status);

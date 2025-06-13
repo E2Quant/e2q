@@ -54,6 +54,8 @@
 #include <utility>
 #include <vector>
 
+#include "E2LScript/ExternClazz.hpp"
+#include "Toolkit/Norm.hpp"
 #include "Toolkit/pack.hpp"
 namespace e2q {
 
@@ -67,10 +69,23 @@ template <typename T>
 class ThreadPool {
 public:
     /* =============  LIFECYCLE     =================== */
-    ThreadPool(std::size_t num_threads)
-        : _num_threads(num_threads) {
+    ThreadPool(std::size_t num_threads) : _num_threads(num_threads)
+    {
+        if (FixPtr->_cash._thread_pos.size() > 0) {
+            for (auto it : FixPtr->_cash._thread_pos) {
+                // std::cout << "thread_pos == " << it.first
+                //           << "  post:" << it.second._postion <<
+                //           std::endl;
+                _thread_queue.push(it.first);
+            }
+        }
+        else {
+            for (std::size_t m = 0; m < _num_threads; m++) {
+                _thread_queue.push(m);
+            }
+        }
 
-          }; /* constructor */
+    }; /* constructor */
     ~ThreadPool()
     {
         if (_active) {
@@ -87,7 +102,7 @@ public:
     void init()
     {
         for (std::size_t i = 0; i < _num_threads; i++) {
-            _pool.emplace_back(&ThreadPool::run, this);
+            _pool.emplace_back(&ThreadPool::run, this, i);
         }
     }
     void exits()
@@ -99,14 +114,17 @@ public:
         }
     }
     void job_init(func_type<T, std::thread::id> f) { _job_init = std::move(f); }
-    void jobs(func_type<T, T, std::thread::id> f) { _job_fun = std::move(f); }
+    void jobs(func_type<T, T, std::size_t, std::thread::id> f)
+    {
+        _job_fun = std::move(f);
+    }
     void emit(T t)
     {
         // std::unique_lock lock(guard);
-        std::size_t m = 0;
+        // std::cout << "emit" << std::endl;
+        SeqType m = 0;
         for (auto it = _arg_jobs.begin(); it != _arg_jobs.end(); ++it) {
             it->second.push({t, m});
-            m++;
         }
         cv.notify_all();
     }
@@ -120,7 +138,7 @@ protected:
 private:
     /* =============  METHODS       =================== */
 
-    void run()
+    void run(std::size_t idx)
     {
         if (_job_fun == nullptr || _job_init == nullptr) {
             log::bug("job_fun or job_init is nullptr");
@@ -131,9 +149,13 @@ private:
         std::queue<std::pair<T, T>> q;
         {
             std::unique_lock lock(guard);
-
             _arg_jobs.insert({_id, q});
-            std::size_t thread_num = _arg_jobs.size() - 1;
+
+            std::size_t thread_num = _thread_queue.front();
+            _thread_queue.pop();
+
+            _thread_number.insert({_id, thread_num});
+
             _job_init(thread_num, _id);
         };
 
@@ -167,15 +189,16 @@ private:
                 std::pair<T, T> arg = _arg_jobs[_id].front();
                 _arg_jobs[_id].pop();
 
+                std::size_t tnum = _thread_number.at(_id);
                 std::packaged_task<void()> task(
-                    std::bind(_job_fun, arg.first, arg.second, _id));
+                    std::bind(_job_fun, arg.first, tnum, _num_threads, _id));
                 job.swap(task);
             }
             job();
         }
     }
     /* =============  DATA MEMBERS  =================== */
-    func_type<T, T, std::thread::id> _job_fun{nullptr};
+    func_type<T, T, std::size_t, std::thread::id> _job_fun{nullptr};
     func_type<T, std::thread::id> _job_init{nullptr};
 
     std::size_t _num_threads = 0;
@@ -183,6 +206,9 @@ private:
 
     std::vector<std::thread> _pool;
     std::atomic_bool _active{true};
+
+    std::queue<std::size_t> _thread_queue;
+    std::map<std::thread::id, std::size_t> _thread_number;
 
     std::condition_variable cv;
     std::mutex guard;

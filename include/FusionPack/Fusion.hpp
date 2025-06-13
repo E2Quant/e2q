@@ -65,8 +65,9 @@ public:
     Fusion(); /* constructor */
 
     /* =============  ACCESSORS     =================== */
-    void oms(std::string e2l_script);
-    void ea(std::string e2l_script, size_t n, std::size_t quantId_start);
+    void oms(std::string e2l_script, int);
+    void ea(std::string e2l_script, size_t n, std::size_t quantId_start,
+            std::size_t tpro);
 
     void properties(std::string &);
     void enter(const char *);

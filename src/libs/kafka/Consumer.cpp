@@ -59,6 +59,7 @@
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
+#include "OMSPack/FixGuard.hpp"
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
@@ -272,7 +273,7 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         std::string ymd = std::to_string(node._ymd);
         const char fmt[] = "%Y%m%d";
         UtilTime ut;
-        std::size_t exrd_time = ut.strtostamp(ymd, fmt) / 1000;
+        std::size_t exrd_time = ut.strtostamp(ymd, fmt);
 
         char *field = nullptr;
         char *val = nullptr;
@@ -512,41 +513,16 @@ void KfConsumeCb::QuoteStatusReport(const FIX::SessionID &session, ExRD node,
  */
 void KfConsumeCb::CustomMsg(const char *ptr, int sz, int64_t moffset)
 {
-    CustomMessage cmsg;
-    std::size_t idx = 0;
+    PushGCM(ptr, sz);
 
-    idx += parse_uint_t(ptr + idx, cmsg.CfiCode);
+    FixGuard fix;
+    Base64 base64;
+    std::string msg = base64.b64encode(ptr, sz);
 
-    if (cmsg.CfiCode > 0) {
-        cmsg.CfiCode += E2QCfiStart;
+    for (auto it = SessionSymList.begin(); it != SessionSymList.end(); it++) {
+        fix.CustemRequest(it->first, msg, sz);
     }
-    idx += parse_uint_t(ptr + idx, cmsg.index);
-    idx += parse_uint_t(ptr + idx, cmsg.size);
-    cmsg.type = *(ptr + idx);
-    idx++;
-    GlobalCustomMsg.init(cmsg.CfiCode, cmsg.index, cmsg.size);
-    switch (cmsg.type) {
-        case CmType::UINT16: {
-            std::uint16_t data_uint16;
-            GetMsgData(GlobalCustomMsg, cmsg.index, data_uint16);
 
-            break;
-        }
-        case CmType::UINT32: {
-            std::uint32_t data_uint32;
-            GetMsgData(GlobalCustomMsg, cmsg.index, data_uint32);
-
-            break;
-        }
-        case CmType::UINT64: {
-            std::uint64_t data_uint64;
-            GetMsgData(GlobalCustomMsg, cmsg.index, data_uint64);
-            break;
-        }
-        default:
-            log::bug("bad type!");
-            break;
-    }
 } /* -----  end of function KfConsumeCb::CustomMsg  ----- */
 
 /*

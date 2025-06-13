@@ -64,12 +64,12 @@
 #include <quickfix/MessageCracker.h>
 #include <quickfix/SessionID.h>
 #include <quickfix/SocketAcceptor.h>
+#include <quickfix/fix44/BidResponse.h>
 #include <quickfix/fix44/ExecutionReport.h>
 #include <quickfix/fix44/MarketDataRequest.h>
 #include <quickfix/fix44/MarketDataSnapshotFullRefresh.h>
 #include <quickfix/fix44/MassQuote.h>
 #include <quickfix/fix44/MessageCracker.h>
-
 #undef throw /* reset */
 #endif
 
@@ -91,10 +91,11 @@ public:
 
     /* =============  MUTATORS      =================== */
 
-    void MarketMessage(const FIX::SessionID&,
-                       std::array<SeqType, trading_protocols>&);
+    void MarketMessage(const FIX::SessionID &,
+                       std::array<SeqType, trading_protocols> &);
 
-    void updateOrder(const OrderLots&, char status, double);
+    void CustemRequest(const FIX::SessionID &, std::string &, int);
+    void updateOrder(const OrderLots &, char status, double);
     /* =============  OPERATORS     =================== */
 
 protected:
@@ -103,16 +104,16 @@ protected:
     // std::string genOrderID() { return std::to_string(sequence()); };
     std::string genExecID() { return UUidGen(); };
 
-    e2::Side convert(const FIX::Side&);
+    e2::Side convert(const FIX::Side &);
     FIX::Side convert(e2::Side);
 
-    e2::OrdType convert(const FIX::OrdType&);
+    e2::OrdType convert(const FIX::OrdType &);
     FIX::OrdType convert(e2::OrdType);
 
-    e2::OrdStatus convert(const FIX::OrdStatus&);
+    e2::OrdStatus convert(const FIX::OrdStatus &);
     FIX::OrdStatus convert(e2::OrdStatus);
 
-    e2::TimeInForce convert(const FIX::TimeInForce&);
+    e2::TimeInForce convert(const FIX::TimeInForce &);
     FIX::TimeInForce convert(e2::TimeInForce);
     /* =============  DATA MEMBERS  =================== */
 

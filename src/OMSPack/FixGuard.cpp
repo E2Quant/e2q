@@ -49,9 +49,14 @@
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
+#include "quickfix/Exceptions.h"
 #include "quickfix/FixFields.h"
 #include "quickfix/FixValues.h"
+#include "quickfix/Session.h"
 #include "quickfix/SessionID.h"
+#include "quickfix/fix44/BidResponse.h"
+#include "quickfix/fix44/ExecutionReport.h"
+#include "quickfix/fix44/MessageCracker.h"
 namespace e2q {
 /*
  * ===  FUNCTION  =============================
@@ -119,6 +124,43 @@ void FixGuard::MarketMessage(const FIX::SessionID& sid,
     }
 
 } /* -----  end of function FixGuard::MarketMessage  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixGuard::CustemRequest
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void FixGuard::CustemRequest(const FIX::SessionID& sid, std::string& data,
+                             int sz)
+{
+    FIX44::BidResponse lss = FIX44::BidResponse();
+    FIX44::BidResponse::NoBidComponents nbc;
+
+    FIX::Price price;
+    FIX::ListID lid;
+
+    price.setValue(sz);
+    lid.setValue(data);
+
+    nbc.setField(price);
+    nbc.setField(lid);
+
+    lss.addGroup(nbc);
+
+    try {
+        FIX::Session::sendToTarget(lss, sid);
+    }
+    catch (FIX::SessionNotFound& e) {
+        log::bug(e.what());
+    }
+} /* -----  end of function FixGuard::CustemRequest  ----- */
+
 /*
  * ===  FUNCTION  =============================
  *

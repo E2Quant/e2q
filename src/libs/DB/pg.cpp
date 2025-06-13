@@ -167,6 +167,7 @@ int Pgsql::PGResult(char **field, char **val)
         log::echo("res is null");
         return ret;
     }
+
     *field = PQfname(_res, _end);
     *val = PQgetvalue(_res, _begin, _end);
 
@@ -210,6 +211,7 @@ void Pgsql::OneHead(char **field, char **val)
         log::echo("res is null");
         return;
     }
+
     *field = PQfname(_res, 0);
     *val = PQgetvalue(_res, 0, 0);
 
@@ -318,7 +320,6 @@ bool Pgsql::exec(std::string sql)
     if (_conn == nullptr) {
         log::bug("conn is nullptr");
         init();
-        // return ret;
     }
     if (debug) {
         log::info(sql);
@@ -339,6 +340,7 @@ bool Pgsql::exec(std::string sql)
         case PGRES_COMMAND_OK: {
             // update delete  insert
             // int cmds = PQcmdTuples(_res);
+
             _command_count = std::stoi(PQcmdTuples(_res));
             ret = true;
             break;
@@ -348,6 +350,7 @@ bool Pgsql::exec(std::string sql)
             _nfields = PQnfields(_res);
 
             _ntuples = PQntuples(_res);
+
             ret = true;
             break;
         case PGRES_COPY_OUT:

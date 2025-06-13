@@ -46,10 +46,12 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 
 #include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "quickfix/SessionSettings.h"
+#include "utility/Log.hpp"
 
 namespace e2q {
 /**
@@ -86,7 +88,7 @@ MachineOS::MachineOS()
  * ============================================
  */
 void MachineOS::enter(std::string& e2l_script, size_t n,
-                      std::size_t quantId_start)
+                      std::size_t quantId_start, std::size_t total_process)
 {
     _node = n;
     GlobalProcessId = n;
@@ -139,6 +141,8 @@ void MachineOS::enter(std::string& e2l_script, size_t n,
             if (_initiator.isStopped() == false) {
                 _initiator.stop();
             }
+            settings = EaSetting();
+
             if (bug_client == 5) {
                 break;
             }
@@ -257,12 +261,6 @@ FIX::SessionSettings MachineOS::EaSetting()
     char* field = nullptr;
     char* val = nullptr;
 
-    std::string sql =
-        "SELECT   beginstring, targetcompid, sendercompid,"
-        "filestorepath,datadictionary,host as SocketConnectHost,port as "
-        "SocketConnectPort from fixsession WHERE id=" +
-        std::to_string(_node + 1);
-
     bool isDb = GlobalDBPtr->isInit();
     if (isDb == false) {
         return settings;
@@ -274,6 +272,16 @@ FIX::SessionSettings MachineOS::EaSetting()
         e2q::GlobalDBPtr->release(gidx);
         return settings;
     }
+
+    std::string sql = log::format(
+        "SELECT beginstring, targetcompid, sendercompid,"
+        "filestorepath,datadictionary,host as SocketConnectHost,port as "
+        "SocketConnectPort from fixsession WHERE id not IN (SELECT sessionid "
+        "from account)  ORDER BY id DESC OFFSET %ld "
+        "LIMIT 1",
+        _node);
+
+    // log::info(sql);
     bool r = pg->select_sql(sql);
     FIX::Dictionary dict_session;
     dict_session.setDouble("LogonTimeout", 30);

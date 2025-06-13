@@ -46,6 +46,7 @@
 
 #include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/UtilTime.hpp"
 #include "assembler/BaseType.hpp"
 #include "utility/Log.hpp"
 namespace e2q {
@@ -67,14 +68,14 @@ void BrokerBase::Debug()
         std::string id = it.first.getTargetCompID().getValue();
         std::string cont = log::format("%.2f", it.second.total_cash);
         log::info("sid:", id, " total:", cont);
-        /*
-         for (auto ze : it.second.order_cash) {
-             cont = log::format("ticket: %ld, equity:%.2f, margin: %.2f",
-                                ze.first, ze.second.equity,
 
-                                ze.second.margin);
-             log::info("ticket:", ze.first, " margin:", cont);
-         }*/
+        for (auto ze : it.second.order_cash) {
+            cont = log::format("report: %d, equity:%.2f, margin: %.2f",
+                               ze.second.report, ze.second.equity,
+
+                               ze.second.margin);
+            log::info("ticket:", ze.first, " margin:", cont);
+        }
     }
 } /* -----  end of function BrokerBase::Debug  ----- */
 
@@ -148,6 +149,10 @@ void BrokerBase::SettlInst(OrderLots& lots)
     char status =
         lots.isFilled ? FIX::OrdStatus_FILLED : FIX::OrdStatus_PARTIALLY_FILLED;
 
+    // Debug();
+    // log::info("-------");
+    BasicLock _lock(_BMute);
+
     if (isClose) {
         // 这边计算有点问题
         // 应该是 计算 收益的 百分比，而不是收盘的现价
@@ -167,6 +172,7 @@ void BrokerBase::SettlInst(OrderLots& lots)
             dtt.margin = 0;
             dtt.equity = neet_equity;
             dtt.qty = lots.quantity;
+            dtt.report = false;
             _traders.at(sid).order_cash.insert({ticket, dtt});
         }
         else {
@@ -216,7 +222,6 @@ void BrokerBase::SettlInst(OrderLots& lots)
     if (lots.leavesQty == 0) {
         trade_report(lots);
     }
-
     // Debug();
 } /* -----  end of function BrokerBase::SettlInst  ----- */
 
@@ -241,6 +246,9 @@ void BrokerBase::freeMargin(const FIX::SessionID& sid, std::size_t ticket,
         _traders.at(sid).order_cash.count(ticket) == 0) {
         return;
     }
+
+    BasicLock _lock(_BMute);
+
     if (margin == 0) {
         double _margin = _traders.at(sid).order_cash.at(ticket).margin;
         _traders.at(sid).order_cash.at(ticket) = {0, 0};
@@ -288,6 +296,8 @@ bool BrokerBase::Margin(const FIX::SessionID& sid, std::size_t ticket,
         return ret;
     }
 
+    BasicLock _lock(_BMute);
+
     if (_traders.at(sid).order_cash.count(ticket) == 1) {
         _traders.at(sid).order_cash.at(ticket).margin += margin;
     }
@@ -297,6 +307,7 @@ bool BrokerBase::Margin(const FIX::SessionID& sid, std::size_t ticket,
         dtt.margin = margin;
         dtt.equity = 0;
         dtt.qty = qty;
+        dtt.report = false;
         _traders.at(sid).order_cash.insert({ticket, dtt});
     }
 
@@ -364,9 +375,19 @@ void BrokerBase::traders(const FIX::SessionID& id, double cash)
         return;
     }
     int fix_id = 0;
+
+    BasicLock _lock(_BMute);
+
     if (_traders.count(id) > 0) {
         _traders.at(id).total_cash += cash;
         fix_id = _traders.at(id).fix_id;
+
+        gsql->update_table("account");
+        std::string inc = " balance + " + std::to_string(cash);
+        gsql->update_field("balance", inc);
+        gsql->update_condition("id", fix_id);
+
+        gsql->update_commit();
     }
     else {
         std::string compid = id.getTargetCompID().getValue();
@@ -394,14 +415,16 @@ void BrokerBase::traders(const FIX::SessionID& id, double cash)
         ti.fix_id = fix_id;
         ti.total_cash = cash;
         _traders.insert({id, ti});
+
+        UtilTime ut;
+        gsql->insert_table("account");
+        gsql->insert_field("sessionid", fix_id);
+        gsql->insert_field("balance", cash);
+        gsql->insert_field("verid", FinFabr->_QuantVerId);
+        gsql->insert_field("ctime", ut.time());
+        gsql->insert_commit();
     }
 
-    gsql->update_table("account");
-    std::string inc = " balance + " + std::to_string(cash);
-    gsql->update_field("balance", inc);
-    gsql->update_condition("id", fix_id);
-
-    gsql->update_commit();
     GlobalDBPtr->release(idx);
 
 } /* -----  end of function BrokerBase::traders  ----- */
@@ -428,10 +451,17 @@ void BrokerBase::trade_report(OrderLots& lots)
     double credit = 0;
     bool isClose = lots.TradeTicket != 0;
     int side = e2::Side::os_Buy;
+
+    // Debug();
+    // 记录单个 quantid 的 margin
     margin = _traders.at(sid).order_cash.at(ticket).equity;
+    // log::info("margin:", _traders.at(sid).order_cash.at(ticket).margin);
+
     if (isClose) {
         side = e2::Side::os_Sell;
         margin = 0;
+
+        _traders.at(sid).order_cash.at(lots.TradeTicket).report = true;
         profit = _traders.at(sid).order_cash.at(ticket).equity;
     }
 
@@ -457,7 +487,14 @@ void BrokerBase::trade_report(OrderLots& lots)
     std::string ticket_to_id = log::format(
         "(select id from trades where ticket='%ld'  limit 1)", ticket);
 
-    credit = balance + margin;
+    // 在数据库是记录当前所有 ticket 加起来的 balace
+    for (auto it : _traders.at(sid).order_cash) {
+        if (it.second.report || it.second.margin == 0) {
+            continue;
+        }
+        credit += it.second.margin;
+    }
+    credit += balance;
     pgsql->insert_table("trade_report");
     pgsql->insert_field("ticket", ticket_to_id);
     pgsql->insert_field("sessionid", sessionid);
@@ -493,8 +530,11 @@ void BrokerBase::trade_report(OrderLots& lots)
  */
 void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
 {
+    BasicLock _lock(_BMute);
+
     std::size_t idx = GlobalDBPtr->getId();
     Pgsql* pgsql = GlobalDBPtr->ptr(idx);
+    double credit = 0;
     for (auto it : _traders) {
         if (it.second.order_cash.count(ticket) == 1) {
             double all_cash =
@@ -514,7 +554,14 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
                     "(select id from trades where ticket='%ld'  "
                     "limit 1)",
                     (std::size_t)ticket);
+                credit = _traders.at(it.first).total_cash;
 
+                for (auto itc : it.second.order_cash) {
+                    if (itc.second.report || itc.second.margin == 0) {
+                        continue;
+                    }
+                    credit += itc.second.margin;
+                }
                 pgsql->insert_table("trade_report");
                 pgsql->insert_field("ticket", ticket_to_id);
                 pgsql->insert_field("sessionid", sessionid);
@@ -523,8 +570,7 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
                 pgsql->insert_field("margin", 0);
                 pgsql->insert_field("profit", all_cash, 3);
                 pgsql->insert_field("side", 3);
-                pgsql->insert_field("credit", _traders.at(it.first).total_cash,
-                                    3);
+                pgsql->insert_field("credit", credit, 3);
                 pgsql->insert_field("ctime", ctime);
                 pgsql->insert_commit();
             }
@@ -557,6 +603,9 @@ void BrokerBase::AddExdrQty(SeqType cfi, SeqType ticket, double qty,
         log::bug("error in ticket:", ticket, " qty:", qty);
         return;
     }
+
+    BasicLock _lock(_BMute);
+
     if (FinFabr->_exdr_qty.count(ticket) == 0) {
         FinFabr->_exdr_qty.insert({ticket, qty});
     }

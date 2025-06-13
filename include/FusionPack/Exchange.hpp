@@ -83,7 +83,7 @@ public:
     /**
      * 将 fix Risk 两个线程
      */
-    void RiskFix();
+    void RiskFix(int);
     /**
      * 虚构交易者，触发 MarketData,link FeedData
      * trigger to FeedBalance
@@ -102,7 +102,7 @@ protected:
 private:
     /* =============  METHODS       =================== */
     void match();
-    FIX::SessionSettings ExSetting();
+    FIX::SessionSettings ExSetting(int);
     /* =============  DATA MEMBERS  =================== */
     _Resource_ptr _resource = nullptr;
     std::shared_ptr<BeamData> _beam_data = nullptr;

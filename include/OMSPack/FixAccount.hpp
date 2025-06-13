@@ -63,6 +63,8 @@
 #include "Toolkit/pack.hpp"
 #include "VirtualPack/pack.hpp"
 #include "assembler/BaseType.hpp"
+#include "quickfix/fix44/BidResponse.h"
+#include "quickfix/fix44/ListStatus.h"
 #include "quickfix/fix44/QuoteResponse.h"
 #if __cplusplus >= 201703L
 
@@ -81,6 +83,7 @@
 #include <quickfix/Parser.h>
 #include <quickfix/Session.h>
 #include <quickfix/SessionID.h>
+#include <quickfix/fix44/BidResponse.h>
 #include <quickfix/fix44/ExecutionReport.h>
 #include <quickfix/fix44/MarketDataSnapshotFullRefresh.h>
 #include <quickfix/fix44/MessageCracker.h>
@@ -228,6 +231,9 @@ public:
     void onMessage(const FIX44::OrderCancelReject& message,
                    const FIX::SessionID&) override;
     void onMessage(const FIX44::OrderStatusRequest& message,
+                   const FIX::SessionID&) override;
+
+    void onMessage(const FIX44::BidResponse& message,
                    const FIX::SessionID&) override;
     /**
      * === PostTrade ===

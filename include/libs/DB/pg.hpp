@@ -199,7 +199,15 @@ public:
         _insert_sql += _insert_field + ") VALUES (" + _insert_val + ") " +
                        _insert_return + ";";
 
-        bool ret = exec(_insert_sql);
+        return insert_sql(_insert_sql);
+    }
+
+    bool insert_sql(std::string sql)
+    {
+        _nfields = 0;
+        _ntuples = 0;
+
+        bool ret = exec(sql);
 
         _insert_sql = "INSERT INTO ";
         _insert_field = "";
@@ -215,6 +223,8 @@ public:
         }
         return ret;
     }
+    void pgbegin() { PQexec(_conn, "BEGIN"); }
+    void pgcommit() { PQexec(_conn, "COMMIT"); }
 
     void update_table(std::string table) { _update_sql += table + " SET "; }
 

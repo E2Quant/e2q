@@ -44,7 +44,6 @@
 
 #ifndef BROKERBASE_INC
 #define BROKERBASE_INC
-#include <cstddef>
 #include <map>
 
 #include "OrderBook/Order.hpp"
@@ -111,6 +110,9 @@ private:
     /* ====================  DATA MEMBERS
      * ======================================= */
     std::map<FIX::SessionID, TraderInfo> _traders;
+
+    using BMute = BasicLock::mutex_type;
+    mutable BMute _BMute;
 }; /* -----  end of class BrokerBase  ----- */
 
 }  // namespace e2q

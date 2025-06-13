@@ -217,6 +217,8 @@ struct __CustomMsgStore {
     }
 
 private:
+    // 不够好用，以后再优化吧
+    // cif -> key ->value []
     std::map<std::uint32_t, std::map<std::uint16_t, std::vector<SeqType>>>
         _datas;
     std::uint32_t _cfi = 0;

@@ -169,6 +169,7 @@ void StrategyBase::runScript()
     auto job_init = [this](std::size_t num, std::thread::id _id) {
         std::size_t _uuid = 0;
 
+        AutoInc(_id, num);
         if (FixPtr->_quantId.count(_id) == 0) {
             _uuid = this->_quantIdStart + num;
 
@@ -182,13 +183,10 @@ void StrategyBase::runScript()
         }
     };  // -----  end lambda  -----
 
-    auto job = [this](std::size_t tk_size, size_t num, std::thread::id _id) {
-        try {
-            e2l_thread_map.AutoInit(_id, num);
-        }
-        catch (std::exception &e) {
-            log::bug(e.what(), " num:", num);
-        }
+    auto job = [this](std::size_t tk_size, size_t num, std::size_t number,
+                      std::thread::id _id) {
+        // 每次重来，都要初始化一下 storeid 这些值
+        e2l_thread_map.AutoInit(_id, num);
 
         // try {
         this->_program.toScript(tk_size, num);
@@ -232,7 +230,7 @@ void StrategyBase::runScript()
 
     elog.exist();
 
-    //    e2l_thread_map.dump();
+    // e2l_thread_map.dump();
     /**
      * 先不管，到时候 优化再做
      */

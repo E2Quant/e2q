@@ -287,7 +287,7 @@ e2::Int_e BarSeries(e2::BarType bt)
 
     if (bt >= len) {
         log::bug("error len:", len, " bt:", bt);
-        return 0;
+        return ret;
     }
     ret = e2q::e2l_bar_ohlc.value(pid, bt);
 
@@ -306,7 +306,7 @@ e2::Int_e BarSeries(e2::BarType bt)
  */
 e2::Int_e iOpen(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -331,7 +331,7 @@ e2::Int_e iOpen(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iHigh(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
         return ret;
@@ -363,7 +363,7 @@ e2::Int_e iHighest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
     start = NUMBERVAL(start);
 
     int isread = 0;
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
     std::array<e2q::SeqType, ohlc_column> ohlc;
     if (e2q::e2l_cnt != nullptr) {
         e2::Int_e next = count + start;
@@ -393,7 +393,7 @@ e2::Int_e iHighest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
  */
 e2::Int_e iLow(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
         return ret;
@@ -434,7 +434,7 @@ e2::Int_e iLowest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
  */
 e2::Int_e iClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -458,7 +458,7 @@ e2::Int_e iClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iAdjClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -484,7 +484,7 @@ e2::Int_e iAdjClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iVolume(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -508,7 +508,7 @@ e2::Int_e iVolume(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
  */
 e2::Int_e iTime(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
-    e2::Int_e ret = -1;
+    e2::Int_e ret = 0;
 
     e2::Bool b = Bar(id, timeframe, shift);
     if (b == e2::Bool::B_FALSE) {
@@ -606,7 +606,7 @@ e2::Int_e CustomDataSize(e2::Int_e cfi, e2::Int_e idx)
     idx = NUMBERVAL(idx);
 
     std::size_t len = e2q::GlobalCustomMsg.size(cfi, idx);
-    return VALNUMBER(len);
+    return len;
 } /* -----  end of function CustomDataSize  ----- */
 
 /*
@@ -627,7 +627,7 @@ e2::Int_e CustomDataGet(e2::Int_e cfi, e2::Int_e idx, e2::Int_e pos)
     pos = NUMBERVAL(pos);
 
     std::size_t val = e2q::GlobalCustomMsg.get(cfi, idx, pos);
-    return VALNUMBER(val);
+    return val;
 
 } /* -----  end of function CustomDataGet  ----- */
 

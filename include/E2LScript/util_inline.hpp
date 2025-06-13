@@ -54,7 +54,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <iterator>
 #include <map>
 #include <memory>
 #include <string>
@@ -92,12 +91,14 @@
 namespace e2q {
 
 struct __AutoInc_t {
-    void init(std::thread::id _id)
+    void init(std::thread::id _id, std::size_t num)
     {
+        BasicLock _lock(_EMute);
         if (_autoinc.count(_id) == 0) {
-            BasicLock _lock(_EMute);
             std::shared_ptr<e2q::AutoIncrement> ai =
                 std::make_shared<e2q::AutoIncrement>();
+            ai->init();
+            ai->_number = num;
             _autoinc.insert({_id, ai});
         }
     }
@@ -108,6 +109,9 @@ struct __AutoInc_t {
             _autoinc.at(_id)->init();
             _autoinc.at(_id)->_number = num;
         }
+        else {
+            log::info("bad thread id:", _id);
+        }
     }
     void runs(std::thread::id _id) { _autoinc.at(_id)->_run_number += 1; }
     e2::Int_e Id(std::thread::id _id)
@@ -115,6 +119,7 @@ struct __AutoInc_t {
         if (_autoinc.count(_id) == 1) {
             return _autoinc.at(_id)->Id();
         }
+        log::info("bad thread id:", _id);
         return 0;
     }
     e2::Int_e StoreId(std::thread::id _id)
@@ -122,6 +127,7 @@ struct __AutoInc_t {
         if (_autoinc.count(_id) == 1) {
             return _autoinc.at(_id)->StoreId();
         }
+        log::info("bad thread id:", _id);
         return 0;
     }
 
@@ -130,12 +136,13 @@ struct __AutoInc_t {
         if (_autoinc.count(_id) == 1) {
             return _autoinc.at(_id)->_number;
         }
+        log::info("bad thread id:", _id);
         return 0;
     }
     void dump()
     {
         for (auto it : _autoinc) {
-            log::echo("it:", it.second->_run_number);
+            log::echo(it.first, " it:", it.second->_number);
         }
     }
 
@@ -150,12 +157,12 @@ typedef struct __AutoInc_t AutoInc_t;
 
 inline AutoInc_t e2l_thread_map;
 
-#define AutoInc(_id)                          \
-    ({                                        \
-        do {                                  \
-            _id = std::this_thread::get_id(); \
-            e2q::e2l_thread_map.init(_id);    \
-        } while (0);                          \
+#define AutoInc(_id, num)                       \
+    ({                                          \
+        do {                                    \
+            _id = std::this_thread::get_id();   \
+            e2q::e2l_thread_map.init(_id, num); \
+        } while (0);                            \
     })
 
 /**
@@ -457,8 +464,19 @@ struct __Analse_t {
         e2q::UtilTime ut;
         std::size_t now = ut.time();
         std::thread::id _id = std::this_thread::get_id();
+        std::size_t number = e2q::e2l_thread_map.number(_id);
 
         std::size_t idx = e2q::GlobalDBPtr->getId();
+        double total_cash = 0;
+        float postion = 0;
+
+        if (e2q::FixPtr->_cash._thread_pos.count(number) == 0) {
+            total_cash = e2q::FixPtr->_cash.TotalCash(number);
+        }
+        else {
+            total_cash = e2q::FixPtr->_cash._thread_pos[number]._total_cash;
+            postion = e2q::FixPtr->_cash._thread_pos[number]._postion;
+        }
 
         e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
         if (gsql == nullptr || _analse.count(_id) == 0) {
@@ -472,6 +490,8 @@ struct __Analse_t {
             gsql->insert_field("quantid", it.quantId);
             gsql->insert_field("name", it.name.c_str());
             gsql->insert_field("argv", it.argv.c_str());
+            gsql->insert_field("postion", postion);
+            gsql->insert_field("init_cash", total_cash);
             gsql->insert_query(
                 "verid",
                 "( SELECT id FROM trade_info WHERE active = 1 ORDER "

@@ -170,6 +170,7 @@ void ThreadPosition(e2::Int_e tid, e2::Int_e position)
             thread_post._postion, e2q::FixPtr->_cash.all_postion, free_postion);
         log::bug(cond);
     }
+    // log::info("number:", num, " post:", thread_post._postion);
     e2q::FixPtr->_cash.all_postion -= thread_post._postion;
     e2q::FixPtr->_cash._thread_pos.insert({num, thread_post});
     e2q::FixPtr->_cash._tsize++;

@@ -305,7 +305,7 @@ e2::Int_e TraderAlgorithms::CheckClose(SeqType ticket,
             // T+1
 
             if (ctime > startTime) {
-                return -1;
+                return 0;
             }
 
             break;

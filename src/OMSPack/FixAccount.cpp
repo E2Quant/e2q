@@ -57,10 +57,12 @@
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
 #include "quickfix/FixFields.h"
 #include "quickfix/FixValues.h"
+#include "quickfix/fix44/BidResponse.h"
 #include "quickfix/fix44/MessageCracker.h"
 #include "utility/Log.hpp"
 
@@ -572,15 +574,6 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     if (FixPtr->_cash.cl_thread.count(key) > 0) {
         thread_number = FixPtr->_cash.cl_thread.at(key);
     }
-    // else {
-    //     log::bug("bug:", key, " ticket:", ticket.getValue());
-
-    //     for (auto it : FixPtr->_cash.cl_thread) {
-    //         log::info("key:", it.first);
-    //     }
-    // }
-    // log::info("quantId: ", quantId, " margin:", margin,
-    //           " thread_num:", thread_number, " ticket:", tk);
 
     if (exec.getValue() == FIX::OrdStatus_CANCELED) {
         FixPtr->_OrderIds.erase(quantId);
@@ -588,7 +581,6 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
         for (auto it : e2q::FixPtr->_cash.order_cash) {
             if (tk == it.first) {
                 e2q::FixPtr->_cash.append(thread_number, it.second.margin);
-                // e2q::FixPtr->_cash.total_cash += it.second.margin;
                 FixPtr->_cash.order_cash.erase(it.first);
 
                 break;
@@ -772,8 +764,8 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
     message.getIfSet(ticket);
 
     if (rejtext.getLength() > 0) {
-        log::echo("OrderCancelReject ticket:", ticket.getValue(),
-                  " msg:", rejtext.getValue());
+        // log::echo("OrderCancelReject ticket:", ticket.getValue(),
+        //           " msg:", rejtext.getValue());
 
         e2::Int_e tk = atoll(ticket.getValue().c_str());
         if (tk == 0) {
@@ -811,16 +803,59 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
         GlobalDBPtr->release(idx);
 
         if (FixPtr->_OrderIds[quantId].count(key) == 0) {
-            // log::bug("key is error:", key, " quantId:", quantId,
-            //          " ticket:", tk);
-            for (auto it : e2q::FixPtr->_OrderIds[quantId]) {
-                log::info("key:", it.first, " ticket:", it.second.ticket);
-            }
+            log::bug("key is error:", key, " quantId:", quantId,
+                     " ticket:", tk);
+            // for (auto it : e2q::FixPtr->_OrderIds[quantId]) {
+            //     log::info("key:", it.first, " ticket:", it.second.ticket);
+            // }
             return;
         }
-        log::echo("quantId:", quantId, " key:", key, " tk:", tk,
-                  " qty:", FixPtr->_OrderIds[quantId][key].qty);
+        // log::echo("quantId:", quantId, " key:", key, " tk:", tk,
+        //           " qty:", FixPtr->_OrderIds[quantId][key].qty);
         FixPtr->_OrderIds[quantId][key].trading = TradeStatus::REJECT;
+    }
+} /* -----  end of function FixAccount::onMessage  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixAccount::onMessage
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void FixAccount::onMessage(const FIX44::BidResponse& message,
+                           const FIX::SessionID& sid)
+{
+    //  log::info(message.toXML());
+
+    FIX44::BidResponse::NoBidComponents nbc;
+
+    FIX::Price price;
+    FIX::ListID lid;
+
+    Base64 base64;
+    int counts = message.groupCount(nbc.field());
+    std::string custem;
+    size_t sz = 0;
+    for (int m = 1; m <= counts; m++) {
+        message.getGroup(m, nbc);
+        if (nbc.isEmpty()) {
+            continue;
+        }
+        nbc.getField(price);
+        nbc.getField(lid);
+
+        custem = base64.b64decode(lid.getValue());
+        const char* ptr = custem.c_str();
+        sz = price.getValue();
+        if (sz != custem.size()) {
+            log::info("sz:", sz, " base64 len:", custem.size());
+        }
+        PushGCM(ptr, sz);
     }
 } /* -----  end of function FixAccount::onMessage  ----- */
 /*
@@ -1288,7 +1323,7 @@ void FixAccount::quit()
         }
 
         if (FixPtr->_cash._tsize == 0) {
-            total_cash = FixPtr->_cash.TotalCash(0);
+            total_cash += FixPtr->_cash.TotalCash(0);
         }
         gsql->update_table("analse");
         gsql->update_field("profit", total_cash, 3);

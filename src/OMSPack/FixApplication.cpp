@@ -689,6 +689,9 @@ void FixApplication::FeedDataHandle()
                 adj_ret = this->_program->toScript(e2::OMSRisk::I_OMS, cfi);
             }
         }
+        if (adj_ret < 0) {
+            log::info("price:", price, " adj_ret:", adj_ret);
+        }
 
         // 涨跌停，由 kafka 发送价格端来控制，有量的话，就交易,否则不进行交易
         if (qty > 0) {
