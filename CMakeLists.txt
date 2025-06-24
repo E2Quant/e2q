@@ -10,8 +10,8 @@ add_definitions('-std=c++20')
 
 
 # Set project version
-set(E2Q_VERSION_MAJOR "0")
-set(E2Q_VERSION_MINOR "1")
+set(E2Q_VERSION_MAJOR "1")
+set(E2Q_VERSION_MINOR "0")
 set(E2Q_VERSION_PATCH "0")
 set(E2Q_VERSION_EXTRA "")
 set(E2Q_VERSION "${E2Q_VERSION_MAJOR}.${E2Q_VERSION_MINOR}")
