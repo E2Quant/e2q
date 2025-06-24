@@ -41,6 +41,7 @@
  * =====================================================================================
  */
 #include <cstddef>
+#include <cstdint>
 #include <thread>
 
 #include "E2L/E2LType.hpp"
@@ -606,9 +607,28 @@ e2::Int_e CustomDataSize(e2::Int_e cfi, e2::Int_e idx)
     idx = NUMBERVAL(idx);
 
     std::size_t len = e2q::GlobalCustomMsg.size(cfi, idx);
-    return len;
+    return VALNUMBER(len);
 } /* -----  end of function CustomDataSize  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  CustomDataNumber
+ *  ->  void *
+ *  Parameters:
+ *  - Number_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e CustomDataNumber(e2::Int_e cfi, e2::Int_e idx)
+{
+    cfi = NUMBERVAL(cfi);
+    idx = NUMBERVAL(idx);
+
+    std::uint32_t len = e2q::GlobalCustomMsg.number(cfi, idx);
+    return VALNUMBER(len);
+} /* -----  end of function CustomDataNumber  ----- */
 /*
  * ===  FUNCTION  =============================
  *

@@ -182,14 +182,13 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
     std::queue<OrderLots> orders;
 
     _orderMatcher->match(symbol, orders, market_price, adj_now);
-    std::size_t idx = GlobalDBPtr->getId();
-
-    Pgsql* gsql = GlobalDBPtr->ptr(idx);
 
     while (orders.size() > 0) {
         OrderLots ol = orders.front();
         ol.ctime = match_now;
         if (ol.executedQuantity == 0 && ol.ticket > 0) {
+            std::size_t idx = GlobalDBPtr->getId();
+            Pgsql* gsql = GlobalDBPtr->ptr(idx);
             if (gsql != nullptr) {
                 gsql->update_table("trades");
                 gsql->update_field("stat", 4);  // OrdStatus: Canceled
@@ -197,7 +196,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
                 // gsql->update_condition(" stat != 0 ");
                 gsql->update_commit();
             }
-
+            GlobalDBPtr->release(idx);
             _broker.freeMargin(ol.owner, ol.ticket, 0);
             ol.isCancel = true;
             retLots.push_back(ol);
@@ -220,8 +219,6 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
 
         orders.pop();
     }
-
-    GlobalDBPtr->release(idx);
 
     PreData.PreTime = startTime;
     PreData.PreNow = now;

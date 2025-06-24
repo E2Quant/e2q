@@ -46,6 +46,7 @@
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/UtilTime.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
 
@@ -102,4 +103,187 @@ e2::Int_e Clock()
     _time = ut.milliseconds();
     return _time;
 } /* -----  end of function Clock  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  year
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e year(e2::Int_e now)
+{
+    e2::Int_e y = 0;
+    const char *fmt = "%Y";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    y = atoi(ys.c_str());
+    return VALNUMBER(y);
+} /* -----  end of function year  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  month
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e month(e2::Int_e now)
+{
+    e2::Int_e v = 0;
+    const char *fmt = "%m";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    v = atoi(ys.c_str());
+    return VALNUMBER(v);
+} /* -----  end of function month  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  day
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e day(e2::Int_e now)
+{
+    e2::Int_e v = 0;
+    const char *fmt = "%d";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    v = atoi(ys.c_str());
+    return VALNUMBER(v);
+} /* -----  end of function day  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  week
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e week(e2::Int_e now)
+{
+    e2::Int_e v = 0;
+    const char *fmt = "%w";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    v = atoi(ys.c_str());
+    return VALNUMBER(v);
+} /* -----  end of function week  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  year_week
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e year_week(e2::Int_e now)
+{
+    e2::Int_e v = 0;
+    const char *fmt = "%U";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    v = atoi(ys.c_str());
+    return VALNUMBER(v);
+} /* -----  end of function year_week  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  hours
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e hours(e2::Int_e now)
+{
+    e2::Int_e v = 0;
+    const char *fmt = "%H";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    v = atoi(ys.c_str());
+    return VALNUMBER(v);
+} /* -----  end of function hours  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  minutes
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e minutes(e2::Int_e now)
+{
+    e2::Int_e v = 0;
+    const char *fmt = "%M";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    v = atoi(ys.c_str());
+    return VALNUMBER(v);
+} /* -----  end of function minutes  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  second
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e second(e2::Int_e now)
+{
+    e2::Int_e v = 0;
+    const char *fmt = "%s";
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    v = atoi(ys.c_str());
+    return VALNUMBER(v);
+
+} /* -----  end of function second  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  millisecond
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e millisecond(e2::Int_e t)
+{
+    return VALNUMBER((t % 1000));
+} /* -----  end of function millisecond  ----- */
 }  // namespace e2l

@@ -465,14 +465,6 @@ void BrokerBase::trade_report(OrderLots& lots)
         profit = _traders.at(sid).order_cash.at(ticket).equity;
     }
 
-    std::size_t idx = GlobalDBPtr->getId();
-    Pgsql* pgsql = GlobalDBPtr->ptr(idx);
-    if (pgsql == nullptr) {
-        GlobalDBPtr->release(idx);
-        log::bug("pg idx is nullptr, idx:", idx);
-        return;
-    }
-
     if (_traders.at(sid).order_cash.count(ticket) == 0) {
         return;
     }
@@ -495,6 +487,14 @@ void BrokerBase::trade_report(OrderLots& lots)
         credit += it.second.margin;
     }
     credit += balance;
+    std::size_t idx = GlobalDBPtr->getId();
+    Pgsql* pgsql = GlobalDBPtr->ptr(idx);
+
+    if (pgsql == nullptr) {
+        GlobalDBPtr->release(idx);
+        log::bug("pg idx is nullptr, idx:", idx);
+        return;
+    }
     pgsql->insert_table("trade_report");
     pgsql->insert_field("ticket", ticket_to_id);
     pgsql->insert_field("sessionid", sessionid);

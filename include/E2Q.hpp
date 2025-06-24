@@ -72,6 +72,7 @@ public:
     /* ====================  OPERATORS =======================================
      */
     void exchange(int pros);
+    void log_dir(std::string &);
 
     void trader(size_t n, std::size_t quant_start, int run,
                 std::size_t total_pro);
@@ -92,6 +93,7 @@ private:
 
     std::string e2l_path = "";
     std::string db_path = "";
+
 }; /* -----  end of class E2Q  ----- */
 }  // namespace e2q
 #endif /* ----- #ifndef E2Q_INC  ----- */

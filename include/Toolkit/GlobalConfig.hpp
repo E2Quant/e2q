@@ -128,17 +128,20 @@ inline CustomMsgStore GlobalCustomMsg;
                 switch (cmsg.type) {                                          \
                     case CmType::UINT16: {                                    \
                         std::uint16_t data_uint16;                            \
-                        GetMsgData(GlobalCustomMsg, cmsg.index, data_uint16); \
+                        GetMsgData(GlobalCustomMsg, cmsg.CfiCode, cmsg.index, \
+                                   data_uint16);                              \
                         break;                                                \
                     }                                                         \
                     case CmType::UINT32: {                                    \
                         std::uint32_t data_uint32;                            \
-                        GetMsgData(GlobalCustomMsg, cmsg.index, data_uint32); \
+                        GetMsgData(GlobalCustomMsg, cmsg.CfiCode, cmsg.index, \
+                                   data_uint32);                              \
                         break;                                                \
                     }                                                         \
                     case CmType::UINT64: {                                    \
                         std::uint64_t data_uint64;                            \
-                        GetMsgData(GlobalCustomMsg, cmsg.index, data_uint64); \
+                        GetMsgData(GlobalCustomMsg, cmsg.CfiCode, cmsg.index, \
+                                   data_uint64);                              \
                         break;                                                \
                     }                                                         \
                     default:                                                  \
@@ -150,7 +153,7 @@ inline CustomMsgStore GlobalCustomMsg;
                 idx += 2;                                                     \
                 if (idx < (std::size_t)sz &&                                  \
                     cmsg.Aligned == Aligned_t::PULL) {                        \
-                    log::info("cif:", cmsg.CfiCode, " A:", cmsg.Aligned,      \
+                    log::info("cfi:", cmsg.CfiCode, " A:", cmsg.Aligned,      \
                               " idx:", idx, " sz:", sz);                      \
                 }                                                             \
             } while (idx < (std::size_t)sz &&                                 \

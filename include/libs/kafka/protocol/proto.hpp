@@ -48,6 +48,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <utility>
 #include <vector>
 
 #include "Toolkit/Norm.hpp"
@@ -153,42 +154,56 @@ struct CustomMessage : public BaseMessage {
 
 typedef struct CustomMessage CustomMessage;
 
-#define GetMsgData(array_data, index, value_uint)                    \
-    ({                                                               \
-        do {                                                         \
-            for (std::size_t m = 0; m < cmsg.size; m++) {            \
-                idx += parse_uint_t(ptr + idx, value_uint);          \
-                array_data.push_back(index, m, (SeqType)value_uint); \
-                if (idx >= (std::size_t)sz) {                        \
-                    break;                                           \
-                }                                                    \
-            }                                                        \
-        } while (0);                                                 \
+#define GetMsgData(array_data, cfi, index, value_uint)                    \
+    ({                                                                    \
+        do {                                                              \
+            for (std::size_t m = 0; m < cmsg.size; m++) {                 \
+                idx += parse_uint_t(ptr + idx, value_uint);               \
+                array_data.push_back(cfi, index, m, (SeqType)value_uint); \
+                if (idx >= (std::size_t)sz) {                             \
+                    break;                                                \
+                }                                                         \
+            }                                                             \
+        } while (0);                                                      \
     })
 
 struct __CustomMsgStore {
     void init(std::uint32_t cfi, std::uint16_t idx, std::size_t len)
     {
-        _cfi = cfi;
+        //  _cfi = cfi;
         _index = idx;
+        BasicLock _lock(_CMute);
         if (_datas.count(cfi) == 0) {
-            BasicLock _lock(_CMute);
             std::vector<SeqType> v(len);
-            std::map<std::uint16_t, std::vector<SeqType>> vi;
-            vi.insert({idx, v});
+            std::pair<std::uint32_t, std::vector<SeqType>> value =
+                std::make_pair(0, v);
+            std::map<std::uint16_t,
+                     std::pair<std::uint32_t, std::vector<SeqType>>>
+                vi;
+            vi.insert({idx, value});
             _datas.insert({cfi, vi});
         }
 
         if (_datas[cfi].count(idx) == 0) {
-            BasicLock _lock(_CMute);
             std::vector<SeqType> v(len);
-            _datas[cfi].insert({idx, v});
+            std::pair<std::uint32_t, std::vector<SeqType>> value =
+                std::make_pair(0, v);
+            _datas[cfi].insert({idx, value});
+        }
+        else {
+            _datas[cfi][idx].first++;
         }
     }
-    void push_back(std::uint16_t idx, std::size_t pos, SeqType data)
+    void push_back(std::uint32_t cfi, std::uint16_t idx, std::size_t pos,
+                   SeqType data)
     {
-        std::size_t _pos = pos % _datas[_cfi][idx].size();
-        _datas[_cfi][idx][_pos] = data;
+        std::size_t _pos = pos % _datas[cfi][idx].second.size();
+        _datas[cfi][idx].second[_pos] = data;
+    }
+
+    std::uint32_t number(std::uint32_t cfi, std::uint16_t idx)
+    {
+        return _datas[cfi][idx].first;
     }
 
     std::size_t size(std::uint32_t cfi, std::uint16_t idx)
@@ -199,7 +214,7 @@ struct __CustomMsgStore {
         if (_datas[cfi].count(idx) == 0) {
             return 0;
         }
-        return _datas[cfi][idx].size();
+        return _datas[cfi][idx].second.size();
     }
 
     SeqType get(std::uint32_t cfi, std::uint16_t idx, std::size_t pos)
@@ -210,18 +225,20 @@ struct __CustomMsgStore {
         if (_datas[cfi].count(idx) == 0) {
             return 0;
         }
-        if (pos >= _datas[cfi][idx].size()) {
+        if (pos >= _datas[cfi][idx].second.size()) {
             return 0;
         }
-        return _datas[cfi][idx][pos];
+        return _datas[cfi][idx].second[pos];
     }
 
 private:
     // 不够好用，以后再优化吧
-    // cif -> key ->value []
-    std::map<std::uint32_t, std::map<std::uint16_t, std::vector<SeqType>>>
+    // cfi -> key ->value []
+    std::map<
+        std::uint32_t,
+        std::map<std::uint16_t, std::pair<std::uint32_t, std::vector<SeqType>>>>
         _datas;
-    std::uint32_t _cfi = 0;
+
     std::uint16_t _index = 0;
     using CMute = BasicLock::mutex_type;
     mutable CMute _CMute;

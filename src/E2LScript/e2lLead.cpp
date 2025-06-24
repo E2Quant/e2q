@@ -307,6 +307,8 @@ void E2LFunList()
     AddFun(ExdiShare, 1, "FExdiShare", E2L_RETURN, "(cfi_id);");
 
     AddFun(CustomDataSize, 2, "FCustomDataSize", E2L_RETURN, "(cfi_id, idx);");
+    AddFun(CustomDataNumber, 2, "FCustomDataNumber", E2L_RETURN,
+           "(cfi_id, idx);");
     AddFun(CustomDataGet, 3, "FCustomDataGet", E2L_RETURN,
            "(cfi_id, idx, pos);");
     /**
@@ -330,6 +332,15 @@ void E2LFunList()
     AddFun(TimeCurrent, 0, "FTimeCurrent", E2L_RETURN, "();");
     AddFun(TimeLocal, 0, "FTimeLocal", E2L_RETURN, "();");
     AddFun(Clock, 0, "FClock", E2L_RETURN, "();");
+    AddFun(year, 1, "FYear", E2L_RETURN, "(now);");
+    AddFun(month, 1, "FMonth", E2L_RETURN, "(now);");
+    AddFun(day, 1, "FDay", E2L_RETURN, "(now);");
+    AddFun(week, 1, "FWeek", E2L_RETURN, "(now);");
+    AddFun(year_week, 1, "FYearWeek", E2L_RETURN, "(now);");
+    AddFun(hours, 1, "FHour", E2L_RETURN, "(now);");
+    AddFun(minutes, 1, "FMinute", E2L_RETURN, "(now);");
+    AddFun(second, 1, "FSecond", E2L_RETURN, "(now);");
+    AddFun(millisecond, 1, "Fmillisecond", E2L_RETURN, "(now);");
     /**
      * date time end
      */

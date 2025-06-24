@@ -1300,6 +1300,17 @@ void FixAccount::wait()
 void FixAccount::quit()
 {
     double total_cash = 0;
+
+    std::size_t size_qid = FixPtr->_quantId.size();
+
+    if (FixPtr->_cash._tsize == 0 && size_qid > 1) {
+        // 多个 quantid ,tsize == 0
+        // 这个时候是不是 quantid 划分仓位的情况，就不需要写入profit 了
+        // 需要采用另一种方式计算
+
+        _is_end = true;
+        return;
+    }
     std::size_t idx = e2q::GlobalDBPtr->getId();
 
     e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
@@ -1309,6 +1320,7 @@ void FixAccount::quit()
     }
 
     for (auto it : FixPtr->_quantId) {
+        // 多模型，多仓位的情况
         total_cash = 0;
         for (auto oc : FixPtr->_cash.order_cash) {
             if (oc.second.thread_number == it.second.second) {
@@ -1322,7 +1334,8 @@ void FixAccount::quit()
                 FixPtr->_cash._thread_pos.at(it.second.second)._total_cash;
         }
 
-        if (FixPtr->_cash._tsize == 0) {
+        if (FixPtr->_cash._tsize == 0 && size_qid == 1) {
+            // 等于 1 的时候，单个模型的情况
             total_cash += FixPtr->_cash.TotalCash(0);
         }
         gsql->update_table("analse");
@@ -1331,9 +1344,7 @@ void FixAccount::quit()
         gsql->update_commit();
     }
     e2q::GlobalDBPtr->release(idx);
-
     _is_end = true;
-
 } /* -----  end of function FixAccount::quit  ----- */
 
 /*

@@ -43,6 +43,10 @@
 
 #include "../include/E2Q.hpp"
 
+#include <string>
+
+#include "E2LScript/util_inline.hpp"
+
 namespace e2q {
 /*
  * ===  FUNCTION  =============================
@@ -121,5 +125,23 @@ void E2Q::setCfg(std::string &e2l, std::string &db)
     db_path = db;
 } /* -----  end of function E2Q:setCfg  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  E2Q::log_dir
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void E2Q::log_dir(std::string &dir)
+{
+#ifndef KAFKALOG
+    elog.dir(dir);
+#endif
+
+} /* -----  end of function E2Q::log_dir  ----- */
 }  // namespace e2q
 

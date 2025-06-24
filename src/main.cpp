@@ -46,12 +46,12 @@
 #include <sys/wait.h>
 
 #include <cstdlib>
+#include <string>
 #include <vector>
 
 #include "E2Q.hpp"
 #include "Toolkit/DaemonProcess.hpp"
 #include "ast/ParserCtx.hpp"
-
 /*
  * ===  FUNCTION  =============================
  *
@@ -107,6 +107,8 @@ int e2q_action(int argc, char* argv[])
     char* e = nullptr;
     char* s = nullptr;
     char* p = nullptr;
+    char* f = nullptr;
+    std::string log_dir = "./log";
     int index;
 
     int run = 0;  // 第几次运行进程
@@ -126,10 +128,11 @@ int e2q_action(int argc, char* argv[])
                 -e which loading ea e2l script \n \
                 -s which loading oms e2l script \n \
                 -p which loading db properties \n \
-                -l debug e2l \n \
+                -l show llvm ir for e2l \n \
                 -r e2l run number \n \
                 -o only test e2l script \n \
                 -v show e2q version \n \
+                -f log directory \n \
                 -d daemon run \n";
 
     if (argc < 2) {
@@ -140,7 +143,7 @@ int e2q_action(int argc, char* argv[])
     e2q::process_debug = false;
 
     //./e2q -e node.e2 -e node2.e2 -e node3.e2
-    while ((h = getopt(argc, argv, "hdlve:s:p:r:o:")) != -1) {
+    while ((h = getopt(argc, argv, "hdlve:s:p:r:o:f:")) != -1) {
         switch (h) {
             case 'h': {
                 printf(help.c_str(), argv[0]);
@@ -193,7 +196,14 @@ int e2q_action(int argc, char* argv[])
                 }
                 return 0;
             }
+            case 'f': {
+                f = optarg;
+                if (f != nullptr) {
+                    log_dir = std::string(f);
 
+                    break;
+                }
+            }
             case '?':
             default:
                 printf("%s -h\n", argv[0]);
@@ -223,7 +233,8 @@ int e2q_action(int argc, char* argv[])
         rlim.rlim_max = MAXCONNS;
         if (setrlimit(RLIMIT_NOFILE, &rlim) != 0) {
             log::bug(
-                "failed to set rlimit for open files. Try starting as root or "
+                "failed to set rlimit for open files. Try starting as root "
+                "or "
                 "requesting smaller maxconns value.");
             exit(1);
         }
@@ -241,6 +252,9 @@ int e2q_action(int argc, char* argv[])
     std::vector<pid_t> pids;
     int m = 0;
     e2q::E2Q _e2q;
+    if (log_dir.length() > 0) {
+        _e2q.log_dir(log_dir);
+    }
     for (m = 0; m < proce; m++) {
         pid = fork();
         pids.push_back(pid);

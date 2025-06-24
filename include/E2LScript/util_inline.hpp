@@ -779,15 +779,6 @@ struct LogProtoBin_t {
             return;
         }
         BasicLock _lock(_EMute);
-        FILE *pFile;
-        std::size_t idh = _idx++;
-        auto dirIter = std::filesystem::directory_iterator(_dir);
-
-        for (auto &entry : dirIter) {
-            if (entry.is_regular_file()) {
-                ++idh;
-            }
-        }
 
         struct stat info;
 
@@ -798,6 +789,16 @@ struct LogProtoBin_t {
         }
         else {
             mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        }
+
+        FILE *pFile;
+        std::size_t idh = _idx++;
+        auto dirIter = std::filesystem::directory_iterator(_dir);
+
+        for (auto &entry : dirIter) {
+            if (entry.is_regular_file()) {
+                ++idh;
+            }
         }
 
         std::string path = _dir + log::format("%d_%ld_.log", getpid(), idh);
@@ -839,6 +840,7 @@ struct LogProtoBin_t {
 
         THREAD_FUN(fun, tid, pFile);
     }
+    void dir(std::string &dir) { _dir = "./" + dir + "/"; }
 
 private:
     std::map<std::thread::id, FILE *> _ldata;
