@@ -64,10 +64,10 @@ namespace e2q {
  *
  * ============================================
  */
-Exchange::Exchange(std::string& e2l)
+Exchange::Exchange(std::string& e2l, std::string& edir)
 {
     _program = std::make_shared<ScriptThread>(e2lType::_OMS);
-    _program->init(e2l.c_str());
+    _program->init(e2l.c_str(), edir);
 
     bool call = _program->CheckCall();
     Int_e argc = 1;

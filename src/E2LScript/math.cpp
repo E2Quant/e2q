@@ -45,6 +45,7 @@
 #include <cmath>
 #include <cstddef>
 #include <numeric>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -119,7 +120,10 @@ void ArrayFill(e2::Int_e id, e2::Int_e value, const char *_vname, e2::Int_e loc,
                const char *_path)
 {
     id = NUMBERVAL(id);
-
+    if (id == 0) {
+        log::bug("error id:", id, " vname:", std::string(_vname),
+                 " path:", std::string(_path), " code line:", loc);
+    }
     std::size_t max_size = e2q::e2_share_array.size(id);
     for (std::size_t m = 0; m < max_size; m++) {
         e2q::e2_share_array.update(id, m, value);
@@ -163,12 +167,20 @@ e2::Bool ArrayUpdate(e2::Int_e id, e2::Int_e index, e2::Int_e x,
                      const char *_vname, e2::Int_e loc, const char *_path)
 {
     id = NUMBERVAL(id);
-
+    if (id == 0) {
+        log::bug("error id:", id, " vname:", std::string(_vname),
+                 " path:", std::string(_path), " code line:", loc);
+    }
     std::size_t idx = (std::size_t)NUMBERVAL(index);
     e2::Bool ret = e2::Bool::B_TRUE;
+    std::size_t size = e2q::e2_share_array.size(id);
 
-    ret = e2q::e2_share_array.update(id, idx, x);
-
+    if (idx >= size) {
+        ret = e2q::e2_share_array.add(id, x);
+    }
+    else {
+        ret = e2q::e2_share_array.update(id, idx, x);
+    }
     return ret;
 } /* -----  end of function UpdateArray  ----- */
 
@@ -229,7 +241,10 @@ e2::Int_e ArraySize(e2::Int_e id, const char *_vname, e2::Int_e loc,
     id = NUMBERVAL(id);
 
     e2::Int_e len = e2q::e2_share_array.size(id);
-
+    if (id == 0) {
+        log::bug("error id:", id, " vname:", std::string(_vname),
+                 " path:", std::string(_path), " code line:", loc);
+    }
     return VALNUMBER(len);
 } /* -----  end of function ArraySize  ----- */
 
@@ -249,7 +264,15 @@ e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char *_vname,
 {
     id = NUMBERVAL(id);
 
+    if (id == 0) {
+        log::bug("error id:", id, " vname:", std::string(_vname),
+                 " path:", std::string(_path), " code line:", loc);
+    }
     std::size_t idx = (std::size_t)NUMBERVAL(index);
+    std::size_t len = e2q::e2_share_array.size(id);
+    if (idx >= len) {
+        return 0;
+    }
     e2::Int_e val = e2q::e2_share_array.get(id, idx);
 
     return val;
@@ -320,7 +343,7 @@ e2::Int_e ArrayMin(e2::Int_e id, const char *_vname, e2::Int_e loc,
 /*
  * ===  FUNCTION  =============================
  *
- *         Name:  Sum
+ *         Name:  Stick_sizeum
  *  ->  void *
  *  Parameters:
  *  - size_t  arg
@@ -328,7 +351,8 @@ e2::Int_e ArrayMin(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  id 值与前 P 个 X 值相加
  * ============================================
  */
-e2::Int_e Sum(e2::Int_e id, e2::Int_e p)
+e2::Int_e Sum(e2::Int_e id, e2::Int_e p, const char *_vname, e2::Int_e loc,
+              const char *_path)
 {
     id = NUMBERVAL(id);
 
@@ -373,7 +397,8 @@ e2::Int_e Sqrt(e2::Int_e v)
  *  ring loop id
  * ============================================
  */
-e2::Int_e Stdev(e2::Int_e id)
+e2::Int_e Stdev(e2::Int_e id, const char *_vname, e2::Int_e loc,
+                const char *_path)
 {
     id = NUMBERVAL(id);
 

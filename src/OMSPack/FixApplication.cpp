@@ -47,6 +47,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -336,8 +337,6 @@ void FixApplication::onMessage(const FIX44::QuoteCancel& message,
 void FixApplication::onMessage(const FIX44::NewOrderSingle& message,
                                const FIX::SessionID& sessionID)
 {
-    // log::bug("NewOrderSingle");
-
     switch (FinFabr->_BookType) {
         case e2::BookType::BBook:
             onMess(message);
@@ -679,13 +678,19 @@ void FixApplication::FeedDataHandle()
 
         if (this->_program != nullptr) {
             //  先这样吧，以后再优化
-
+            if (ticket_now == 0) {
+                global_id_class[0] = this_thread::get_id();
+#ifndef KAFKALOG
+                elog.init(global_id_class[0]);
+#endif
+            }
             ticket_now = now;
             adj_ret = price;
 
             if (FinFabr->_enable_exrd == e2::Bool::B_TRUE) {
                 double cfi_d = VALNUMBER(cfi);
                 ExdiSymList.addPrice(cfi_d, price);
+
                 adj_ret = this->_program->toScript(e2::OMSRisk::I_OMS, cfi);
             }
         }
@@ -784,8 +789,12 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
          * 2. {sender compid process } risk
          * bse -> supply and demand schedule (SDS)
          */
+        global_id_class[1] = std::this_thread::get_id();
 
-        risk = _program->toScriptSafe(e2::OMSRisk::I_RISK, symbol);
+#ifndef KAFKALOG
+        elog.init(global_id_class[1]);
+#endif
+        risk = _program->toScript(e2::OMSRisk::I_BROKER, symbol);
 
         if (FinFabr->_BookType == e2::BookType::BBook && risk == 0) {
             FIX::SessionID botsid;
@@ -941,7 +950,5 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
                     order_qty, order_price);
     }
 
-    /* if (ordType != FIX::OrdType_LIMIT) */
-    /*     throw FIX::IncorrectTagValue(ordType.getTag()); */
 } /* -----  end of function FixApplication::lob  ----- */
 }  // namespace e2q

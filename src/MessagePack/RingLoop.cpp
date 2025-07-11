@@ -42,6 +42,7 @@
  */
 #include "MessagePack/RingLoop.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <vector>
 
@@ -165,12 +166,12 @@ std::size_t RingLoop::size(std::thread::id _tid, e2::Int_e id)
 {
     std::map<e2::Int_e, RingLoopType> _data;
     if (_ring_data.count(_tid) == 0) {
-        log::bug("bad thread id:", _tid);
+        // log::bug("bad thread id:", _tid);
         return 0;
     }
     _data = _ring_data.at(_tid);
     if (_data.count(id) == 0) {
-        log::bug("id not exit id:", id, " data size:", _data.size());
+        // log::bug("id not exit id:", id, " data size:", _data.size());
         return 0;
     }
     return _data.at(id).data.size();
@@ -508,7 +509,7 @@ e2::Int_e RingLoop::Sum(e2::Int_e id, std::size_t next)
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ * 标准差
  * ============================================
  */
 double RingLoop::Stdev(e2::Int_e id, func_type_ret<double, e2::Int_e> fun)
@@ -539,21 +540,37 @@ double RingLoop::Stdev(e2::Int_e id, func_type_ret<double, e2::Int_e> fun)
             val = fun(old_val);
             vals.push_back(val);
         }
-        sum = std::accumulate(vals.begin(), vals.end(), 0.0);
-    }
-    else {
-        sum = std::accumulate(_data.at(id).data.begin(),
-                              _data.at(id).data.end(), 0.0);
     }
 
-    double mean = sum / (double)size;
-
-    double sq_sum =
-        std::inner_product(vals.begin(), vals.end(), vals.begin(), 0.0);
-    double sq_mean = sq_sum / (double)size - mean * mean;
-
-    double stdev = std::sqrt(sq_mean);
+    sum = Variance(vals);
+    double stdev = std::sqrt(sum);
     return stdev;
 
 } /* -----  end of function RingLoop::Stdev  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  RingLoop::Variance
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  方差
+ * ============================================
+ */
+double RingLoop::Variance(std::vector<double> values)
+{
+    int size = values.size();
+
+    double variance = 0;
+    double t = values[0];
+    for (int i = 1; i < size; i++) {
+        t += values[i];
+        double diff = ((i + 1) * values[i]) - t;
+        variance += (diff * diff) / ((i + 1.0) * i);
+    }
+
+    return variance / (size - 1);
+} /* -----  end of function RingLoop::Variance  ----- */
 }  // namespace e2q

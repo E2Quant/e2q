@@ -556,6 +556,34 @@ bool Container::runing()
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  Container::rows
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+int Container::rows(std::size_t id, std::size_t timeframe)
+{
+    int ret = -1;
+
+    if (_cells.count(id) == 0) {
+        return ret;
+    }
+
+    for (auto cell : _cells.at(id)) {
+        if (cell.frame == timeframe) {
+            ret = cell.data->rows();
+
+            break;
+        }
+    }
+    return ret;
+} /* -----  end of function Container::rows  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  Container::writed
  *  ->  void *
  *  Parameters:

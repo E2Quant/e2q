@@ -240,6 +240,32 @@ e2::Int_e BarSize(e2::Int_e id, e2::Int_e timeframe)
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  BarNumber
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e BarNumber(e2::Int_e id, e2::Int_e timeframe)
+{
+    size_t _id = NUMBERVAL(id);
+    timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
+    if (timeframe == e2::TimeFrames::PERIOD_CURRENT) {
+        timeframe = e2q::FixPtr->_current_tf;
+    }
+    e2::Int_e ret = 0;
+    if (e2q::e2l_cnt != nullptr) {
+        ret = e2q::e2l_cnt->data_ptr->rows(_id, timeframe);
+    }
+
+    return VALNUMBER(ret);
+} /* -----  end of function BarNumber  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  Bar
  *  ->  void *
  *  Parameters:

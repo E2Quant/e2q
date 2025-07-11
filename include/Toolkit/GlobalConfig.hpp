@@ -105,6 +105,9 @@ inline int process_run_number;
 
 inline bool process_debug;
 
+// e2::init, fixapplication
+inline std::thread::id global_id_class[2];
+
 #define pg_max_connect 3
 inline std::shared_ptr<PGConnectPool> GlobalDBPtr{nullptr};
 

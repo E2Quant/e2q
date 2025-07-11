@@ -81,7 +81,7 @@ void E2Q::exchange(int pros)
     e2q::Fusion fusion;
     fusion.properties(db_path);
 
-    fusion.oms(e2l_path, pros);
+    fusion.oms(e2l_path, esearch_dir, pros);
 } /* -----  end of function E2Q::exchange  ----- */
 
 /*
@@ -105,7 +105,7 @@ void E2Q::trader(size_t n, std::size_t quant_start, int run,
 
     e2q::Fusion fusion;
     fusion.properties(db_path);
-    fusion.ea(e2l_path, n, quant_start, total_pro);
+    fusion.ea(e2l_path, esearch_dir, n, quant_start, total_pro);
 
 } /* -----  end of function E2Q::trader  ----- */
 /*
@@ -143,5 +143,21 @@ void E2Q::log_dir(std::string &dir)
 #endif
 
 } /* -----  end of function E2Q::log_dir  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  E2Q::search_dir
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void E2Q::search_dir(std::string &dir)
+{
+    esearch_dir = dir;
+} /* -----  end of function E2Q::search_dir  ----- */
 }  // namespace e2q
 

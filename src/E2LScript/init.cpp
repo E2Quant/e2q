@@ -40,11 +40,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * =====================================================================================
  */
+#include <unistd.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <functional>
 #include <iterator>
 #include <memory>
 #include <sstream>
@@ -106,6 +107,11 @@ void fix(const char *cfg)
 {
     if (cfg == nullptr) {
         log::bug("cfg is null");
+        return;
+    }
+    int ret = access(cfg, R_OK);
+    if (ret == -1) {
+        printf("file: %s not exist \n", cfg);
         return;
     }
     if (e2q::FixPtr != nullptr) {
@@ -631,4 +637,30 @@ e2::Int_e CurrentLS()
     return ret;
 } /* -----  end of function CurrentLS  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  whois
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e whois()
+{
+    e2::Int_e ret = VALNUMBER(e2::OMSRisk::I_BROKER);
+    if (e2q::FixPtr != nullptr) {
+        ret = VALNUMBER(e2::OMSRisk::I_EA);
+    }
+    else {
+        std::thread::id _id = std::this_thread::get_id();
+        if (_id == e2q::global_id_class[0]) {
+            ret = VALNUMBER(e2::OMSRisk::I_OMS);
+        }
+    }
+
+    return ret;
+} /* -----  end of function whois  ----- */
 }  // namespace e2l

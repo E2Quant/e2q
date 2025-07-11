@@ -690,9 +690,9 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
 
     FixPtr->_OrderIds[quantId][key].cumqty = cumq;
     FixPtr->_OrderIds[quantId][key].leavesqty = leave;
-    FixPtr->_OrderIds[quantId][key].avgpx = avgpx.getValue();
+    FixPtr->_OrderIds[quantId][key].avgpx = VALNUMBER(avgpx.getValue());
     FixPtr->_OrderIds[quantId][key].tdate = ctime;
-    FixPtr->_OrderIds[quantId][key].adjpx = adjpx.getValue();
+    FixPtr->_OrderIds[quantId][key].adjpx = VALNUMBER(adjpx.getValue());
 
     FixPtr->_OrderTicket.insert({tk, key});
 

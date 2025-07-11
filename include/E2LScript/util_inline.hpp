@@ -801,8 +801,15 @@ struct LogProtoBin_t {
             }
         }
 
-        std::string path = _dir + log::format("%d_%ld_.log", getpid(), idh);
-        pFile = fopen(path.c_str(), "wb");
+        std::string lpath = "";
+        if (e2q::FixPtr != nullptr) {
+            lpath = _dir + log::format("%d_%ld_.log", getpid(), idh);
+        }
+        else {
+            lpath = _dir + log::format("oms_%d_%ld_.log", getpid(), idh);
+        }
+
+        pFile = fopen(lpath.c_str(), "wb");
         _ldata.insert({tid, pFile});
     }
     void release()
@@ -818,6 +825,7 @@ struct LogProtoBin_t {
             log::bug("data tid");
             return;
         }
+
         BasicLock _lock(_EMute);
         FILE *pFile = _ldata.at(tid);
         std::size_t size_l = fwrite(p, sizeof(char), len, pFile);

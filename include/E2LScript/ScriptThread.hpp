@@ -68,18 +68,17 @@ typedef enum __e2lType e2lType;
 class ScriptThread {
 public:
     /* =============  LIFECYCLE     =================== */
-    ScriptThread(e2lType t) : _type(t){}; /* constructor */
+    ScriptThread(e2lType t) : _type(t) {}; /* constructor */
 
     /* =============  ACCESSORS     =================== */
 
     size_t MemSize();
     bool CheckCall();
     /* =============  MUTATORS      =================== */
-    void init(const char *file);
+    void init(const char *file, std::string edir);
 
     void e2lInit();
     int toScript(double argc, double argv);
-    int toScriptSafe(Int_e argc, Int_e argv);
     /**
      * script fixptr 的全局变量
      */

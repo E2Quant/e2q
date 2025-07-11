@@ -48,6 +48,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 
 #include "ControlPack/ThreadPool.hpp"
 #include "E2LScript/ScriptThread.hpp"
@@ -72,7 +73,7 @@ public:
     /* ====================  ACCESSORS =======================================
      */
 
-    void ProgramInit(std::string &file);
+    void ProgramInit(std::string &file, std::string &);
 
     /* ====================  MUTATORS =======================================
      */

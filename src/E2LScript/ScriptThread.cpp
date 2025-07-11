@@ -48,6 +48,7 @@
 #include <vector>
 
 #include "E2L/E2LType.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "assembler/BaseType.hpp"
 #include "assembler/CodeGenContext.hpp"
 
@@ -94,7 +95,7 @@ std::shared_ptr<FinancialFabricate> FinFabr = nullptr;
  *
  * ============================================
  */
-void ScriptThread::init(const char* file)
+void ScriptThread::init(const char* file, std::string edir)
 {
     if (file == nullptr) {
         log::bug("e2 language file is empty");
@@ -119,11 +120,11 @@ void ScriptThread::init(const char* file)
         default:
             break;
     }
-
-    int ret = _ctx.toparse(file);
-    if (ret == -1) {
-        return;
+    if (edir.length() > 0) {
+        _ctx.search_path(edir.c_str());
     }
+    _ctx.toparse(file);
+
     e2lInit();
 } /* -----  end of function ScriptThread::init  ----- */
 
@@ -196,22 +197,6 @@ int ScriptThread::toScript(double argc, double argv)
     return ret;
 } /* -----  end of function ScriptThread::toScript  ----- */
 
-/*
- * ===  FUNCTION  =============================
- *
- *         Name:  ScriptThread::toScriptSafe
- *  ->  void *
- *  Parameters:
- *  - size_t  arg
- *  Description:
- *
- * ============================================
- */
-int ScriptThread::toScriptSafe(Int_e argc, Int_e argv)
-{
-    //  BasicLock _lock(_SafeMutex);
-    return toScript(argc, argv);
-} /* -----  end of function ScriptThread::toScriptSafe  ----- */
 /*
  * ===  FUNCTION  =============================
  *

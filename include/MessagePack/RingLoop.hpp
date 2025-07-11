@@ -131,6 +131,7 @@ public:
     e2::Int_e Min(e2::Int_e);
     e2::Int_e Sum(e2::Int_e id, std::size_t p);
     double Stdev(e2::Int_e, func_type_ret<double, e2::Int_e> fun);
+
     /* =============  OPERATORS     =================== */
 
 protected:
@@ -142,6 +143,7 @@ protected:
 
 private:
     /* =============  METHODS       =================== */
+    double Variance(std::vector<double> samples);
     void Debug(e2::Int_e);
     /* =============  DATA MEMBERS  =================== */
 

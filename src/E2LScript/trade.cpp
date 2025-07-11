@@ -529,14 +529,14 @@ e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
         quantid = e2q::FixPtr->_quantId.at(_id).first;
     }
 
-    //   log::echo("qid:", quantid);
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
-        log::bug("qid: error");
+        log::bug("qid: ", quantid, " error");
 
         return 0;
     }
-    long px = 0;
+    double px = 0.0;
     e2::Int_e _ticket = ticket;
+    // log::echo("_tick:", _ticket);
     // e2::Int_e _ticket = NUMBERVAL(ticket);
     for (auto it = e2q::FixPtr->_OrderIds[quantid].begin();
          it != e2q::FixPtr->_OrderIds[quantid].end(); ++it) {
@@ -547,6 +547,7 @@ e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
             else {
                 px = it->second.adjpx;
             }
+            // log::echo("px:", px);
             break;
         }
     }

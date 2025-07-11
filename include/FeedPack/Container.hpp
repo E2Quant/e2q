@@ -130,6 +130,7 @@ public:
     void emit();
     void quit();
     bool runing();
+    int rows(std::size_t id, std::size_t timeframe);
     int writed(std::size_t id, std::size_t timeframe);
     int tail(std::array<SeqType, ohlc_column> &);
     int read(std::array<SeqType, ohlc_column> &, std::size_t, std::size_t,

@@ -47,6 +47,7 @@
 #include "E2L/bot.hpp"
 #include "E2L/broker.hpp"
 #include "E2L/date_time.hpp"
+#include "E2L/general.hpp"
 #include "E2L/init.hpp"
 #include "E2L/marketinfo.hpp"
 #include "E2L/system.hpp"
@@ -157,6 +158,7 @@ void E2LFunList()
 
     AddFun(LotAndShare, 1, "FLotAndShare", E2L_NORETURN, "(lot);");
     AddFun(CurrentLS, 0, "FCurrentLS", E2L_RETURN, "();");
+    AddFun(whois, 0, "FWhois", E2L_RETURN, "();");
     /**
      * init end
      */
@@ -233,7 +235,7 @@ void E2LFunList()
     AddFun(StoreId, 2, "FStoreId", E2L_RETURN, "();");
     AddFun(fetch, 1, "FFetch", E2L_RETURN, "(id);");
     AddFun(store, 2, "FStore", E2L_NORETURN, "(id, value);");
-
+    AddFun(isStore, 1, "FisStore", E2L_RETURN, "(id);");
     AddFun(TicketSize, 0, "FTicketSize", E2L_RETURN, "();");
     /**
      * general end
@@ -255,7 +257,7 @@ void E2LFunList()
     AddFun(ArraySize, 4, "FArraySize", E2L_RETURN, "(id);");
     AddFun(ArrayMax, 4, "FArrayMax", E2L_RETURN, "(id);");
     AddFun(ArrayMin, 4, "FArrayMin", E2L_RETURN, "(id);");
-    AddFun(Sum, 2, "FArraySum", E2L_RETURN, "(id,idx);");
+    AddFun(Sum, 5, "FArraySum", E2L_RETURN, "(id,idx);");
 
     AddFun(Max, 2, "FMax", E2L_RETURN, "(val1, val2);");
     AddFun(Min, 2, "FMin", E2L_RETURN, "(val1, val2);");
@@ -265,7 +267,7 @@ void E2LFunList()
     AddFun(between, 3, "FBetween", E2L_RETURN, "(val, start, end);");
 
     AddFun(Sqrt, 1, "FSqrt", E2L_RETURN, "(value);");
-    AddFun(Stdev, 1, "FStdev", E2L_RETURN, "(id);");
+    AddFun(Stdev, 4, "FArrayStdev", E2L_RETURN, "(id);");
 
     AddFun(Abs, 1, "FAbs", E2L_RETURN, "(value);");
     AddFun(Ceil, 1, "FCeil", E2L_RETURN, "(value);");
@@ -299,6 +301,7 @@ void E2LFunList()
     AddFun(BarVolumeAppend, 0, "FVolumeAppend", E2L_NORETURN, "();");
     AddFun(BarOnOpen, 0, "FOnOpen", E2L_NORETURN, "();");
     AddFun(BarSize, 2, "FBarSize", E2L_RETURN, "(cfi_id, timeframe);");
+    AddFun(BarNumber, 2, "FBarNumber", E2L_RETURN, "(cfi_id, timeframe);");
     AddFun(Bar, 3, "FBar", E2L_RETURN, "(cfi_id, timeframe, shift);");
     AddFun(BarSeries, 1, "FBarSeries", E2L_RETURN, "(bartype);");
 
@@ -351,7 +354,7 @@ void E2LFunList()
     AddFun(ethread, 1, "FThread", E2L_NORETURN, "( number);");
     AddFun(process_id, 0, "FProcessId", E2L_RETURN, "();");
     AddFun(process_runs, 0, "FProcessRuns", E2L_RETURN, "();");
-    AddFun(ethread_id, 0, "FThreadId", E2L_NORETURN, "();");
+    AddFun(ethread_id, 0, "FThreadId", E2L_RETURN, "();");
     AddFun(TypeOf, 1, "FTypeOf", E2L_RETURN, "(fun);");
 
     AddFun(ApiList, 0, "FApiList", E2L_NORETURN, "();");

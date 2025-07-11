@@ -49,6 +49,7 @@
 #include <ctime>
 #include <exception>
 #include <memory>
+#include <string>
 #include <thread>
 #include <utility>
 
@@ -103,12 +104,12 @@ StrategyBase::StrategyBase(_Resource_ptr ptr,
  *
  * ============================================
  */
-void StrategyBase::ProgramInit(std::string &file)
+void StrategyBase::ProgramInit(std::string &file, std::string &edir)
 {
     Int_e argc = 0;
 
     _e2l_path = file;
-    _program.init(_e2l_path.c_str());
+    _program.init(_e2l_path.c_str(), edir);
 
     bool call = _program.CheckCall();
 

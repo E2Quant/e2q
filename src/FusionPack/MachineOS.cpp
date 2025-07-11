@@ -87,7 +87,7 @@ MachineOS::MachineOS()
  *
  * ============================================
  */
-void MachineOS::enter(std::string& e2l_script, size_t n,
+void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
                       std::size_t quantId_start, std::size_t total_process)
 {
     _node = n;
@@ -106,7 +106,7 @@ void MachineOS::enter(std::string& e2l_script, size_t n,
      * strategy thread
      */
     StrategyBase _sbase(this->_resource, this->_beam_data, quantId_start);
-    _sbase.ProgramInit(e2l_script);
+    _sbase.ProgramInit(e2l_script, edir);
 
     FIX_PTR_IS_NULL();
 

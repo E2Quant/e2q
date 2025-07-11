@@ -60,10 +60,14 @@ namespace e2l {
  *
  * ============================================
  */
-void ethread_id()
+e2::Int_e ethread_id()
 {
-    std::cout << std::this_thread::get_id() << std::endl;
-
+    e2::Int_e id = 0;
+    std::thread::id _id = std::this_thread::get_id();
+    if (e2q::FixPtr != nullptr) {
+        id = VALNUMBER(e2q::FixPtr->_quantId.at(_id).second);
+    }
+    return id;
 } /* -----  end of function ethread_id  ----- */
 
 /*

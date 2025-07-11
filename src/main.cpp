@@ -108,7 +108,9 @@ int e2q_action(int argc, char* argv[])
     char* s = nullptr;
     char* p = nullptr;
     char* f = nullptr;
+    char* i = nullptr;
     std::string log_dir = "./log";
+    std::string searh_path = "";
     int index;
 
     int run = 0;  // 第几次运行进程
@@ -133,6 +135,7 @@ int e2q_action(int argc, char* argv[])
                 -o only test e2l script \n \
                 -v show e2q version \n \
                 -f log directory \n \
+                -i e2l import codes directory,def:/usr/local/include/e2/ \n \
                 -d daemon run \n";
 
     if (argc < 2) {
@@ -143,7 +146,7 @@ int e2q_action(int argc, char* argv[])
     e2q::process_debug = false;
 
     //./e2q -e node.e2 -e node2.e2 -e node3.e2
-    while ((h = getopt(argc, argv, "hdlve:s:p:r:o:f:")) != -1) {
+    while ((h = getopt(argc, argv, "hdlve:s:p:r:o:f:i:")) != -1) {
         switch (h) {
             case 'h': {
                 printf(help.c_str(), argv[0]);
@@ -204,6 +207,14 @@ int e2q_action(int argc, char* argv[])
                     break;
                 }
             }
+            case 'i': {
+                i = optarg;
+                if (i != nullptr) {
+                    searh_path = std::string(i);
+
+                    break;
+                }
+            }
             case '?':
             default:
                 printf("%s -h\n", argv[0]);
@@ -254,6 +265,9 @@ int e2q_action(int argc, char* argv[])
     e2q::E2Q _e2q;
     if (log_dir.length() > 0) {
         _e2q.log_dir(log_dir);
+    }
+    if (searh_path.length() > 0) {
+        _e2q.search_dir(searh_path);
     }
     for (m = 0; m < proce; m++) {
         pid = fork();

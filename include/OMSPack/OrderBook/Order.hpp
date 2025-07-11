@@ -202,8 +202,9 @@ public:
         double exec_amount =
             FinFabr->effect(_avgExecutedPrice, _executedQuantity);
 
-        _avgExecutedPrice = (trade_amount + (exec_amount)) /
-                            (double)(quantity + _executedQuantity);
+        _avgExecutedPrice = ((trade_amount + exec_amount) /
+                             (double)(quantity + _executedQuantity)) /
+                            FinFabr->_lot_and_share;
 
         _leavesQty -= quantity;
         _executedQuantity += quantity;
@@ -288,7 +289,7 @@ private:
     long _openQuantity = 0;
     long _leavesQty = 0;
     long _executedQuantity = 0;
-    int64_t _avgExecutedPrice = 0;
+    double _avgExecutedPrice = 0;
     double _lastExecutedPrice = 0;
     long _lastExecutedQuantity = 0;
     bool _bot = false;
@@ -393,7 +394,7 @@ public:
         lots.ticket = _pending->getTicket();
         lots.openQuantity = _pending->getOpenQuantity();
         lots.executedQuantity = _pending->getExecutedQuantity();
-        lots.avgExecutedPrice = NUMBERVAL(_pending->getAvgExecutedPrice());
+        lots.avgExecutedPrice = _pending->getAvgExecutedPrice();
         lots.lastExecutedQuantity = _pending->getLastExecutedQuantity();
         lots.lastExecutedPrice = NUMBERVAL(_pending->getLastExecutedPrice());
         lots.isFilled = _pending->isFilled();
@@ -403,8 +404,9 @@ public:
         lots.price = NUMBERVAL(_pending->getPrice());
         lots.ctime = _time;
         lots.otime = _otime;
-        // log::info("adj:", _pending->Adj());
+
         lots.adjprice = NUMBERVAL(_pending->Adj());
+        // log::info("adj:", lots.adjprice);
         lots.trade_amount = _pending->amount();
         lots.isCancel = false;
         if (_bot) {

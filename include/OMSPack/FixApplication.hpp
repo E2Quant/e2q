@@ -48,6 +48,7 @@
 #include <exception>
 #include <memory>
 #include <string>
+#include <thread>
 
 #include "E2L/E2LType.hpp"
 #include "OMSPack/FixGuard.hpp"
@@ -98,8 +99,11 @@ class FixApplication : public FIX::Application,
 public:
     /* =============  LIFECYCLE     =================== */
     FixApplication() {}
+
     FixApplication(std::shared_ptr<ScriptThread> pro)
-        : _program(pro) {}; /* constructor */
+        : _program(pro) {
+
+          }; /* constructor */
     ~FixApplication() {}
     /* =============  ACCESSORS     =================== */
     void onCreate(const FIX::SessionID&) override {}

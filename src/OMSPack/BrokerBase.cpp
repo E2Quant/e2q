@@ -149,8 +149,6 @@ void BrokerBase::SettlInst(OrderLots& lots)
     char status =
         lots.isFilled ? FIX::OrdStatus_FILLED : FIX::OrdStatus_PARTIALLY_FILLED;
 
-    // Debug();
-    // log::info("-------");
     BasicLock _lock(_BMute);
 
     if (isClose) {
@@ -222,7 +220,6 @@ void BrokerBase::SettlInst(OrderLots& lots)
     if (lots.leavesQty == 0) {
         trade_report(lots);
     }
-    // Debug();
 } /* -----  end of function BrokerBase::SettlInst  ----- */
 
 /*
@@ -452,7 +449,6 @@ void BrokerBase::trade_report(OrderLots& lots)
     bool isClose = lots.TradeTicket != 0;
     int side = e2::Side::os_Buy;
 
-    // Debug();
     // 记录单个 quantid 的 margin
     margin = _traders.at(sid).order_cash.at(ticket).equity;
     // log::info("margin:", _traders.at(sid).order_cash.at(ticket).margin);
