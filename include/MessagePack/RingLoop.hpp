@@ -77,25 +77,25 @@ typedef __RingLoop RingLoopType;
         } while (0);                                                     \
     })
 
-#define MAXMIN(id, ret, op)                                              \
-    ({                                                                   \
-        do {                                                             \
-            if (_data.count(id) == 0) {                                  \
-                return ret;                                              \
-            }                                                            \
-            for (std::size_t m = 0; m < _data.at(id).data.size(); m++) { \
-                std::size_t idx =                                        \
-                    (_data.at(id).pos + m) % _data.at(id).length;        \
-                if (m == 0) {                                            \
-                    ret = _data.at(id).data[idx];                        \
-                }                                                        \
-                else {                                                   \
-                    ret = ret op _data.at(id).data[idx]                  \
-                              ? ret                                      \
-                              : _data.at(id).data[idx];                  \
-                }                                                        \
-            }                                                            \
-        } while (0);                                                     \
+#define MAXMIN(id, ret, op)                                     \
+    ({                                                          \
+        do {                                                    \
+            if (_data.count(id) == 0) {                         \
+                return ret;                                     \
+            }                                                   \
+            std::size_t len = _data.at(id).data.size();         \
+            for (std::size_t m = 0; m < len; m++) {             \
+                std::size_t idx = (_data.at(id).pos + m) % len; \
+                if (m == 0) {                                   \
+                    ret = _data.at(id).data[idx];               \
+                }                                               \
+                else {                                          \
+                    ret = ret op _data.at(id).data[idx]         \
+                              ? ret                             \
+                              : _data.at(id).data[idx];         \
+                }                                               \
+            }                                                   \
+        } while (0);                                            \
     })
 
 /*

@@ -422,7 +422,7 @@ e2::Int_e RingLoop::Max(e2::Int_e id)
 
     std::map<e2::Int_e, RingLoopType> _data;
     if (_ring_data.count(_tid) == 0) {
-        return e2::Bool::B_FALSE;
+        return 0;
     }
     _data = _ring_data.at(_tid);
 
@@ -450,7 +450,7 @@ e2::Int_e RingLoop::Min(e2::Int_e id)
 
     std::map<e2::Int_e, RingLoopType> _data;
     if (_ring_data.count(_tid) == 0) {
-        return e2::Bool::B_FALSE;
+        return 0;
     }
     _data = _ring_data.at(_tid);
 

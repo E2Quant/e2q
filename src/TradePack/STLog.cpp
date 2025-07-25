@@ -45,6 +45,8 @@
 #include <cstddef>
 #include <string>
 
+#include "E2LScript/ExternClazz.hpp"
+
 namespace e2q {
 
 /*
@@ -61,34 +63,20 @@ namespace e2q {
 void STLog::TicketComment(std::size_t quantid, std::size_t ticket, int side,
                           int oe)
 {
-    char *gfield = nullptr;
-    char *gval = nullptr;
-
     std::size_t idx = GlobalDBPtr->getId();
-    Pgsql *pgsql = GlobalDBPtr->ptr(idx);
-    if (pgsql == nullptr) {
-        GlobalDBPtr->release(idx);
-        log::bug("pg idx is nullptr, idx:", idx);
-        return;
-    }
+    Pgsql *gsql = GlobalDBPtr->ptr(idx);
+    if (gsql != nullptr) {
+        std::string table = "public.";
+        gsql->public_table(table);
+        gsql->insert_table("analselog");
+        gsql->insert_field("quantid", quantid);
+        gsql->insert_field("key", ticket);
 
-    std::string sql =
-        "select id from comment where ticket=" + std::to_string(ticket);
-    //    log::echo(sql);
-    bool r = pgsql->select_sql(sql);
-    if (r && pgsql->tuple_size() > 0) {
-        pgsql->OneHead(&gfield, &gval);
-    }
+        gsql->insert_field("values", side);
+        gsql->insert_field("type", oe);
 
-    if (gval == nullptr) {
-        pgsql->insert_table("comment");
-        std::string ticket_to_id = log::format(
-            "(select id from trades where ticket='%ld'  limit 1)", ticket);
-        pgsql->insert_field("quantid", quantid);
-        pgsql->insert_field("ticket", ticket_to_id);
-        pgsql->insert_field("side", side);
-        pgsql->insert_field("oe", oe);
-        pgsql->insert_commit();
+        gsql->insert_field("ctime", e2q::ticket_now);
+        gsql->insert_commit();
     }
 
     GlobalDBPtr->release(idx);

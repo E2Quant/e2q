@@ -142,4 +142,24 @@ void PGConnectPool::release(std::size_t idx)
     }
     _pool.at(idx).first = true;
 } /* -----  end of function PGConnectPool::release  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  PGConnectPool::auto_release
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void PGConnectPool::auto_release()
+{
+    for (auto it : _pool) {
+        while (it.first == false) {
+            it.first = true;
+        }
+    }
+} /* -----  end of function PGConnectPool::auto_release  ----- */
 }  // namespace e2q

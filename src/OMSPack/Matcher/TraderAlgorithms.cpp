@@ -199,7 +199,6 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
             GlobalDBPtr->release(idx);
             _broker.freeMargin(ol.owner, ol.ticket, 0);
             ol.isCancel = true;
-            retLots.push_back(ol);
         }
         else if (ol.quantId > 0) {
             /**
@@ -211,12 +210,12 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
             _broker.SettlInst(ol);
 
             ol.isCancel = false;
-            retLots.push_back(ol);
         }
         else {
             log::bug("not match order ticket: ", ol.ticket);
         }
 
+        retLots.push_back(ol);
         orders.pop();
     }
 

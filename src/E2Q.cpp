@@ -102,7 +102,6 @@ void E2Q::trader(size_t n, std::size_t quant_start, int run,
     if (db_path.length() == 0) {
         log::echo("properties is empty");
     }
-
     e2q::Fusion fusion;
     fusion.properties(db_path);
     fusion.ea(e2l_path, esearch_dir, n, quant_start, total_pro);

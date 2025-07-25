@@ -46,6 +46,7 @@
 #include <cstdio>
 #include <string>
 
+#include "Toolkit/Log.hpp"
 #include "postgresql/libpq-fe.h"
 namespace e2q {
 
@@ -361,7 +362,8 @@ bool Pgsql::exec(std::string sql)
         case PGRES_NONFATAL_ERROR:
         case PGRES_FATAL_ERROR:
         default:
-            fprintf(stderr, "exec : %s", PQerrorMessage(_conn));
+            std::string err = log::format("exec : %s", PQerrorMessage(_conn));
+            log::bug(err);
             log::bug(sql);
             PQclear(_res);
             _res = nullptr;

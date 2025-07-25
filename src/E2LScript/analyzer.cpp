@@ -238,7 +238,8 @@ void AnalseValue(e2::Int_e id, e2::Int_e val)
  */
 void AnalseDB()
 {
-    e2q::e2_analse.Save();
+    std::thread::id _id = std::this_thread::get_id();
+    e2q::e2_analse.Save(_id);
 
 } /* -----  end of function AnalseDB  ----- */
 

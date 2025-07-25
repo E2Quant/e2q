@@ -161,7 +161,7 @@ void ScriptThread::e2lInit()
                                 std::get<2>(it), std::get<3>(it));
     }
 
-    if (process_debug) {
+    if (llvm_ir) {
         _context.toDebug();
     }
 

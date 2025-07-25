@@ -481,17 +481,18 @@ FIX44::Quote FixApplication::Message()
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  这儿是新订单
  * ============================================
  */
 bool FixApplication::processOrder(OrderItem* order)
 {
+    acceptOrder(order->Lots());
+
     bool ret = GlobalMatcher->insert(order);
     if (ret == false) {
         log::bug("insert bug:", order->Pending()->getTicket());
         return false;
     }
-    acceptOrder(order->Lots());
 
     return true;
 } /* -----  end of function FixApplication::processOrder  ----- */
@@ -693,6 +694,9 @@ void FixApplication::FeedDataHandle()
 
                 adj_ret = this->_program->toScript(e2::OMSRisk::I_OMS, cfi);
             }
+        }
+        if (adj_ret == 0) {
+            adj_ret = price;
         }
         if (adj_ret < 0) {
             log::info("price:", price, " adj_ret:", adj_ret);

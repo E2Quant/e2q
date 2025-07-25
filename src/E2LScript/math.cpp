@@ -138,7 +138,7 @@ void ArrayFill(e2::Int_e id, e2::Int_e value, const char *_vname, e2::Int_e loc,
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  最新的值添加在最后
  * ============================================
  */
 e2::Bool ArrayAdd(e2::Int_e id, e2::Int_e val, const char *_vname,
@@ -211,7 +211,7 @@ void ArrayShare(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  整体的长度
  * ============================================
  */
 e2::Int_e ArrayLength(e2::Int_e id, const char *_vname, e2::Int_e loc,
@@ -232,7 +232,7 @@ e2::Int_e ArrayLength(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  现在添加了多少个值
  * ============================================
  */
 e2::Int_e ArraySize(e2::Int_e id, const char *_vname, e2::Int_e loc,
@@ -256,7 +256,7 @@ e2::Int_e ArraySize(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  最后一个idx 是最新的
  * ============================================
  */
 e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char *_vname,

@@ -459,11 +459,18 @@ struct __Analse_t {
         }
     }
 
-    void Save()
+    /*
+     * 多线程的时候，会有时候，保存不了的
+     */
+    void Save(std::thread::id _id)
     {
         e2q::UtilTime ut;
+        if (_analse.count(_id) == 0) {
+            log::bug("bad thread id");
+            return;
+        }
         std::size_t now = ut.time();
-        std::thread::id _id = std::this_thread::get_id();
+
         std::size_t number = e2q::e2l_thread_map.number(_id);
 
         std::size_t idx = e2q::GlobalDBPtr->getId();
@@ -479,9 +486,12 @@ struct __Analse_t {
         }
 
         e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
-        if (gsql == nullptr || _analse.count(_id) == 0) {
+        if (gsql == nullptr) {
             e2q::GlobalDBPtr->release(idx);
             return;
+        }
+        if (_analse.at(_id).size() == 0) {
+            log::info("analse is empty");
         }
         for (auto ana : _analse.at(_id)) {
             auto it = ana.second;
@@ -714,8 +724,8 @@ struct LogProto_t {
     void vname(const char *vname)
     {
         int n = snprintf(NULL, 0, "%s", vname);
-        if (n <= 1) {
-            printf("error vname:%s\n", vname);
+        if (n < 1) {
+            log::bug(log::format("error vname:%s\n", vname));
             return;
         }
         std::uint16_t vname_size = (std::uint16_t)n;
@@ -876,24 +886,49 @@ struct LogProtoPtr_t : public LogProtoBin_t {
         std::size_t idh = hasher(tid);
 
         if (_data.count(idh) == 0) {
-            char *ptr_t = (char *)calloc(elm_size, sizeof(char *));
-            std::pair<char *, std::size_t> aval = {ptr_t, 0};
+            log_struct aval;
+            aval.ldata = (char *)calloc(elm_size, sizeof(char *));
+            aval.count = 0;
+            aval.debug = e2::Bool::B_TRUE;
             _data.insert({idh, aval});
         }
 
-        _data.at(idh).second += 1;
-        *ptr = _data.at(idh).first;
+        _data.at(idh).count += 1;
+        *ptr = _data.at(idh).ldata;
         memset(*ptr, '\0', elm_size);
     }
+    void Debug(std::thread::id tid, e2::Bool b)
+    {
+        BasicLock _lock(_EMute);
+        std::hash<std::thread::id> hasher;
+        std::size_t idh = hasher(tid);
+        if (_data.count(idh) == 0) {
+            log_struct aval;
+            aval.ldata = (char *)calloc(elm_size, sizeof(char *));
+            aval.count = 0;
+            aval.debug = b;
+            _data.insert({idh, aval});
+        }
 
+        _data.at(idh).debug = b;
+    }
+    e2::Bool isDebug(std::thread::id tid)
+    {
+        std::hash<std::thread::id> hasher;
+        std::size_t idh = hasher(tid);
+        if (_data.count(idh) == 0) {
+            return e2::Bool::B_TRUE;
+        }
+        return _data.at(idh).debug;
+    }
     std::size_t len() { return elm_size; }
     void exist()
     {
         // for (auto it : _data) {
-        //     free(it.second.first);
-        //     it.second.first = nullptr;
+        //     //     free(it.second.ldata);
+        //     //    it.second.ldata = nullptr;
 
-        //     log::info("use size:", it.second.second);
+        //     log::info("use size:", it.second.count);
         // }
 #ifdef KAFKALOG
         Producer::exist();
@@ -913,7 +948,15 @@ private:
                            fldsiz(E2LScriptLogMessage, path_len) +
                            fldsiz(E2LScriptLogMessage, alpha);
 
-    std::map<std::size_t, std::pair<char *, std::size_t>> _data;
+    struct __log_struct {
+        char *ldata;
+        std::size_t count;
+        e2::Bool debug;
+    }; /* ----------  end of struct __log_struct  ---------- */
+
+    typedef struct __log_struct log_struct;
+    // hash thread id ->
+    std::map<std::size_t, log_struct> _data;
     using EMute = BasicLock::mutex_type;
     mutable EMute _EMute;
 }; /* ----------  end of struct LogProtoPtr_t  ---------- */

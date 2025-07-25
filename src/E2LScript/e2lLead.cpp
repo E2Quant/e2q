@@ -227,6 +227,7 @@ void E2LFunList()
     /**
      * general start
      */
+    AddFun(isDebug, 1, "FIsDebug", E2L_NORETURN, "(bool);");
     AddFun(log, 4, "log", E2L_NORETURN, "(value);");
     AddFun(PrintLine, 4, "FPrintLine", E2L_NORETURN, "(value);");
 

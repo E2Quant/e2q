@@ -47,7 +47,6 @@
 #include <unistd.h>
 
 #include <cstddef>
-#include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -83,10 +82,12 @@ public:
     {
         /* log::info("release pg pool, now size:", _pool.size(), */
         /*           " init size:", _max_connect, " used idx:", _used_idx); */
+        std::size_t num = 0;
         for (auto it : _pool) {
-            while (it.first == false) {
+            while (it.first == false && num < 5) {
                 sleep(1);
-                log::info("pg is runing...");
+                num++;
+                log::bug("pg is runing...");
             }
             RELEASE(it.second);
         }
@@ -99,6 +100,8 @@ public:
     void e2lThread(std::size_t);
     Pgsql *ptr(std::size_t);
     void release(std::size_t);
+
+    void auto_release();
     /* =============  OPERATORS     =================== */
 
 protected:

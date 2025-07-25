@@ -105,6 +105,72 @@ END; $$;
 ALTER FUNCTION public.quant_bands(_verid integer) OWNER TO dbuser;
 
 --
+-- Name: quant_order_day(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_order_day(_verid integer) RETURNS TABLE(rquantid bigint, order_stock text, order_day integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT  "quantid","stock"::text as order_stock, EXTRACT( DAY FROM   ("stop_time" - "buy_time") )::INTEGER as order_day
+    FROM "e2q_history"
+    WHERE
+        "verid" = _verid;
+END; $$;
+
+
+ALTER FUNCTION public.quant_order_day(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_order_tl(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_order_tl(_verid integer) RETURNS TABLE(rquantid bigint, rvalue double precision, rticket bigint, rvtype text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT data.quantid,data.value,data.ticket,data.vtype
+FROM (
+        (
+            SELECT (
+                    values
+                        * 100.0
+                ) as value, key as ticket, (
+                    CASE
+                        WHEN type = 4 THEN 'take'
+                        ELSE 'loss'
+                    END
+                ) as vtype,quantid
+            from analselog
+            WHERE
+                "type" in (4, 5)
+                AND key in (SELECT "bticket" from "e2q_history" WHERE "verid" = _verid)
+            ORDER BY ticket
+        )
+        UNION
+        (
+            SELECT
+                "profit" as value, "bticket" as ticket, 'order' as vtype, quantid
+            from "e2q_history"
+            WHERE
+                "bticket" in (
+                    SELECT key
+                    from "analselog"
+                    WHERE
+                        "type" = 5
+                    
+                ) AND "verid"= _verid
+        )
+    ) data
+ORDER BY data.ticket; 
+END; $$;
+
+
+ALTER FUNCTION public.quant_order_tl(_verid integer) OWNER TO dbuser;
+
+--
 -- Name: quant_profit(bigint); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
@@ -434,30 +500,34 @@ ALTER FUNCTION public.quant_return_month(_cficode integer) OWNER TO dbuser;
 -- Name: quant_risk_profix(integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION public.quant_risk_profix(_verid integer) RETURNS TABLE(rid integer, rday text, rcredit double precision, rpcredit_first double precision, rpcredit_pre double precision)
+CREATE FUNCTION public.quant_risk_profix(_verid integer) RETURNS TABLE(rid integer, rquantid bigint, rday text, rcredit double precision, rpcredit_first double precision, rpcredit_pre double precision)
     LANGUAGE plpgsql
     AS $$
 begin
 	return query
-		SELECT data.id, data.day::text, data.credit,data.pcredit_first, (
-        data.pcredit_first / (
-            first_value(data."credit") OVER (
-                ORDER BY data.id
-            )
-        )
-    ) as pcredit_pre
-FROM (
-        SELECT id,
-            to_timestamp(
-                ((ctime / 1000))::double precision
-            ) AS day, "credit", credit - (
-                first_value("credit") OVER (
-                    ORDER BY id
+		SELECT data.id, data.quantid, data.day::text, data.credit, data.pcredit_first, (
+                data.pcredit_first / (
+                    first_value(data."credit") OVER (
+                        ORDER BY data.id
+                    )
                 )
-            ) pcredit_first
-        from "trade_report" WHERE "ticket" in (SELECT id from "trades" WHERE "symbol" in (SELECT id from "stockinfo" WHERE "verid"=_verid))
-        ORDER BY id
-    ) data;
+            ) as pcredit_pre
+        FROM (
+                SELECT tr.id, ts.quantid, to_timestamp(
+                        ((tr.ctime / 1000))::double precision
+                    ) AS day, tr.credit, tr.credit - (
+                        first_value(tr.credit) OVER (
+                            ORDER BY tr.id
+                        )
+                    ) pcredit_first
+                from
+                    "trade_report" tr, trades ts, stockinfo si
+                WHERE
+                    tr.ticket = ts.id
+                    AND ts.symbol = si.id
+                    AND si.verid = _verid
+                ORDER BY tr.id
+            ) data;
 end;
 $$;
 
@@ -468,49 +538,39 @@ ALTER FUNCTION public.quant_risk_profix(_verid integer) OWNER TO dbuser;
 -- Name: quant_risk_profix_month(integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION public.quant_risk_profix_month(_verid integer) RETURNS TABLE(rid integer, rday text, rcredit double precision, rpcredit_first double precision, rpcredit_pre double precision)
+CREATE FUNCTION public.quant_risk_profix_month(_verid integer) RETURNS TABLE(rid integer, rquantid bigint, rday text, rcredit double precision, rpcredit_first double precision, rpcredit_pre double precision)
     LANGUAGE plpgsql
     AS $$
 begin
 	return query
-		SELECT data.id, data.day::text, data.credit, data.pcredit_first, (
-        data.pcredit_first / (
-            first_value(data."credit") OVER (
-                ORDER BY data.id
-            )
-        )
-    ) as pcredit_pre
-FROM (
-        SELECT DISTINCT
-            on (mdata.day)mdata.day, mdata.id, mdata.credit, mdata.pcredit_first FROM (
-
-            SELECT
-            id, to_char(
-                        to_timestamp(
-                            ((ctime / 1000))::double precision
-                        ), 'YYYY-MM'
-                    ) as day,
-             "credit", credit - (
-                first_value("credit") OVER (
-                    ORDER BY id
+            
+    SELECT data.id,data.quantid, data.day::text, data.credit, data.pcredit_first, (
+            data.pcredit_first / (
+                first_value(data."credit") OVER (
+                    ORDER BY data.id
                 )
-            ) pcredit_first
-        from "trade_report"
-        WHERE
-            "ticket" in (
-                SELECT id
-                from "trades"
-                WHERE
-                    "symbol" in (
-                        SELECT id
-                        from "stockinfo"
-                        WHERE
-                            "verid" = _verid
-                    )
             )
-        ORDER BY id
-        ) mdata
-    ) data;
+        ) as pcredit_pre
+    FROM (
+            SELECT DISTINCT
+                on (mdata.day) mdata.day, mdata.id,mdata.quantid, mdata.credit, mdata.pcredit_first
+            FROM (
+                    SELECT tr.id, ts.quantid, to_timestamp(
+                            ((tr.ctime / 1000))::double precision
+                        ) AS day, tr.credit, tr.credit - (
+                            first_value(tr.credit) OVER (
+                                ORDER BY tr.id
+                            )
+                        ) pcredit_first
+                    from
+                        "trade_report" tr, trades ts, stockinfo si
+                    WHERE
+                        tr.ticket = ts.id
+                        AND ts.symbol = si.id
+                        AND si.verid = 1
+                    ORDER BY tr.id
+                ) mdata
+        ) data;
 end;
 $$;
 
@@ -967,70 +1027,6 @@ ALTER SEQUENCE public.analytics_id_seq OWNED BY public.analytics.id;
 
 
 --
--- Name: comment; Type: TABLE; Schema: public; Owner: dbuser
---
-
-CREATE TABLE public.comment (
-    id integer NOT NULL,
-    ticket bigint DEFAULT 0 NOT NULL,
-    side integer,
-    quantid integer,
-    oe integer
-);
-
-
-ALTER TABLE public.comment OWNER TO dbuser;
-
---
--- Name: TABLE comment; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON TABLE public.comment IS 'ticket的日志,止赢止损的情况';
-
-
---
--- Name: COLUMN comment.ticket; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.comment.ticket IS '对应的ticket';
-
-
---
--- Name: COLUMN comment.side; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.comment.side IS '交易方向';
-
-
---
--- Name: COLUMN comment.quantid; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.comment.quantid IS 'quantid';
-
-
---
--- Name: COLUMN comment.oe; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.comment.oe IS 'order event';
-
-
---
--- Name: comment_id_seq; Type: SEQUENCE; Schema: public; Owner: dbuser
---
-
-ALTER TABLE public.comment ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.comment_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
 -- Name: fixsession; Type: TABLE; Schema: public; Owner: dbuser
 --
 
@@ -1469,34 +1465,30 @@ CREATE VIEW public.e2q_cash AS
                             max(t_1_1.id) AS tid,
                             t_1_1.symbol
                            FROM public.trades t_1_1,
-                            public.stockinfo s_1_1,
                             public.trade_report r_1_1
-                          WHERE ((t_1_1.symbol = s_1_1.id) AND (s_1_1.symbol > 0) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
+                          WHERE ((t_1_1.symbol = s.id) AND (t_1_1.quantid = t.quantid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
                                    FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
     max(trade_report.id) AS rid
    FROM public.trade_report
   GROUP BY trade_report.sessionid) trp)))
                           GROUP BY t_1_1.symbol, t_1_1.quantid) t_1,
-                    public.stockinfo s_1,
                     public.trade_report r_1
-                  WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.tid) AND (s_1.verid = s.verid))
+                  WHERE ((t_1.symbol = s.id) AND (r_1.ticket = t_1.tid))
                  LIMIT 1) AS end_credit,
             ( SELECT to_timestamp(((r_1.ctime / 1000))::double precision) AS day
                    FROM ( SELECT t_1_1.quantid,
                             max(t_1_1.id) AS tid,
                             t_1_1.symbol
                            FROM public.trades t_1_1,
-                            public.stockinfo s_1_1,
                             public.trade_report r_1_1
-                          WHERE ((t_1_1.symbol = s_1_1.id) AND (s_1_1.symbol > 0) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
+                          WHERE ((t_1_1.symbol = s.id) AND (t_1_1.quantid = t.quantid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
                                    FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
     max(trade_report.id) AS rid
    FROM public.trade_report
   GROUP BY trade_report.sessionid) trp)))
                           GROUP BY t_1_1.symbol, t_1_1.quantid) t_1,
-                    public.stockinfo s_1,
                     public.trade_report r_1
-                  WHERE ((t_1.symbol = s_1.id) AND (s_1.symbol > 0) AND (r_1.ticket = t_1.tid) AND (s_1.verid = s.verid))
+                  WHERE ((t_1.symbol = s.id) AND (r_1.ticket = t_1.tid))
                  LIMIT 1) AS end_day
            FROM public.trades t,
             public.stockinfo s,
@@ -1690,13 +1682,11 @@ CREATE VIEW public.e2q_history AS
     (to_timestamp(((sell.ctime / 1000))::double precision) + (((sell.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS stop_time,
     sell.adjpx AS sell_adjpx,
     buy.adjpx AS buy_adjpx,
-    round(((((sell.adjpx - buy.adjpx) / buy.adjpx) * (100)::double precision))::numeric, 3) AS profit,
-    (sell.closetck)::text AS closetck,
         CASE
-            WHEN (com.oe = 1) THEN 'StopLoss'::text
-            WHEN (com.oe = 2) THEN 'StopProfit'::text
-            ELSE 'StrategicClosing'::text
-        END AS "LossOrProfit",
+            WHEN (buy.adjpx > (0)::double precision) THEN round(((((sell.adjpx - buy.adjpx) / buy.adjpx) * (100)::double precision))::numeric, 3)
+            ELSE (0)::numeric
+        END AS profit,
+    (sell.closetck)::text AS closetck,
     COALESCE(( SELECT sum(exdr.cash) AS sum
            FROM public.exdr
           WHERE ((exdr.symbol = buy.symbol) AND ((to_char((((to_timestamp(((buy.ctime / 1000))::double precision) + (((buy.ctime % (1000)::bigint) || ' milliseconds'::text))::interval))::date)::timestamp with time zone, 'YYYYMMDD'::text))::integer <= exdr.ymd) AND (exdr.ymd <= (to_char((((to_timestamp(((sell.ctime / 1000))::double precision) + (((sell.ctime % (1000)::bigint) || ' milliseconds'::text))::interval))::date)::timestamp with time zone, 'YYYYMMDD'::text))::integer))), (0)::double precision) AS cash,
@@ -1714,12 +1704,8 @@ CREATE VIEW public.e2q_history AS
     sell.qty
    FROM public.trades buy,
     public.trades sell,
-    public.analse a,
-    public.comment com
-  WHERE ((buy.ticket = sell.closetck) AND (buy.stat = 2) AND (sell.stat = 2) AND (sell.stoppx > (0)::double precision) AND (buy.price > (0)::double precision) AND (( SELECT trades.ticket
-           FROM public.trades
-          WHERE (trades.id = com.ticket)
-         LIMIT 1) = sell.closetck) AND (buy.quantid = a.quantid))
+    public.analse a
+  WHERE ((buy.ticket = sell.closetck) AND (buy.stat = 2) AND (sell.stat = 2) AND (sell.stoppx > (0)::double precision) AND (buy.price > (0)::double precision) AND (buy.quantid = a.quantid))
   ORDER BY buy.id;
 
 
@@ -1858,8 +1844,8 @@ ALTER TABLE public.e2q_profit OWNER TO dbuser;
 CREATE VIEW public.e2q_risk_performance AS
  SELECT
         CASE
-            WHEN (ana.type = 7) THEN 'Sharpe_Ratio'::text
-            WHEN (ana.type = 6) THEN 'Annual_volatility'::text
+            WHEN (ana.type = 37) THEN 'Sharpe_Ratio'::text
+            WHEN (ana.type = 36) THEN 'Annual_volatility'::text
             ELSE 'Expected_annual_return'::text
         END AS risk,
     ana.quantid,
@@ -1868,7 +1854,7 @@ CREATE VIEW public.e2q_risk_performance AS
     to_timestamp(((ana.ctime / 1000))::double precision) AS day
    FROM public.analselog ana,
     public.analse a
-  WHERE ((ana.type = ANY (ARRAY[5, 6, 7])) AND (ana.quantid = a.quantid))
+  WHERE ((ana.type = ANY (ARRAY[35, 36, 37])) AND (ana.quantid = a.quantid))
   ORDER BY ana.ctime DESC;
 
 
@@ -1930,24 +1916,6 @@ CREATE VIEW public.e2q_risk_profit AS
 
 
 ALTER TABLE public.e2q_risk_profit OWNER TO dbuser;
-
---
--- Name: e2q_risk_value; Type: VIEW; Schema: public; Owner: dbuser
---
-
-CREATE VIEW public.e2q_risk_value AS
- SELECT ana.quantid,
-    ana."values",
-    to_timestamp(((ana.ctime / 1000))::double precision) AS day,
-    s.stock,
-    s.verid
-   FROM public.analselog ana,
-    public.stockinfo s
-  WHERE ((ana.type = 4) AND (s.symbol = (ana.key / 10000)))
-  ORDER BY (to_timestamp(((ana.ctime / 1000))::double precision));
-
-
-ALTER TABLE public.e2q_risk_value OWNER TO dbuser;
 
 --
 -- Name: e2q_symbol_pool; Type: VIEW; Schema: public; Owner: dbuser
@@ -2322,14 +2290,6 @@ ALTER TABLE ONLY public.analytics
 
 
 --
--- Name: comment comment_pkey; Type: CONSTRAINT; Schema: public; Owner: dbuser
---
-
-ALTER TABLE ONLY public.comment
-    ADD CONSTRAINT comment_pkey PRIMARY KEY (id);
-
-
---
 -- Name: fixsession fixsession_pkey; Type: CONSTRAINT; Schema: public; Owner: dbuser
 --
 
@@ -2471,14 +2431,6 @@ ALTER TABLE ONLY public.analse
 
 ALTER TABLE ONLY public.analselog
     ADD CONSTRAINT analselog_quantid_fkey FOREIGN KEY (quantid) REFERENCES public.analse(quantid);
-
-
---
--- Name: comment comment_ticket_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
---
-
-ALTER TABLE ONLY public.comment
-    ADD CONSTRAINT comment_ticket_fkey FOREIGN KEY (ticket) REFERENCES public.trades(id);
 
 
 --

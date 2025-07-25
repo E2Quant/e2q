@@ -50,6 +50,7 @@
 
 #include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "libs/DB/PGConnectPool.hpp"
 #include "quickfix/SessionSettings.h"
 #include "utility/Log.hpp"
 
@@ -105,6 +106,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
     /**
      * strategy thread
      */
+    quantId_start += n;
     StrategyBase _sbase(this->_resource, this->_beam_data, quantId_start);
     _sbase.ProgramInit(e2l_script, edir);
 
@@ -116,6 +118,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
 
     try {
         FIX::SessionSettings settings = EaSetting();
+
         /**
          * 动态设置 SenderCompID
          */
@@ -177,6 +180,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
     }
     catch (std::exception& e) {
         log::bug(e.what());
+        // GlobalDBPtr->auto_release();
         return;
     }
 
@@ -263,6 +267,7 @@ FIX::SessionSettings MachineOS::EaSetting()
 
     bool isDb = GlobalDBPtr->isInit();
     if (isDb == false) {
+        log::bug("pd isnot init");
         return settings;
     }
     std::size_t gidx = e2q::GlobalDBPtr->getId();
@@ -270,6 +275,7 @@ FIX::SessionSettings MachineOS::EaSetting()
     Pgsql* pg = GlobalDBPtr->ptr(gidx);
     if (pg == nullptr) {
         e2q::GlobalDBPtr->release(gidx);
+        log::bug("pd is null");
         return settings;
     }
 
@@ -298,6 +304,7 @@ FIX::SessionSettings MachineOS::EaSetting()
         for (pg->begin(); pg->end(); pg->next()) {
             int m = pg->PGResult(&field, &val);
             if (m == -1) {
+                log::info("m == -1 ??");
                 break;
             }
 
@@ -322,9 +329,11 @@ FIX::SessionSettings MachineOS::EaSetting()
                 col++;
             }
         }
-        FIX::SessionID session(begin, seder, target);
+        if (!begin.empty()) {
+            FIX::SessionID session(begin, seder, target);
 
-        settings.set(session, dict_session);
+            settings.set(session, dict_session);
+        }
     }
     else {
         log::bug(sql);

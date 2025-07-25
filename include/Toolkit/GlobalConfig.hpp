@@ -103,7 +103,11 @@ inline std::size_t GlobalProcessId;
  */
 inline int process_run_number;
 
+// debug
 inline bool process_debug;
+
+// show llvm ir
+inline bool llvm_ir;
 
 // e2::init, fixapplication
 inline std::thread::id global_id_class[2];

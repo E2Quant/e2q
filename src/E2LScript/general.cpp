@@ -61,6 +61,22 @@ namespace e2l {
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  isDebug
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void isDebug(e2::Bool b)
+{
+    std::thread::id tid = std::this_thread::get_id();
+    e2q::elog.Debug(tid, b);
+} /* -----  end of function isDebug  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  log
  *  ->  void *
  *  Parameters:
@@ -74,6 +90,10 @@ void log(e2::Int_e s, const char *_vname, e2::Int_e loc, const char *_path)
     std::thread::id tid = std::this_thread::get_id();
 
     char *p = nullptr;
+    e2::Bool ret = e2q::elog.isDebug(tid);
+    if (ret == e2::Bool::B_FALSE) {
+        return;
+    }
     e2q::elog.log(tid, &p);
 
     e2q::LogProto_t lp;
@@ -123,7 +143,11 @@ void PrintLine(e2::Int_e s, const char *_vname, e2::Int_e loc,
     //         break;
     // }
     std::thread::id tid = std::this_thread::get_id();
+    e2::Bool ret = e2q::elog.isDebug(tid);
 
+    if (ret == e2::Bool::B_FALSE) {
+        return;
+    }
     char *p = nullptr;
     e2q::elog.log(tid, &p);
 
@@ -160,6 +184,11 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
     int dec = NUMBERVAL(deci);
 
     std::thread::id tid = std::this_thread::get_id();
+    e2::Bool ret = e2q::elog.isDebug(tid);
+
+    if (ret == e2::Bool::B_FALSE) {
+        return;
+    }
 
     char *p = nullptr;
 
@@ -211,7 +240,10 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
     }
 
     std::thread::id tid = std::this_thread::get_id();
-
+    e2::Bool ret = e2q::elog.isDebug(tid);
+    if (ret == e2::Bool::B_FALSE) {
+        return;
+    }
     char *p = nullptr;
     e2q::elog.log(tid, &p);
 
@@ -287,6 +319,7 @@ e2::Int_e LastStoreId(e2::Int_e loc, const char *_path)
 e2::Bool isStore(e2::Int_e id)
 {
     std::thread::id _id;
+    id = NUMBERVAL(id);
 
     e2::Bool r = e2::Bool::B_FALSE;
     E2LSILK(r, _id, id);

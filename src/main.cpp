@@ -51,6 +51,7 @@
 
 #include "E2Q.hpp"
 #include "Toolkit/DaemonProcess.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "ast/ParserCtx.hpp"
 /*
  * ===  FUNCTION  =============================
@@ -159,7 +160,7 @@ int e2q_action(int argc, char* argv[])
                 break;
 
             case 'l':
-                e2q::process_debug = true;
+                e2q::llvm_ir = true;
                 break;
             case 'v': {
                 log::echo(version::version_full);
@@ -254,9 +255,9 @@ int e2q_action(int argc, char* argv[])
     const auto processor_count = std::thread::hardware_concurrency();
 
     e2q::UtilTime ut;
+    // 128 threads number
     // e mathematical constant deci start
-    std::size_t now = ut.time() - 718281828;
-
+    std::size_t now = ut.time() - 718281828 + 128 * (1 + run);
     int proce = eas_el.size();
     e2q::process_run_number = run;
     pid_t pid;
@@ -286,6 +287,7 @@ int e2q_action(int argc, char* argv[])
                        eas_el[m].c_str());
                 if (eas_el.size() != 0) {
                     _e2q.setCfg(eas_el[m], properties);
+
                     _e2q.trader(m, now, run, proce);
                 }
                 return 0;
@@ -295,6 +297,7 @@ int e2q_action(int argc, char* argv[])
                 // printf("{parent} Parent PID is %d\n", getpid());
                 break;
         }
+
         now += processor_count;
     }
 
