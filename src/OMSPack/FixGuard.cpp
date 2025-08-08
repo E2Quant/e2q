@@ -230,7 +230,10 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
     sfr.setValue(equity);
     executionReport.setField(sfr);
 
-    if (order.TradeTicket > 0 && order.executedQuantity > 0) {
+    if (order.TradeTicket > 0) {
+        // close order
+        // && order.executedQuantity > 0  ??
+        // 应该不需要这个条件
         FIX::SecondaryOrderID soid;
         soid.setValue(std::to_string(order.TradeTicket));
         executionReport.setField(soid);
@@ -333,7 +336,7 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
             gsql->update_field("openqty", incqty);
 
             gsql->update_condition("ticket", order.TradeTicket);
-            gsql->update_condition("stat", 2);
+            gsql->update_condition("stat", (int)e2::OrdStatus::ost_Filled);
 
             gsql->update_commit();
 

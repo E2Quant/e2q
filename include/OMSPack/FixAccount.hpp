@@ -290,6 +290,11 @@ private:
     /* =============  METHODS       =================== */
 
     void ChangeTradingStatus(e2::Int_e, std::string&, double);
+
+    void RejectOrCancelNewOrder(e2::Int_e quantId, std::string key,
+                                std::size_t ticket, e2::Int_e closetck,
+                                std::size_t thread_number, bool rc);
+    void UpdateQuantProfit();
     /* =============  DATA MEMBERS  =================== */
     FIX::SenderCompID _sender;
     FIX::TargetCompID _target;

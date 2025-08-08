@@ -91,11 +91,17 @@ void Container::InitCell()
 {
     std::vector<size_t> symId = FixPtr->_symbols;
 
+    if (_time_frames.size() == 0) {
+        log::bug("_time_frames.size() == 0");
+        return;
+    }
+
     if (_source_ptr == nullptr) {
-        log::echo("source ptr is nullptr");
+        log::bug("source ptr is nullptr");
         return;
     }
     if (_cells.size() > 0) {
+        log::echo("cells size:", _cells.size());
         return;
     }
     for (auto t : _time_frames) {
@@ -179,6 +185,9 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     std::size_t startTime = 0;
     if (search == _cells.end()) {
         log::bug("not found stock:", stock, " cell size:", _cells.size());
+        for (auto it : _cells) {
+            log::info("code:", it.first);
+        }
         return -1;
     }
     std::size_t time_flag = 0;
@@ -597,6 +606,7 @@ int Container::writed(std::size_t id, std::size_t timeframe)
     int ret = -1;
 
     if (_cells.count(id) == 0) {
+        log::info("code not found:", id);
         return ret;
     }
 

@@ -87,8 +87,8 @@ public:
     void erase(OrderItem*);
     OrderItem* find(std::string symbol, std::size_t ticket);
     bool match(std::string symbol, std::queue<OrderLots>& lots,
-               e2::Int_e market_price, e2::Int_e);
-    bool match(std::queue<OrderLots>& orders, e2::Int_e);
+               e2::Int_e market_price, e2::Int_e, std::size_t);
+    bool match(std::queue<OrderLots>& orders, e2::Int_e, std::size_t);
 
     std::size_t OrderSize(std::string);
     std::size_t OrderSizes();

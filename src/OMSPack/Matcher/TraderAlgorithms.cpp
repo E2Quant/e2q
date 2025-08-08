@@ -42,6 +42,7 @@
  */
 #include "OMSPack/Matcher/TraderAlgorithms.hpp"
 
+#include "E2L/E2LType.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2q {
@@ -181,7 +182,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
 
     std::queue<OrderLots> orders;
 
-    _orderMatcher->match(symbol, orders, market_price, adj_now);
+    _orderMatcher->match(symbol, orders, market_price, adj_now, now);
 
     while (orders.size() > 0) {
         OrderLots ol = orders.front();
@@ -191,9 +192,10 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
             Pgsql* gsql = GlobalDBPtr->ptr(idx);
             if (gsql != nullptr) {
                 gsql->update_table("trades");
-                gsql->update_field("stat", 4);  // OrdStatus: Canceled
+                gsql->update_field(
+                    "stat",
+                    (int)e2::OrdStatus::ost_Canceled);  // OrdStatus: Canceled
                 gsql->update_condition("ticket", ol.ticket);
-                // gsql->update_condition(" stat != 0 ");
                 gsql->update_commit();
             }
             GlobalDBPtr->release(idx);
@@ -299,7 +301,7 @@ e2::Int_e TraderAlgorithms::CheckClose(SeqType ticket,
             break;
         case 1: {
             // T+1
-
+            // 当前买入的订单不能当天卖出
             if (ctime > startTime) {
                 return 0;
             }

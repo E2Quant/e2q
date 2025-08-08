@@ -97,7 +97,7 @@ public:
     bool insert(OrderItem* order);
     void erase(OrderItem* order);
     OrderItem* find(std::size_t ticket);
-    bool match(std::queue<OrderLots>&, e2::Int_e, e2::Int_e);
+    bool match(std::queue<OrderLots>&, e2::Int_e, e2::Int_e, std::size_t);
     std::size_t length();
     void display();
     std::pair<e2::Int_e, e2::Int_e> top_bid_ask_price();

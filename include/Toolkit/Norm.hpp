@@ -395,6 +395,9 @@ struct __ExRD {
 typedef struct __ExRD ExRD;
 
 struct __MarketInfo {
+    // 版本ID
+    int _QuantVerId = 0;
+
     // 一手 == 100股
     double _lot_and_share = 100.0;
 
@@ -448,10 +451,12 @@ enum __TradeStatus {
     FILLED,            // [close]  <-- history
     PARTIALLY_FILLED,  // [open, close]交易中<-- OrdersTotal
     MARKET,            // [open] 交易完成<-- OrdersTotal
-    CLOSEING,          // [closing] <-- close orders
-    CLOSED,            // [open] closed  <-- history
-    REJECT,            // reject <---history
-
+    CLOSEING,          // [closing] <-- close orders OrderClose
+               // 锁定某一个要平仓的订单为这个状态 如果这个 close 订单 cancel or
+               // reject 的话，需要转回 market
+    CLOSED,  // [open] closed  <-- history
+    REJECT,  // reject <---history
+    CANCEL   // cancel
 }; /* ----------  end of enum __TradeStatus  ---------- */
 
 typedef enum __TradeStatus TradeStatus;
@@ -523,6 +528,8 @@ struct __FinancialInstrument : public MarketInfo {
     bool _volume_append = false;  // 默认 volume 不累加
     EaTraderInfo _cash;           // cash
 
+    // 防止多线程同时下单的
+    // 不过目前还没有用
     std::map<std::size_t, std::size_t> _freeze_time = {};  // freeze time
 }; /* ----------  end of struct __FinancialInstrument  ---------- */
 
@@ -589,9 +596,6 @@ struct __FinancialFabricate : public MarketInfo {
 
     // 实时的价格 {symbol,  array}
     std::map<size_t, std::array<SeqType, trading_protocols>> _stock;
-
-    // 版本ID
-    int _QuantVerId = 0;
 
     /**
      * 撮合的时间，主要是回测

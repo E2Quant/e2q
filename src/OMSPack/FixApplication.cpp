@@ -566,8 +566,16 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
                                  e2::Int_e price)
 {
     FIX::OrderID oid(std::to_string(ticket));
-    FIX::OrigClOrdID aOrigClOrdID("1");
-    FIX::CxlRejResponseTo aCxlRejResponseTo('1');
+
+    e2::Side _side = convert(side);
+
+    FIX::OrigClOrdID aOrigClOrdID(std::to_string(quantId));
+
+    FIX::CxlRejResponseTo aCxlRejResponseTo('2');
+    if (_side == e2::Side::os_Buy) {
+        aCxlRejResponseTo.setValue('1');
+    }
+
     FIX44::OrderCancelReject reject = FIX44::OrderCancelReject(
         oid, clOrdID, aOrigClOrdID, FIX::OrdStatus(FIX::OrdStatus_REJECTED),
         aCxlRejResponseTo);
@@ -577,50 +585,58 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
     reject.setField(rejtext);
     std::size_t idx = GlobalDBPtr->getId();
 
+    // 这儿是平仓出现的
+    e2::OrdStatus stat = e2::OrdStatus::ost_Suspended;
+    if (ticket == 0) {
+        // 开仓出现的
+        stat = e2::OrdStatus::ost_Rejected;
+    }
     Pgsql* gsql = GlobalDBPtr->ptr(idx);
     if (gsql != nullptr) {
-        const char* fmt =
-            "SELECT quantid from trades WHERE ticket=%ld LIMIT 1;";
-        std::string sql = log::format(fmt, ticket);
-        // log::info(sql);
-        bool r = gsql->select_sql(sql);
-        if (r && gsql->tuple_size() > 0) {
-            gsql->update_table("trades");
-            gsql->update_field("stat", 8);
-            gsql->update_field("qty", qty);
-            gsql->update_field("ctime", ticket_now);
-            gsql->update_field("otime", ticket_now);
-            gsql->update_field("price", NUMBERVAL(price));
-            gsql->update_condition("ticket", ticket);
-            gsql->update_commit();
-        }
-        else {
-            int cfi = 0;
-            for (auto it : FinFabr->_fix_symbols) {
-                if (it.second == symbol.getValue()) {
-                    cfi = it.first;
-                    break;
-                }
+        // const char* fmt =
+        //     "SELECT quantid from trades WHERE ticket=%ld LIMIT 1;";
+        // std::string sql = log::format(fmt, ticket);
+        // // log::info(sql);
+        // bool r = gsql->select_sql(sql);
+        // if (r && gsql->tuple_size() > 0) {
+        //
+        //     gsql->update_table("trades");
+        //     gsql->update_field("stat", e2::OrdStatus::ost_Rejected);
+        //     gsql->update_field("qty", qty);
+        //     gsql->update_field("ctime", ticket_now);
+        //     gsql->update_field("otime", ticket_now);
+        //     gsql->update_field("price", NUMBERVAL(price));
+        //     gsql->update_condition("ticket", ticket);
+        //     gsql->update_commit();
+        // }
+        // else {
+
+        int cfi = 0;
+        for (auto it : FinFabr->_fix_symbols) {
+            if (it.second == symbol.getValue()) {
+                cfi = it.first;
+                break;
             }
-            std::string cfi_str = log::format(
-                "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC "
-                "LIMIT "
-                "1 )",
-                cfi);
-            gsql->insert_table("trades");
-            gsql->insert_field("symbol", cfi_str);
-            gsql->insert_field("ticket", ticket);
-            gsql->insert_field("stat", 8);
-            gsql->insert_field("ctime", ticket_now);
-            gsql->insert_field("otime", ticket_now);
-
-            gsql->insert_field("side", (int)convert(side));
-            gsql->insert_field("quantid", quantId);
-            gsql->insert_field("qty", qty);
-            gsql->insert_field("price", NUMBERVAL(price));
-
-            gsql->insert_commit();
         }
+        std::string cfi_str = log::format(
+            "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC "
+            "LIMIT "
+            "1 )",
+            cfi);
+        gsql->insert_table("trades");
+        gsql->insert_field("symbol", cfi_str);
+        gsql->insert_field("ticket", ticket);
+        gsql->insert_field("stat", stat);
+        gsql->insert_field("ctime", ticket_now);
+        gsql->insert_field("otime", ticket_now);
+
+        gsql->insert_field("side", int(_side));
+        gsql->insert_field("quantid", quantId);
+        gsql->insert_field("qty", qty);
+        gsql->insert_field("price", NUMBERVAL(price));
+
+        gsql->insert_commit();
+        //  }
     }
 
     GlobalDBPtr->release(idx);
@@ -695,11 +711,9 @@ void FixApplication::FeedDataHandle()
                 adj_ret = this->_program->toScript(e2::OMSRisk::I_OMS, cfi);
             }
         }
-        if (adj_ret == 0) {
+
+        if (adj_ret <= 0) {
             adj_ret = price;
-        }
-        if (adj_ret < 0) {
-            log::info("price:", price, " adj_ret:", adj_ret);
         }
 
         // 涨跌停，由 kafka 发送价格端来控制，有量的话，就交易,否则不进行交易
@@ -856,11 +870,6 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
     e2::Int_e sym = 0;
 
-    if (FinFabr->_StopOrder) {
-        rejectOrder(sid, clOrdID, symbol, side, "stop order now", ticket_close,
-                    qid, order_qty, price.getValue());
-        return;
-    }
     /**
      *  以后再优化把 symbol 全部转为 int 值
      */
@@ -869,22 +878,28 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
             sym = syms.first;
         }
     }
-
     SeqType ctime = FinFabr->_stock.at(sym)[Trading::t_time];
     long otime = atol(tradeDate.getValue().c_str());
 
     // long or short order
     if (ordType == FIX::OrdType_LIMIT || ordType == FIX::OrdType_MARKET) {
+        if (FinFabr->_StopOrder) {
+            // 不接受新的订单
+            rejectOrder(sid, clOrdID, symbol, side, "stop order now", ticket,
+                        qid, order_qty, price.getValue());
+            return;
+        }
+
         if (price.getLength() > 0) order_price = price.getValue();
     }
     else {
+        // close order
+        if (stopx.getLength() > 0) order_price = stopx.getValue();
+
         // close ticket
         if (oid.getLength() > 0) {
             ticket_close = std::stol(oid.getValue());
         }
-        // close order
-        if (stopx.getLength() > 0) order_price = stopx.getValue();
-
         /**
          * 1. check price , side , symobl, qty
          */
@@ -903,8 +918,8 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
     }
     if (order_price <= 0 || order_qty <= 0) {
         log::echo("order_price == 0");
-        rejectOrder(sid, clOrdID, symbol, side, "order_price == 0",
-                    ticket_close, qid, order_qty, order_price);
+        rejectOrder(sid, clOrdID, symbol, side, "order_price == 0", ticket, qid,
+                    order_qty, order_price);
         return;
     }
 
@@ -944,14 +959,17 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
         }
         if (ret == false) {
             GlobalMatcher->freeMargin(sid, ticket, margin);
+
             rejectOrder(sid, clOrdID, symbol, side, "risk == -1, process order",
-                        ticket, qid, order_qty, order_price);
+                        (ticket_close > 0 ? ticket_close : ticket), qid,
+                        order_qty, order_price);
         }
     }
     catch (std::exception& e) {
         rejectOrder(sid, clOrdID, symbol, side,
-                    "rejectOrder execption:" + std::string(e.what()), 0, qid,
-                    order_qty, order_price);
+                    "rejectOrder execption:" + std::string(e.what()),
+                    (ticket_close > 0 ? ticket_close : ticket), qid, order_qty,
+                    order_price);
     }
 
 } /* -----  end of function FixApplication::lob  ----- */

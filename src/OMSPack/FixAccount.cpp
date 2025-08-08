@@ -410,6 +410,26 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
     FIX::PartyID pid;
     std::vector<long> ticks;
 
+    char* field = nullptr;
+    char* val = nullptr;
+    std::string sql = "SELECT id FROM trade_info WHERE active=1 LIMIT 1;";
+    std::size_t idx = e2q::GlobalDBPtr->getId();
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
+    if (gsql != nullptr) {
+        bool r = gsql->select_sql(sql);
+
+        if (r && gsql->tuple_size() > 0) {
+            gsql->OneHead(&field, &val);
+            if (val != nullptr) {
+                e2q::FixPtr->_QuantVerId = stoi(val);
+            }
+        }
+        else {
+            log::info("trade info is empty");
+        }
+    }
+    e2q::GlobalDBPtr->release(idx);
+
     if (count == 0) {
         return;
     }
@@ -459,6 +479,7 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
             }
         }
     }
+
 } /* -----  end of function FixAccount::onMessage  ----- */
 
 /*
@@ -488,12 +509,6 @@ void FixAccount::onMessage(const FIX44::QuoteResponse& message,
         FixPtr->_cash.add(m, sub_cash);
 
         FixPtr->_cash.total_cash -= sub_cash;
-
-        // std::string cont = log::format(
-        //     "sub: %.3f, post:%.3f, all total: %.3f", sub_cash,
-        //     FixPtr->_cash._thread_pos.at(m)._postion,
-        //     FixPtr->_cash.total_cash);
-        // log::echo(cont);
     }
 } /* -----  end of function FixAccount::onMessage  ----- */
 /*
@@ -553,9 +568,10 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     double margin = sfr.getValue();
 
     std::string key = cl0id.getValue();
+    e2::OrdStatus ord_status = convert(stat);
 
     if (FixPtr->_OrderIds.count(quantId) == 0) {
-        log::echo("canceled");
+        log::echo("canceled :", quantId, " status:", ord_status);
         return;
     }
 
@@ -569,6 +585,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     }
     message.getField(ticket);
     std::size_t tk = atoll(ticket.getValue().c_str());
+    e2::Int_e closetck = atoll(soid.getValue().c_str());
 
     std::size_t thread_number = 0;
     if (FixPtr->_cash.cl_thread.count(key) > 0) {
@@ -576,16 +593,10 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     }
 
     if (exec.getValue() == FIX::OrdStatus_CANCELED) {
-        FixPtr->_OrderIds.erase(quantId);
-
-        for (auto it : e2q::FixPtr->_cash.order_cash) {
-            if (tk == it.first) {
-                e2q::FixPtr->_cash.append(thread_number, it.second.margin);
-                FixPtr->_cash.order_cash.erase(it.first);
-
-                break;
-            }
-        }
+        // 1.只有在 match 状态下发生的, 用户主动删除订单还没有做
+        // 所以这儿开平仓的 match 都有可能
+        RejectOrCancelNewOrder(quantId, key, tk, closetck, thread_number,
+                               false);
 
         return;
     }
@@ -603,9 +614,6 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
         log::bug("ticket == 0: ", ticket.getValue());
         return;
     }
-    e2::Int_e closetck = atoll(soid.getValue().c_str());
-
-    e2::OrdStatus ord_status = convert(stat);
 
     if (margin > 0) {
         switch (ord_status) {
@@ -638,12 +646,10 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                 if (closetck > 0) {
                     // close order
                     FixPtr->_cash.append(thread_number, margin);
-                    // FixPtr->_cash.total_cash += margin;
                     // std::string balan = log::format(
                     //     "total cash:%.3f, clostck:%ld, margin:%.3f",
                     //     e2q::FixPtr->_cash.total_cash, closetck, margin);
                     // log::info(balan);
-
                     if (FixPtr->_cash.order_cash.count(closetck) == 1) {
                         FixPtr->_cash.order_cash.erase(closetck);
                     }
@@ -722,6 +728,8 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                     TradeStatus::PARTIALLY_FILLED;
             }
         }
+
+        UpdateQuantProfit();
     }
     else {
         if (cumq == 0) {
@@ -750,7 +758,11 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  1. 开仓的时候，不允许下单 stoporder ticket == 0
+ *  2. 平仓的时候，不允许平仓 order_qyt ==0 or == -1 ticket > 0
+ *  3. 开仓的时候， price or qty <=0 ticket == 0
+ *  4. 已经订单完成，但 match 的时候出错了 ( buy or sell)
+ *  5. 有可能订单完成，也有可能在 match 状态，catch 的error ,
  * ============================================
  */
 void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
@@ -758,62 +770,52 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
 {
     FIX::Text rejtext;
     FIX::OrderID ticket;
+    FIX::OrigClOrdID aOrigClOrdID;
+    FIX::CxlRejResponseTo aCxlRejResponseTo;
+    // 如果是平仓的话， 这个是平仓的值
     FIX::ClOrdID cl0id;
     std::size_t quantId = 0;
     message.getIfSet(rejtext);
     message.getIfSet(ticket);
+    message.getIfSet(aOrigClOrdID);
+    message.getIfSet(cl0id);
+    message.getIfSet(aCxlRejResponseTo);
 
-    if (rejtext.getLength() > 0) {
-        // log::echo("OrderCancelReject ticket:", ticket.getValue(),
-        //           " msg:", rejtext.getValue());
+    e2::Side _side = e2::Side::os_Buy;
 
-        e2::Int_e tk = atoll(ticket.getValue().c_str());
-        if (tk == 0) {
-            log::bug("ticket == 0: ", ticket.getValue(), " text:", rejtext);
-            return;
-        }
-        std::string key = FixPtr->_OrderTicket[tk];
-        if (key.length() == 0) {
-            message.getIfSet(cl0id);
-            key = cl0id.getValue();
-        }
-
-        char* field = nullptr;
-        char* val = nullptr;
-
-        // std::cout << "ticket:" << tk << "  " << ticket.getValue() <<
-        // std::endl;
-        const char* fmt = "SELECT quantid from trades WHERE ticket=%s LIMIT 1;";
-        std::string sql = log::format(fmt, ticket.getValue().c_str());
-        // log::info(sql);
-        std::size_t idx = GlobalDBPtr->getId();
-
-        Pgsql* gsql = GlobalDBPtr->ptr(idx);
-        if (gsql == nullptr) {
-            GlobalDBPtr->release(idx);
-            return;
-        }
-        bool r = gsql->select_sql(sql);
-        if (r && gsql->tuple_size() > 0) {
-            gsql->OneHead(&field, &val);
-            if (val != nullptr) {
-                quantId = atol(val);
-            }
-        }
-        GlobalDBPtr->release(idx);
-
-        if (FixPtr->_OrderIds[quantId].count(key) == 0) {
-            log::bug("key is error:", key, " quantId:", quantId,
-                     " ticket:", tk);
-            // for (auto it : e2q::FixPtr->_OrderIds[quantId]) {
-            //     log::info("key:", it.first, " ticket:", it.second.ticket);
-            // }
-            return;
-        }
-        // log::echo("quantId:", quantId, " key:", key, " tk:", tk,
-        //           " qty:", FixPtr->_OrderIds[quantId][key].qty);
-        FixPtr->_OrderIds[quantId][key].trading = TradeStatus::REJECT;
+    if (aCxlRejResponseTo.getValue() == '2') {
+        // 平仓
+        _side = e2::Side::os_Sell;
     }
+
+    quantId = atoll(aOrigClOrdID.getValue().c_str());
+
+    std::string key = cl0id.getValue();
+
+    e2::Int_e tk = atoll(ticket.getValue().c_str());
+    std::size_t thread_number = 0;
+    if (FixPtr->_cash.cl_thread.count(key) > 0) {
+        thread_number = FixPtr->_cash.cl_thread.at(key);
+    }
+    if (_side == e2::Side::os_Buy) {
+        // 开仓
+        // if (tk == 0) {
+        // 开仓出现的
+        // 1,3
+        // tk > 0 这儿是 4, buy match出现的
+        RejectOrCancelNewOrder(quantId, key, tk, 0, thread_number, true);
+        log::bug("quantid:", quantId, "ticket == 0: ", tk,
+                 " text:", rejtext.getValue());
+    }
+    else {
+        // 平仓
+        // 2, 4(sell)
+
+        RejectOrCancelNewOrder(quantId, key, 0, tk, thread_number, true);
+        log::bug("quantid:", quantId, "ticket == 0: ", tk,
+                 " text:", rejtext.getValue());
+    }
+
 } /* -----  end of function FixAccount::onMessage  ----- */
 
 /*
@@ -996,6 +998,7 @@ std::size_t FixAccount::NewOrderSingle(Int_e id, Int_e side, Int_e qty,
     oi.ticket = 0;
     oi.closeTck = 0;
     oi.openqty = 0;
+    oi.trading = TradeStatus::PENDING;
 
     std::string key = cl0id.getValue();
 
@@ -1084,6 +1087,7 @@ void FixAccount::OrderReplaceRequest(Int_e id, Int_e side, Int_e qty,
     oi.closeTck = ticket;
     oi.ticket = 0;
     oi.openqty = qty;
+    oi.trading = TradeStatus::PENDING;
 
     std::string key = cl0id.getValue();
 
@@ -1299,54 +1303,77 @@ void FixAccount::wait()
  */
 void FixAccount::quit()
 {
-    double total_cash = 0;
+    UpdateQuantProfit();
 
-    std::size_t size_qid = FixPtr->_quantId.size();
-
-    if (FixPtr->_cash._tsize == 0 && size_qid > 1) {
-        // 多个 quantid ,tsize == 0
-        // 这个时候是不是 quantid 划分仓位的情况，就不需要写入profit 了
-        // 需要采用另一种方式计算
-
-        _is_end = true;
-        return;
-    }
-    std::size_t idx = e2q::GlobalDBPtr->getId();
-
-    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
-    if (gsql == nullptr) {
-        e2q::GlobalDBPtr->release(idx);
-        return;
-    }
-
-    for (auto it : FixPtr->_quantId) {
-        // 多模型，多仓位的情况
-        total_cash = 0;
-        for (auto oc : FixPtr->_cash.order_cash) {
-            if (oc.second.thread_number == it.second.second) {
-                total_cash += oc.second.margin;
-                break;
-            }
-        }
-        if (FixPtr->_cash._tsize > 0 &&
-            FixPtr->_cash._thread_pos.count(it.second.second) > 0) {
-            total_cash +=
-                FixPtr->_cash._thread_pos.at(it.second.second)._total_cash;
-        }
-
-        if (FixPtr->_cash._tsize == 0 && size_qid == 1) {
-            // 等于 1 的时候，单个模型的情况
-            total_cash += FixPtr->_cash.TotalCash(0);
-        }
-        gsql->update_table("analse");
-        gsql->update_field("profit", total_cash, 3);
-        gsql->update_condition("quantid", it.second.first);
-        gsql->update_commit();
-    }
-    e2q::GlobalDBPtr->release(idx);
     _is_end = true;
 } /* -----  end of function FixAccount::quit  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixAccount::RejectOrCancelNewOrder
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  开仓的时候，会扣掉一些资金，如果下单不成功，在这儿统一返还
+ * ============================================
+ */
+void FixAccount::RejectOrCancelNewOrder(e2::Int_e quantId, std::string key,
+                                        std::size_t ticket, e2::Int_e closetck,
+                                        std::size_t thread_number, bool rc)
+{
+    if (key.length() == 0 || FixPtr->_OrderIds[quantId].count(key) == 0) {
+        log::bug("quantId:", quantId, " ticket:", ticket);
+    }
+    else {
+        TradeStatus tstat = TradeStatus::CANCEL;
+        if (rc) {
+            tstat = TradeStatus::REJECT;
+        }
+        FixPtr->_OrderIds[quantId][key].trading = tstat;
+    }
+    // 平仓直接退出就可以了
+    // OrderClose 的时候，设置状态为 closeing 了，现在需要转回来
+    if (closetck > 0) {
+        std::string bkey = FixPtr->_OrderTicket[closetck];
+        if (FixPtr->_OrderIds[quantId].count(bkey) == 0) {
+            log::bug("key is error:", bkey, " quantId:", quantId);
+
+            return;
+        }
+        FixPtr->_OrderIds[quantId][bkey].trading = TradeStatus::MARKET;
+        return;
+    }
+
+    // 开仓需要退资金
+    // 还没有返回 e2::OrdStatus::ost_New 状态
+    if (ticket == 0) {
+        e2::Int_e price = FixPtr->_OrderIds[quantId].at(key).price;
+        e2::Int_e qty = FixPtr->_OrderIds[quantId].at(key).qty;
+
+        double expenditure = e2q::FixPtr->equity(price, qty);
+        e2q::FixPtr->_cash.inc_freeze(thread_number, expenditure);
+
+        return;
+    }
+
+    // cancel 状态,正常下单，但由于超时，隔夜或者用户删除订单而退回来的
+    //  如果是 reject 的话，那可能是 processOrder == false
+    //  insert 订单出错
+    for (auto it : e2q::FixPtr->_cash.order_cash) {
+        if (ticket == it.first) {
+            // log::bug("margin:", it.second.margin);
+            e2q::FixPtr->_cash.append(thread_number, it.second.margin);
+            FixPtr->_cash.order_cash.erase(it.first);
+
+            break;
+        }
+    }
+    // log::info("quantId:", quantId, " ticket:", ticket, " closetck:",
+    // closetck,
+    //           " soid:", key);
+} /* -----  end of function FixAccount::RejectOrCancelNewOrder  ----- */
 /*
  * ===  FUNCTION  =============================
  *
@@ -1355,7 +1382,7 @@ void FixAccount::quit()
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  好像没有用
  * ============================================
  */
 void FixAccount::ChangeTradingStatus(e2::Int_e quantId, std::string& key,
@@ -1373,4 +1400,63 @@ void FixAccount::ChangeTradingStatus(e2::Int_e quantId, std::string& key,
     }
 
 } /* -----  end of function FixAccount::ChangeTradingStatus  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixAccount::UpdateQuantProfit
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  更新数据库关于 profit 的值
+ * ============================================
+ */
+void FixAccount::UpdateQuantProfit()
+{
+    std::size_t size_qid = FixPtr->_quantId.size();
+    double total_cash = 0;
+
+    if (FixPtr->_cash._tsize == 0 && size_qid > 1) {
+        // 多个 quantid ,tsize == 0
+        // 这个时候是不是 quantid 划分仓位的情况，就不需要写入profit 了
+        // 需要采用另一种方式计算
+        // 也就是多线程(不管是不是多进程)的时候，如果没有对单独 quantid
+        // 分配仓位，也就是共用仓位，这个时候，就不单独计算每个 quantid
+        // 的收益，这个时间收益和其实是单独一个账号的收益了
+
+        return;
+    }
+
+    std::size_t idx = e2q::GlobalDBPtr->getId();
+
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
+    if (gsql != nullptr) {
+        for (auto it : FixPtr->_quantId) {
+            // 多模型，多仓位的情况
+            total_cash = 0;
+            for (auto oc : FixPtr->_cash.order_cash) {
+                if (oc.second.thread_number == it.second.second) {
+                    total_cash += oc.second.margin;
+                    break;
+                }
+            }
+            if (FixPtr->_cash._tsize > 0 &&
+                FixPtr->_cash._thread_pos.count(it.second.second) > 0) {
+                total_cash +=
+                    FixPtr->_cash._thread_pos.at(it.second.second)._total_cash;
+            }
+
+            if (FixPtr->_cash._tsize == 0 && size_qid == 1) {
+                // 等于 1 的时候，单个模型的情况
+                total_cash += FixPtr->_cash.TotalCash(0);
+            }
+            gsql->update_table("analse");
+            gsql->update_field("profit", total_cash, 3);
+            gsql->update_condition("quantid", it.second.first);
+            gsql->update_commit();
+        }
+    }
+    e2q::GlobalDBPtr->release(idx);
+} /* -----  end of function FixAccount::UpdateQuantProfit  ----- */
 }  // namespace e2q

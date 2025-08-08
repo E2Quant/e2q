@@ -31,35 +31,349 @@ COMMENT ON EXTENSION tablefunc IS 'functions that manipulate whole tables, inclu
 
 
 --
+-- Name: indicator_adxvma(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.indicator_adxvma(_verid integer) RETURNS TABLE(value double precision, pday text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY (
+        SELECT   "values" as value, to_timestamp(
+                ((ctime / 1000))::double precision
+            )::text as pday
+        FROM "analselog"
+        WHERE
+            "type" >= 60
+            AND "type" <= 69
+            AND "quantid" = (
+                SELECT "quantid"
+                FROM "analse"
+                WHERE
+                    "name" = 'mode_adxvma'
+                    AND "verid"= _verid
+                ORDER BY id
+                LIMIT 1
+            )
+        ORDER BY "ctime"  
+    );
+END; $$;
+
+
+ALTER FUNCTION public.indicator_adxvma(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: indicator_sharpe_ratio(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.indicator_sharpe_ratio(_verid integer) RETURNS TABLE(value double precision, pday text, stock text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY (
+            SELECT "values" as value, to_timestamp(
+                    ((ctime / 1000))::double precision
+                )::text as pday,(CASE 
+                    WHEN key <0 THEN  'index'
+                    ELSE  st."stock"
+                END)::text as stock
+            FROM "analselog" ana, "stockinfo" st
+            WHERE
+                "type" = 9
+                AND st."verid" = _verid
+                AND (CASE 
+                    WHEN key < 0 THEN  key = (0 - _verid)
+                    ELSE  st."symbol"= key
+                END)
+            ORDER BY "ctime"
+    );
+END; $$;
+
+
+ALTER FUNCTION public.indicator_sharpe_ratio(_verid integer) OWNER TO dbuser;
+
+--
 -- Name: quant_account(integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION public.quant_account(_verid integer) RETURNS TABLE(targetcompid text, sessionid integer, balance double precision, margin double precision, all_cash double precision, mode text)
+CREATE FUNCTION public.quant_account(_verid integer) RETURNS TABLE(targetcompid text, sessionid integer, balance double precision, margin double precision, init_cash double precision, end_cash double precision, mode text)
     LANGUAGE plpgsql
     AS $$
 BEGIN
     RETURN QUERY 
     (
-        
-        SELECT f."targetcompid"::text, a."sessionid", a."balance", a."margin", (a."balance" + a."margin") as all_cash , (
-        SELECT ana."name"::text
-        from "trade_report" tr, trades t, analse ana
+        SELECT
+            f."targetcompid"::text,
+            a."sessionid",
+            a."balance",
+            a."margin",
+            COALESCE(  (
+                SELECT t_2."credit"
+                FROM "trade_report" t_2
+                WHERE
+                    t_2.id in (
+                        SELECT data.rid
+                        FROM (
+                                SELECT DISTINCT
+                                    ON (t_1.sessionid) t_1.sessionid, min(t_1.id) AS rid
+                                FROM trade_report t_1
+                                WHERE t_1."sessionid" = f.id
+                                GROUP BY
+                                    t_1.sessionid
+                            ) data
+                    ) LIMIT 1
+            ), (a."balance" + a."margin")) as init_cash,
+            (a."balance" + a."margin") as end_cash,
+            (
+                SELECT ana."name"::text
+                from
+                    "trade_report" tr,
+                    trades t,
+                    analse ana
+                WHERE
+                    tr."sessionid" = f.id
+                    AND t.id = tr."ticket"
+                    AND ana."quantid" = t."quantid"
+                LIMIT 1
+            )::text as "mode"
+        FROM
+            "account" a,
+            fixsession f
         WHERE
-            tr."sessionid" = f.id
-            AND t.id = tr."ticket"
-            AND ana."quantid" = t."quantid"
-        LIMIT 1
-    )::text as "mode"
-from "account" a, fixsession f
-WHERE
-    a."sessionid" = f.id
-    AND a."verid" = _verid
-
+            a."sessionid" = f.id
+            AND a."verid" = _verid
+           
     );
 END; $$;
 
 
 ALTER FUNCTION public.quant_account(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_account_credit(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_account_credit(_verid integer) RETURNS TABLE(credit double precision, targetcompid text, pday text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+    SELECT DISTINCT
+            ON (fix."targetcompid", tr."ctime") tr."credit",
+            fix."targetcompid"::text targetcompid,
+            to_timestamp(((tr.ctime / 1000))::double precision)::text AS pday
+            FROM
+            "trade_report" tr,
+            "fixsession" fix
+            WHERE
+            fix.id = tr."sessionid"
+            AND "fix".id IN (
+                SELECT
+                "sessionid"
+                FROM
+                "account"
+                WHERE
+                "verid" = _verid
+            )
+            ORDER BY
+            tr."ctime"
+
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_account_credit(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_account_credit_bands(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_account_credit_bands(_verid integer) RETURNS TABLE(btargetcompid text, bmax_credit double precision, bmin_credit double precision, binit_credit double precision, bmpday text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY (
+        SELECT
+            data.targetcompid,
+            data.max_credit,
+            data.min_credit,
+            (
+                SELECT
+                credit
+                FROM
+                quant_account_credit (_verid)
+                WHERE
+                pday = mpday
+                AND targetcompid = data.targetcompid
+                LIMIT
+                1
+            ) as init_credit,
+            data.mpday
+        FROM
+        (
+            SELECT
+            targetcompid,
+            max(credit) as max_credit,
+            min(credit) as min_credit,
+            min(pday) as mpday
+            FROM
+            quant_account_credit (_verid)
+            GROUP BY
+            targetcompid
+        ) data    
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_account_credit_bands(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_account_credit_day(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_account_credit_day(_verid integer) RETURNS TABLE(dcredit double precision, dtargetcompid text, dpday text, dreturn_value double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+    SELECT
+        credit,
+        targetcompid,
+        pday,
+        COALESCE(
+            (
+            (
+                credit - lag(credit, 1) OVER (
+                partition by
+                    targetcompid
+                ORDER BY
+                    pday
+                )
+            ) / lag(credit, 1) OVER (
+                partition by
+                targetcompid
+                ORDER BY
+                pday
+            ) * 100
+            ),
+            0
+        ) as return_value
+    FROM
+        quant_account_credit (_verid)
+    ORDER BY
+        pday
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_account_credit_day(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_account_credit_month(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_account_credit_month(_verid integer) RETURNS TABLE(dcredit double precision, dtargetcompid text, dpday text, dreturn_value double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+    SELECT
+        credit,
+        targetcompid,
+        pday,
+        COALESCE(
+            (
+            (
+                credit - lag(credit, 1) OVER (
+                partition by
+                    targetcompid
+                ORDER BY
+                    pday
+                )
+            ) / lag(credit, 1) OVER (
+                partition by
+                targetcompid
+                ORDER BY
+                pday
+            ) * 100
+            ),
+            0
+        ) as return_value
+        FROM
+        (
+            SELECT DISTINCT
+            ON (fix."targetcompid", tr."ctime") tr."credit",
+            fix."targetcompid"::text targetcompid,
+            tr.ctime AS pday
+            FROM
+            (
+                SELECT
+                to_char(
+                    to_timestamp(((ctime / 1000))::double precision),
+                    'YYYY-MM'
+                ) as ctime,
+                credit,
+                sessionid
+                FROM
+                trade_report
+            ) tr,
+            "fixsession" fix
+            WHERE
+            fix.id = tr."sessionid"
+            AND "fix".id IN (
+                SELECT
+                "sessionid"
+                FROM
+                "account"
+                WHERE
+                "verid" = _verid
+            )
+            ORDER BY
+            tr."ctime"
+        ) data
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_account_credit_month(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_account_credit_sum(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_account_credit_sum(_verid integer) RETURNS TABLE(dcredit double precision, dtargetcompid text, dpday text, dreturn_value double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+    SELECT
+        credit,
+        targetcompid,
+        pday,
+        (
+            (
+            "credit" - first_value("credit") OVER (
+            partition by targetcompid ORDER BY
+                pday
+            )
+            ) / first_value("credit") OVER (
+            partition by targetcompid ORDER BY
+                pday
+            ) * 100
+        ) as return_value
+    FROM
+        quant_account_credit (_verid)
+    ORDER BY
+        pday
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_account_credit_sum(_verid integer) OWNER TO dbuser;
 
 --
 -- Name: quant_bands(integer); Type: FUNCTION; Schema: public; Owner: dbuser
@@ -71,32 +385,52 @@ CREATE FUNCTION public.quant_bands(_verid integer) RETURNS TABLE(idxs bigint, qu
 BEGIN
     RETURN QUERY 
     (
-        
-        SELECT data.idx::bigint as idxs ,data.quantid,data.name::text,data.argv::text,data.init_cash,data.min_pro,data.max_pro, (
-        (data.min_pro - data.init_cash) / data.init_cash
-    ) as min_diff, (
-        (data.max_pro - data.init_cash) / data.init_cash
-    ) as max_diff
-FROM (
-       SELECT *, (
-                SELECT vprofit_sum
-                from quant_profit_one_verid (_verid, idx::INT - 1)
-                ORDER BY vprofit_sum
-                LIMIT 1
-            ) min_pro, (
-                SELECT vprofit_sum
-                from quant_profit_one_verid (_verid,  idx::INT - 1)
-                ORDER BY vprofit_sum DESC
-                LIMIT 1
-            ) max_pro
+        SELECT
+        data.idx::bigint as idxs,
+        data.quantid,
+        data.name::text,
+        data.argv::text,
+        data.init_cash,
+        data.min_pro,
+        data.max_pro,
+        (
+            CASE
+                WHEN data.min_pro = 0 THEN 0
+                ELSE (data.min_pro - data.init_cash) / data.init_cash *100
+            END
+        ) as min_diff,
+        (
+            CASE
+                WHEN data.max_pro = 0 THEN 0
+                ELSE (data.max_pro - data.init_cash) / data.init_cash *100
+            END
+        ) as max_diff
+    FROM (
+            SELECT *, COALESCE(
+                    (
+                        SELECT vprofit_sum
+                        from quant_profit_one_verid (_verid, idx::INT - 1)
+                        ORDER BY vprofit_sum
+                        LIMIT 1
+                    ), 0
+                ) min_pro, COALESCE(
+                    (
+                        SELECT vprofit_sum
+                        from quant_profit_one_verid (_verid, idx::INT - 1)
+                        ORDER BY vprofit_sum DESC
+                        LIMIT 1
+                    ), 0
+                ) max_pro
             FROM (
-       
-        SELECT ROW_NUMBER() OVER (ORDER BY id) AS idx, ana."quantid", ana."name", ana.argv, ana.init_cash
-        from "public"."analse" ana
-        WHERE
-            ana."verid" = _verid
-        ORDER BY id) dd
-    ) data
+                    SELECT ROW_NUMBER() OVER (
+                            ORDER BY id
+                        ) AS idx, ana."quantid", ana."name", ana.argv, ana.init_cash
+                    from "public"."analse" ana
+                    WHERE
+                        ana."verid" = _verid
+                    ORDER BY id
+                ) dd
+        ) data
 
     );
 END; $$;
@@ -174,7 +508,7 @@ ALTER FUNCTION public.quant_order_tl(_verid integer) OWNER TO dbuser;
 -- Name: quant_profit(bigint); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION public.quant_profit(_qid bigint) RETURNS TABLE(qid bigint, margin double precision, profits double precision, pday text, pside integer, profit_x double precision, profit_sum double precision)
+CREATE FUNCTION public.quant_profit(_qid bigint) RETURNS TABLE(qid bigint, margin double precision, rticket bigint, profits double precision, pday text, pside integer, profit_x double precision, profit_sum double precision)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -182,6 +516,7 @@ BEGIN
 SELECT
     _qid AS qid,
     profitx.margin,
+    profitx.ticket,
     profitx.profit,
     to_char(profitx.ctime, 'YYYY-MM-DD HH24:MI:SS') AS pday,
     profitx.side as pside,
@@ -329,20 +664,39 @@ CREATE FUNCTION public.quant_return(_cficode integer) RETURNS TABLE(rstock text,
     AS $$
 BEGIN
     RETURN QUERY 
-    (SELECT
-    (SELECT "stock" from "stockinfo" WHERE "symbol" =  _cficode LIMIT 1)::text as rstock, to_char( to_timestamp(
-            ((ctime / 1000))::double precision
-                ) , 'YYYY-MM-DD HH24:MI:SS') as pday,
-
-        "values" as price, 
-         (
-        ("values" - first_value("values") OVER (ORDER BY id ))/first_value("values") OVER (ORDER BY id ) * 100
+    (
+        SELECT (
+            SELECT "stock"
+            from "stockinfo"
+            WHERE
+                "symbol" = (CASE 
+                            WHEN _cficode < 0 THEN  0
+                            ELSE  _cficode
+                        END)
+            LIMIT 1
+        )::text as rstock,
+        to_char(
+            to_timestamp(
+                ((ctime / 1000))::double precision
+            ),
+            'YYYY-MM-DD HH24:MI:SS'
+        ) as pday,
+        "values" as price,
+        (
+            (
+                "values" - first_value("values") OVER (
+                    ORDER BY id
+                )
+            ) / first_value("values") OVER (
+                ORDER BY id
+            ) * 100
         ) as return_value
     FROM "analselog"
     WHERE
         "type" = 3
-        AND "key" = _cficode * 10000
-    ORDER BY id);
+        AND "key" = _cficode 
+    ORDER BY id
+    );
 END; $$;
 
 
@@ -362,7 +716,10 @@ BEGIN
         SELECT "stock"
         from "stockinfo"
         WHERE
-            "symbol" = (key / 10000)
+            "symbol" = (CASE 
+                            WHEN _cficode < 0 THEN  0
+                            ELSE  _cficode
+                        END)
         LIMIT 1
     )::text as rstock,
     to_char(
@@ -396,7 +753,7 @@ BEGIN
 FROM "analselog"
 WHERE
     "type" = 3
-    AND "key" = _cficode * 10000
+    AND "key" = _cficode 
 ORDER BY id
     );
 END; $$;
@@ -416,7 +773,10 @@ BEGIN
     (
         
        SELECT 
-       (SELECT "stock" from "stockinfo" WHERE "symbol" =  _cficode LIMIT 1)::text as rstock,
+       (SELECT "stock" from "stockinfo" WHERE "symbol" =  (CASE 
+                            WHEN _cficode < 0 THEN  0
+                            ELSE  _cficode
+                        END) LIMIT 1)::text as rstock,
        return_month.ctime, return_month.price, COALESCE(
         (
             (
@@ -440,7 +800,7 @@ FROM (
                 FROM "analselog"
                 WHERE
                     "type" = 3
-                    AND "key" = _cficode * 10000
+                    AND "key" = _cficode 
                 ORDER BY id
             ) data
     ) return_month
@@ -463,32 +823,36 @@ BEGIN
     (
         
         SELECT
-        (SELECT "stock" from "stockinfo" WHERE "symbol" =  _cficode LIMIT 1)::text as rstock,
-         return_month.ctime, return_month.price, (
-        (
-            return_month.price - first_value(return_month.price) OVER (
-                ORDER BY return_month.ctime
-            )
-        ) / first_value(return_month.price) OVER (
-            ORDER BY return_month.ctime
-        ) * 100
-    ) as return_value
-FROM (
-        SELECT DISTINCT
-            on (data.ctime) data.ctime, data.price
+                (SELECT "stock" from "stockinfo" WHERE "symbol" =  (CASE 
+                            WHEN _cficode < 0 THEN  0
+                            ELSE  _cficode
+                        END) LIMIT 1)::text as rstock,
+                return_month.ctime, return_month.price, 
+                (
+                    (
+                        return_month.price - first_value(return_month.price) OVER (
+                            ORDER BY return_month.ctime
+                        )
+                    ) / first_value(return_month.price) OVER (
+                        ORDER BY return_month.ctime
+                    ) * 100
+                ) as return_value
         FROM (
-                SELECT to_char(
-                        to_timestamp(
-                            ((ctime / 1000))::double precision
-                        ), 'YYYY-MM'
-                    ) as ctime, "values" as price
-                FROM "analselog"
-                WHERE
-                    "type" = 3
-                    AND "key" = _cficode * 10000
-                ORDER BY id
-            ) data
-    ) return_month
+                SELECT DISTINCT
+                    on (data.ctime) data.ctime, data.price
+                FROM (
+                        SELECT to_char(
+                                to_timestamp(
+                                    ((ctime / 1000))::double precision
+                                ), 'YYYY-MM'
+                            ) as ctime, "values" as price
+                        FROM "analselog"
+                        WHERE
+                            "type" = 3
+                            AND "key" = _cficode 
+                        ORDER BY id
+                    ) data
+            ) return_month
 
     );
 END; $$;
@@ -510,7 +874,7 @@ begin
                     first_value(data."credit") OVER (
                         ORDER BY data.id
                     )
-                )
+                ) * 100
             ) as pcredit_pre
         FROM (
                 SELECT tr.id, ts.quantid, to_timestamp(
@@ -549,15 +913,19 @@ begin
                 first_value(data."credit") OVER (
                     ORDER BY data.id
                 )
-            )
+            )*100
         ) as pcredit_pre
     FROM (
             SELECT DISTINCT
                 on (mdata.day) mdata.day, mdata.id,mdata.quantid, mdata.credit, mdata.pcredit_first
             FROM (
-                    SELECT tr.id, ts.quantid, to_timestamp(
+                    SELECT tr.id, ts.quantid, 
+                        to_char(
+                        to_timestamp(
                             ((tr.ctime / 1000))::double precision
-                        ) AS day, tr.credit, tr.credit - (
+                        ), 'YYYY-MM'
+                    ) as day
+                        , tr.credit, tr.credit - (
                             first_value(tr.credit) OVER (
                                 ORDER BY tr.id
                             )
@@ -567,7 +935,7 @@ begin
                     WHERE
                         tr.ticket = ts.id
                         AND ts.symbol = si.id
-                        AND si.verid = 1
+                        AND si.verid = _verid
                     ORDER BY tr.id
                 ) mdata
         ) data;
@@ -576,6 +944,45 @@ $$;
 
 
 ALTER FUNCTION public.quant_risk_profix_month(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: quant_take_loss(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.quant_take_loss(_verid integer) RETURNS TABLE(type integer, stat text, quantid bigint, number integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    (
+        SELECT DISTINCT
+            ON (l."type",l."quantid") l."type",
+            (
+                CASE
+                WHEN l."type" = 101 THEN '止损'
+                WHEN l."type" = 102 THEN '止赢'
+                ELSE '策略平仓'
+                END
+            ) AS stat,
+            l."quantid",
+            count(l."type")::INTEGER AS number
+        FROM
+            "analselog" l,
+            "analse" a
+        WHERE
+            l.type >= 100
+            AND l.type <= 102
+            AND a."verid" = _verid
+            AND a."quantid" = l."quantid"
+        GROUP BY
+            l."quantid",
+            l.type ORDER BY l."quantid"
+
+    );
+END; $$;
+
+
+ALTER FUNCTION public.quant_take_loss(_verid integer) OWNER TO dbuser;
 
 SET default_tablespace = '';
 
@@ -1312,10 +1719,7 @@ COMMENT ON COLUMN public.trades.ticket IS '订单号';
 -- Name: COLUMN trades.stat; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
-COMMENT ON COLUMN public.trades.stat IS '状态
-0 = new
-1 = Partially_filled,
-2 = Filled';
+COMMENT ON COLUMN public.trades.stat IS '订单状态统一使用 e2::OrdStatus enum';
 
 
 --
@@ -1447,7 +1851,7 @@ CREATE VIEW public.e2q_cash AS
     cash_info.credit AS init_cash,
     cash_info.end_credit AS now_cash,
     (cash_info.end_credit - cash_info.credit) AS diff_cash,
-    ((cash_info.end_credit - cash_info.credit) / cash_info.credit) AS diff_per,
+    (((cash_info.end_credit - cash_info.credit) / cash_info.credit) * (100)::double precision) AS diff_per,
     cash_info.day,
     cash_info.end_day
    FROM ( SELECT t.quantid,
@@ -1466,7 +1870,7 @@ CREATE VIEW public.e2q_cash AS
                             t_1_1.symbol
                            FROM public.trades t_1_1,
                             public.trade_report r_1_1
-                          WHERE ((t_1_1.symbol = s.id) AND (t_1_1.quantid = t.quantid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
+                          WHERE ((t_1_1.symbol = s.id) AND (r_1_1.sessionid = r.sessionid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
                                    FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
     max(trade_report.id) AS rid
    FROM public.trade_report
@@ -1481,7 +1885,7 @@ CREATE VIEW public.e2q_cash AS
                             t_1_1.symbol
                            FROM public.trades t_1_1,
                             public.trade_report r_1_1
-                          WHERE ((t_1_1.symbol = s.id) AND (t_1_1.quantid = t.quantid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
+                          WHERE ((t_1_1.symbol = s.id) AND (r_1_1.sessionid = r.sessionid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
                                    FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
     max(trade_report.id) AS rid
    FROM public.trade_report
@@ -1568,47 +1972,6 @@ CREATE VIEW public.e2q_cash_se AS
 
 
 ALTER TABLE public.e2q_cash_se OWNER TO dbuser;
-
---
--- Name: e2q_fix_cash; Type: VIEW; Schema: public; Owner: dbuser
---
-
-CREATE VIEW public.e2q_fix_cash AS
- SELECT mix_c.targetcompid,
-    max_c.max_credit,
-    mix_c.mix_credit,
-    base_c.credit,
-    ((mix_c.mix_credit - base_c.credit) / base_c.credit) AS pre_mix_credit,
-    ((max_c.max_credit - base_c.credit) / base_c.credit) AS pre_max_credit
-   FROM ( SELECT DISTINCT ON (fix.targetcompid) fix.targetcompid,
-            tr.credit AS max_credit
-           FROM public.trade_report tr,
-            public.fixsession fix
-          WHERE ((tr.sessionid = fix.id) AND (tr.side <> 3))
-          ORDER BY fix.targetcompid, tr.credit DESC) max_c,
-    ( SELECT DISTINCT ON (fix.targetcompid) fix.targetcompid,
-            tr.credit AS mix_credit
-           FROM public.trade_report tr,
-            public.fixsession fix
-          WHERE ((tr.sessionid = fix.id) AND (tr.side <> 3))
-          ORDER BY fix.targetcompid, tr.credit) mix_c,
-    ( SELECT tr.credit,
-            ( SELECT fixsession.targetcompid
-                   FROM public.fixsession
-                  WHERE (fixsession.id = tr.sessionid)
-                 LIMIT 1) AS targetcompid
-           FROM public.trade_report tr
-          WHERE (tr.id IN ( SELECT data.id
-                   FROM ( SELECT DISTINCT ON (fix.targetcompid) fix.targetcompid,
-                            tr_1.id
-                           FROM public.trade_report tr_1,
-                            public.fixsession fix
-                          WHERE (tr_1.sessionid = fix.id)
-                          GROUP BY fix.targetcompid, tr_1.id) data))) base_c
-  WHERE (((max_c.targetcompid)::text = (mix_c.targetcompid)::text) AND ((base_c.targetcompid)::text = (mix_c.targetcompid)::text));
-
-
-ALTER TABLE public.e2q_fix_cash OWNER TO dbuser;
 
 --
 -- Name: exdr; Type: TABLE; Schema: public; Owner: dbuser
@@ -1731,36 +2094,6 @@ CREATE VIEW public.e2q_postion AS
 ALTER TABLE public.e2q_postion OWNER TO dbuser;
 
 --
--- Name: e2q_primitive; Type: VIEW; Schema: public; Owner: dbuser
---
-
-CREATE VIEW public.e2q_primitive AS
- SELECT a.verid,
-    t.id,
-    t.stat,
-    t.side,
-    t.price,
-    t.adjpx,
-    t.stoppx,
-    t.cumqty,
-    t.leavesqty,
-    t.openqty,
-    t.qty,
-    (to_timestamp(((t.ctime / 1000))::double precision) + (((t.ctime % (1000)::bigint) || ' milliseconds'::text))::interval) AS date,
-    a.argv,
-    a.name,
-    t.ticket,
-    t.closetck,
-    t.amount
-   FROM public.trades t,
-    public.analse a
-  WHERE (t.quantid = a.quantid)
-  ORDER BY t.id;
-
-
-ALTER TABLE public.e2q_primitive OWNER TO dbuser;
-
---
 -- Name: trade_info; Type: TABLE; Schema: public; Owner: dbuser
 --
 
@@ -1865,12 +2198,8 @@ ALTER TABLE public.e2q_risk_performance OWNER TO dbuser;
 --
 
 CREATE VIEW public.e2q_risk_profit AS
- SELECT p.symbol,
-    p.ticket,
-    p.closetck,
-    p.side,
-    p.quantid,
-    p.ctime,
+ SELECT p.quantid,
+    to_timestamp(((p.ctime / 1000))::double precision) AS pday,
     p.amount,
     p.buy_amount,
     ( SELECT stockinfo.stock
@@ -1886,12 +2215,10 @@ CREATE VIEW public.e2q_risk_profit AS
             ELSE (0)::double precision
         END AS profit,
         CASE
-            WHEN (p.side = 2) THEN (trunc((((p.amount - p.buy_amount) / p.buy_amount))::numeric, 3))::double precision
+            WHEN (p.side = 2) THEN (trunc(((((p.amount - p.buy_amount) / p.buy_amount) * (100)::double precision))::numeric, 3))::double precision
             ELSE (0)::double precision
         END AS profit_pre
    FROM ( SELECT data.symbol,
-            data.ticket,
-            data.closetck,
             data.side,
             data.quantid,
             data.ctime,

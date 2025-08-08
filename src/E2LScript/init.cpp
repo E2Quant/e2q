@@ -78,14 +78,18 @@ e2::Int_e isInit()
     if (e2q::FixPtr != nullptr) {
         if (e2q::FixPtr->_ok == e2::InitOk::I_Proc) {
             ret = e2::InitOk::I_Proc;
-            e2q::FixPtr->_ok = e2::InitOk::I_OK;
+            if (e2q::FixPtr->_fix_symbols.size() > 0) {
+                e2q::FixPtr->_ok = e2::InitOk::I_OK;
+            }
         }
     }
 
     if (e2q::FinFabr != nullptr) {
         if (e2q::FinFabr->_ok == e2::InitOk::I_Proc) {
             ret = e2::InitOk::I_Proc;
-            e2q::FinFabr->_ok = e2::InitOk::I_OK;
+            if (e2q::FinFabr->_fix_symbols.size() > 0) {
+                e2q::FinFabr->_ok = e2::InitOk::I_OK;
+            }
         }
     }
 
@@ -564,7 +568,6 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
         gsql->OneHead(&field, &val);
         if (val != nullptr) {
             e2q::FinFabr->_QuantVerId = stoi(val);
-            //            e2::log::echo("qid:", e2q::FinFabr->_QuantVerId);
         }
     }
     else {
@@ -579,7 +582,6 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
             gsql->OneHead(&field, &val);
             if (val != nullptr) {
                 e2q::FinFabr->_QuantVerId = stoi(val);
-                //    e2::log::echo("qid:", e2q::FinFabr->_QuantVerId);
             }
         }
     }
@@ -595,6 +597,29 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
 
 } /* -----  end of function QuantVersion  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  VersionId
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e VersionId()
+{
+    if (e2q::FinFabr != nullptr) {
+        return VALNUMBER(e2q::FinFabr->_QuantVerId);
+    }
+
+    if (e2q::FixPtr != nullptr) {
+        return VALNUMBER(e2q::FixPtr->_QuantVerId);
+    }
+
+    return 0;
+} /* -----  end of function VersionId  ----- */
 /*
  * ===  FUNCTION  =============================
  *

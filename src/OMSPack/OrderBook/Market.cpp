@@ -150,7 +150,7 @@ OrderItem* Market::find(std::size_t ticket)
  * ============================================
  */
 bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
-                   e2::Int_e adj_price)
+                   e2::Int_e adj_price, std::size_t order_start_time)
 {
     /*
     log::info("--- === ----");
@@ -180,32 +180,47 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
             break;
         }
 
+        // 订单可以过夜不?
+        // 先默认删除订单，否则订单会不小心
+        // 在策略的后面几天才成交，这样就会出错了
         if (bempty && !aempty) {
             spread_ask = _askOrders.spread();
             if (spread_ask != nullptr) {
-                log::info(" ask opqty:", spread_ask->getOpenQuantity(),
+                // if (FinFabr->_settlement == 0 ||
+                //     order_start_time > spread_ask->market_time()) {
+                log::info(spread_ask->isBot(),
+                          " ask opqty:", spread_ask->getOpenQuantity(),
                           " leaveqty:", spread_ask->getLeavesQty(),
-                          " tick:", spread_ask->getTicket());
+                          " tick:", spread_ask->getTicket(),
+                          " order_start_time:", order_start_time,
+                          " spred_ask:", spread_ask->market_time());
 
                 spread_ask->cancel();
                 spread_ask->Closeed();
                 if (!spread_ask->isBot()) {
                     Lots.push(make(spread_ask->getTicket()));
                 }
+                //   }
             }
             continue;
         }
         if (!bempty && aempty) {
             spread_bid = _bidOrders.spread();
             if (spread_bid != nullptr) {
-                log::info(" bid opqty:", spread_bid->getOpenQuantity(),
+                // if (FinFabr->_settlement == 0 ||
+                //     order_start_time > spread_bid->market_time()) {
+                log::info(spread_bid->isBot(),
+                          " bid opqty:", spread_bid->getOpenQuantity(),
                           " leaveqty:", spread_bid->getLeavesQty(),
-                          " tick:", spread_bid->getTicket());
+                          " tick:", spread_bid->getTicket(),
+                          " order_start_time:", order_start_time,
+                          " spred_ask:", spread_bid->market_time());
                 spread_bid->cancel();
                 spread_bid->Closeed();
                 if (!spread_bid->isBot()) {
                     Lots.push(make(spread_bid->getTicket()));
                 }
+                // }
             }
             continue;
         }

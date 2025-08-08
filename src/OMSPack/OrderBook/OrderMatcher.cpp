@@ -163,7 +163,8 @@ std::size_t OrderMatcher::OrderSizes()
  * 目前还得需要增加对手盘,否则交易不成功的
  */
 bool OrderMatcher::match(std::string symbol, std::queue<OrderLots>& lots,
-                         e2::Int_e market_price, e2::Int_e adj_price)
+                         e2::Int_e market_price, e2::Int_e adj_price,
+                         std::size_t now_time)
 {
     BasicLock _lock(_OMMutex);
 
@@ -171,16 +172,17 @@ bool OrderMatcher::match(std::string symbol, std::queue<OrderLots>& lots,
     if (i == _markets->end()) {
         return false;
     }
-    return i->second->match(lots, market_price, adj_price);
+    return i->second->match(lots, market_price, adj_price, now_time);
 }
 
-bool OrderMatcher::match(std::queue<OrderLots>& lots, e2::Int_e adj_price)
+bool OrderMatcher::match(std::queue<OrderLots>& lots, e2::Int_e adj_price,
+                         std::size_t now_time)
 {
     BasicLock _lock(_OMMutex);
 
     MarketType::iterator i;
     for (i = _markets->begin(); i != _markets->end(); ++i)
-        i->second->match(lots, _market_price, adj_price);
+        i->second->match(lots, _market_price, adj_price, now_time);
     return lots.size() != 0;
 }
 
@@ -301,8 +303,8 @@ void OrderMatcher::TopLevelPrice(const std::string& symbol, SeqType val)
     MarketType::const_iterator i = _markets->find(symbol);
     if (i == _markets->end()) return;
     tlp = i->second->top_bid_ask_price();
-    /* log::echo("sym:", symbol, " size:", _markets->size(), " bid:", tlp.first,
-     */
-    /*           " ask:", tlp.second, " now:", val); */
+    // log::echo("sym:", symbol, " size:", _markets->size(), " bid:", tlp.first,
+
+    //           " ask:", tlp.second, " now:", val);
 } /* -----  end of function OrderMatcher::TopLevelPrice  ----- */
 }  // namespace e2q

@@ -64,7 +64,7 @@ e2::Int_e ethread_id()
 {
     e2::Int_e id = 0;
     std::thread::id _id = std::this_thread::get_id();
-    if (e2q::FixPtr != nullptr) {
+    if (e2q::FixPtr != nullptr && e2q::FixPtr->_quantId.count(_id) > 0) {
         id = VALNUMBER(e2q::FixPtr->_quantId.at(_id).second);
     }
     return id;

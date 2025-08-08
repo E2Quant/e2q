@@ -44,6 +44,7 @@
 
 #include <string>
 
+#include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/UtilTime.hpp"
@@ -625,7 +626,7 @@ void BrokerBase::AddExdrQty(SeqType cfi, SeqType ticket, double qty,
     gsql->update_field("openqty", incqty);
 
     gsql->update_condition("ticket", ticket);
-    gsql->update_condition("stat", 2);
+    gsql->update_condition("stat", (int)e2::OrdStatus::ost_Filled);
 
     gsql->update_commit();
 

@@ -264,7 +264,7 @@ void AnalseLog(e2::Int_e key, e2::Int_e val, e2::Int_e type, e2::Int_e time)
 
     double _val = (double)NUMBERVAL(val);
     int _type = (int)NUMBERVAL(type);
-    int _key = key;
+    int _key = (int)NUMBERVAL(key);
 
     std::string table = "public.";
     std::size_t gidx = e2q::GlobalDBPtr->getId();

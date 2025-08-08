@@ -77,8 +77,12 @@ public:
     /* =============  LIFECYCLE     =================== */
     OrderPending() {};
     OrderPending(std::size_t ticket, double price, long quantity,
-                 e2::OrdType type)
-        : _ticket(ticket), _price(price), _quantity(quantity), _type(type)
+                 e2::OrdType type, std::size_t mtime)
+        : _ticket(ticket),
+          _price(price),
+          _quantity(quantity),
+          _type(type),
+          _time(mtime)
 
     {
         // 平仓的时候才会减少的
@@ -103,7 +107,7 @@ public:
     double getAvgExecutedPrice() const { return _avgExecutedPrice; }
     long getLeavesQty() const { return _leavesQty; }
     e2::OrdType getType() const { return _type; }
-
+    std::size_t market_time() const { return _time; }
     bool isFilled() const
     {
         /* log::info("ticket:", _ticket, " quantity:", _quantity, */
@@ -126,6 +130,7 @@ public:
     double Adj() { return _adjprice; }
     double amount() { return _trade_amount; }
     void Margin(double margin) { _margin = margin; }
+
     /**
      * reject 的时候使用，delete order
      */
@@ -303,6 +308,8 @@ private:
     // 累计成交金额
     double _trade_amount;
 
+    std::size_t _time;  // market time
+
 }; /* -----  end of class OrderPending  ----- */
 
 struct OrderLots {
@@ -359,7 +366,7 @@ public:
           _time(ctime),
           _otime(otime)
     {
-        _pending = MALLOC(OrderPending, ticket, price, quantity, type);
+        _pending = MALLOC(OrderPending, ticket, price, quantity, type, ctime);
     }
     ~OrderItem()
     {

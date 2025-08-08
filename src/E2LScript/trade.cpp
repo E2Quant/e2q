@@ -82,7 +82,7 @@ e2::Bool OrderClose(
         slippage  // slippage  Value of the maximum price slippage in points.
 )
 {
-    // ticket = NUMBERVAL(ticket);
+    ticket = NUMBERVAL(ticket);
     lots = NUMBERVAL(lots);
 
     std::size_t exit = e2q::FixPtr->_OrderTicket.count(ticket);
@@ -108,6 +108,7 @@ e2::Bool OrderClose(
     e2q::OrderInfo oi = e2q::FixPtr->_OrderIds[quantid][cl0id];
 
     if (oi.closeTck > 0 || stoppx <= 0) {
+        // 防止 传入 平仓的 ticket ID
         // log::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
         return e2::Bool::B_FALSE;
     }
@@ -216,17 +217,16 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
         return e2::Bool::B_FALSE;
     }
 
-    // e2q::BasicLock lock(e2q::e2Mutex);
-
+    // 信号多次触发，就会多次笔下单了，虽然可能是前端控制，或者这儿加一个 api
+    // 来处不吧,多线程的话，也会同时下多笔订单，以后再优化
     if (e2q::FixPtr->_freeze_time.count(symbol) == 0) {
         e2q::FixPtr->_freeze_time.insert({symbol, 0});
     }
-    // 信号多次触发，就会多次笔下单了，虽然可能是前端控制，或者这儿加一个 api
-    // 来处不吧,多线程的话，也会同时下多笔订单，以后再优化
     // if (e2q::FixPtr->_freeze_time.at(symbol) == e2q::ticket_now) {
     //     log::bug("has order");
     //     return e2::Bool::B_FALSE;
     // }
+    e2q::FixPtr->_freeze_time[symbol] = e2q::ticket_now;
 
     side = (e2::Side)NUMBERVAL(side);
 
@@ -236,7 +236,6 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
         quantid = e2q::FixPtr->_quantId[_id].first;
     }
-    e2q::FixPtr->_freeze_time[symbol] = e2q::ticket_now;
 
     e2q::FixPtr->_cash.add_freeze(number, expenditure);
 
@@ -307,8 +306,6 @@ e2::Bool OrderSelect(e2::Int_e index, e2::SelectFlag sel, e2::SelectFlag pool)
  */
 e2::Int_e OrderTicket()
 {
-    // e2q::BasicLock lock(e2q::e2Mutex);
-
     e2q::SeqType tick = 0;
     std::thread::id _id = std::this_thread::get_id();
 
@@ -359,6 +356,9 @@ e2::Int_e OrderTicket()
              it != e2q::FixPtr->_OrderIds[quantId].end(); ++it) {
             // os.select == e2::SelectFlag::F_ByPos)
 
+            //  it->second.trading == e2q::TradeStatus::CLOSEING
+            //  不增加这个状态，因为有一个 平仓的订单会把 market 设置为 closeing
+            //  的
             if (it->second.trading == e2q::TradeStatus::MARKET ||
                 it->second.trading == e2q::TradeStatus::PARTIALLY_FILLED ||
                 it->second.trading == e2q::TradeStatus::PENDING) {
@@ -378,7 +378,7 @@ e2::Int_e OrderTicket()
     }
     e2q::e2_os.release(_id);
 
-    return tick;
+    return VALNUMBER(tick);
 } /* -----  end of function OrderTicket  ----- */
 
 /*
@@ -395,8 +395,7 @@ e2::Int_e OrderTicket()
 e2::Int_e OrderLots(e2::Int_e ticket)
 {
     std::thread::id _id = std::this_thread::get_id();
-
-    //    ticket = NUMBERVAL(ticket);
+    ticket = NUMBERVAL(ticket);
 
     e2::Int_e ret = 0;
     std::size_t quantId = 0;
@@ -415,7 +414,6 @@ e2::Int_e OrderLots(e2::Int_e ticket)
             break;
         }
     }
-    // log::echo("tick:", ticket, " lots:", ret);
     return VALNUMBER(ret);
 } /* -----  end of function OrderLots  ----- */
 /*
@@ -442,9 +440,13 @@ e2::Int_e OrdersHistoryTotal()
         return 0;
     }
     for (auto it : e2q::FixPtr->_OrderIds[quantid]) {
+        if (it.second.trading == e2q::TradeStatus::CANCEL) {
+            log::info("qid:", quantid);
+        }
         if (it.second.trading == e2q::TradeStatus::FILLED ||
             it.second.trading == e2q::TradeStatus::CLOSED ||
-            it.second.trading == e2q::TradeStatus::REJECT) {
+            it.second.trading == e2q::TradeStatus::REJECT ||
+            it.second.trading == e2q::TradeStatus::CANCEL) {
             count++;
         }
     }
@@ -499,6 +501,8 @@ void OrderComment(e2::Int_e ticket, e2::Side side, e2::OrderEvent oe)
 {
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
+    ticket = NUMBERVAL(ticket);
+
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
         quantid = e2q::FixPtr->_quantId[_id].first;
     }
@@ -535,9 +539,9 @@ e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
         return 0;
     }
     double px = 0.0;
-    e2::Int_e _ticket = ticket;
-    // log::echo("_tick:", _ticket);
-    // e2::Int_e _ticket = NUMBERVAL(ticket);
+    // e2::Int_e _ticket = ticket;
+    //  log::echo("_tick:", _ticket);
+    e2::Int_e _ticket = NUMBERVAL(ticket);
     for (auto it = e2q::FixPtr->_OrderIds[quantid].begin();
          it != e2q::FixPtr->_OrderIds[quantid].end(); ++it) {
         if (it->second.ticket == _ticket && it->second.adjpx > 0) {
