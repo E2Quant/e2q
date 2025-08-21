@@ -56,6 +56,42 @@ namespace e2q {
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  Exchange::InitQVersion
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void Exchange::InitQVersion()
+{
+    char* field = nullptr;
+    char* val = nullptr;
+    int active = 0;
+    std::string sql = "SELECT active FROM trade_info ORDER BY id DESC LIMIT 1;";
+
+    std::size_t idx = e2q::GlobalDBPtr->getId();
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
+    if (gsql == nullptr) {
+        e2q::GlobalDBPtr->release(idx);
+        return;
+    }
+
+    bool r = gsql->select_sql(sql);
+    if (r && gsql->tuple_size() > 0) {
+        gsql->OneHead(&field, &val);
+        if (val != nullptr) {
+            active = stoi(val);
+        }
+    }
+    if (active == 1) {
+        // 增加一个空的
+    }
+} /* -----  end of function Exchange::InitQVersion  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  Exchange::Exchange
  *  ->  void *
  *  Parameters:
@@ -92,7 +128,7 @@ Exchange::Exchange(std::string& e2l, std::string& edir)
  *
  * ============================================
  */
-void Exchange::RiskFix(int process)
+void Exchange::RiskFix(int process, func_type<> child_process)
 {
     FIN_FABR_IS_NULL();
 
@@ -140,6 +176,10 @@ void Exchange::RiskFix(int process)
         THREAD_FUN(fun);
 
         SignalThread(this, SigId::_strategy_id);
+
+        if (child_process != nullptr) {
+            child_process();
+        }
 
         while (application.end() == false) {
             FIX::process_sleep(2);
@@ -231,11 +271,14 @@ FIX::SessionSettings Exchange::ExSetting(int process)
 
         pg->pgcommit();
     }
-    sql =
+    sql = log::format(
         "SELECT  beginstring, sendercompid,targetcompid, "
-        "filestorepath,datadictionary from fixsession ORDER BY id;";
+        "filestorepath,datadictionary from fixsession ORDER BY id DESC LIMIT "
+        "%d;",
+        process);
 
     r = pg->select_sql(sql);
+
     FIX::Dictionary dict_session;
     dict_session.setDouble("LogonTimeout", 30);
     dict_session.setBool("ResetOnLogon", true);

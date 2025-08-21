@@ -45,6 +45,7 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -67,6 +68,7 @@
 void only_run(const char* f)
 {
     e2::ParserCtx ctx;
+
     int ret = ctx.toparse(f);
 
     if (ret == -1) {
@@ -105,6 +107,11 @@ void only_run(const char* f)
  */
 int e2q_action(int argc, char* argv[])
 {
+    pid_t pid;
+    int fd[2];
+    char buffer[2];
+    pipe(fd);
+
     char* e = nullptr;
     char* s = nullptr;
     char* p = nullptr;
@@ -260,7 +267,6 @@ int e2q_action(int argc, char* argv[])
     std::size_t now = ut.time() - 718281828 + 128 * (1 + run);
     int proce = eas_el.size();
     e2q::process_run_number = run;
-    pid_t pid;
     std::vector<pid_t> pids;
     int m = 0;
     e2q::E2Q _e2q;
@@ -288,6 +294,13 @@ int e2q_action(int argc, char* argv[])
                 if (eas_el.size() != 0) {
                     _e2q.setCfg(eas_el[m], properties);
 
+                    if (oms_el.size() != 0) {
+                        close(fd[1]);
+                        read(fd[0], buffer, 2);
+                        close(fd[0]);
+                        printf("trader start \n");
+                    }
+
                     _e2q.trader(m, now, run, proce);
                 }
                 return 0;
@@ -303,8 +316,18 @@ int e2q_action(int argc, char* argv[])
 
     if (oms_el.size() != 0) {
         _e2q.setCfg(oms_el, properties);
-        _e2q.exchange(proce);
+
+        auto call_child_fun = [fd]() {
+            int num = 1;
+
+            close(fd[0]);
+            write(fd[1], &num, sizeof(num));
+            close(fd[1]);
+        };  // -----  end lambda  -----
+
+        _e2q.exchange(proce, call_child_fun);
     }
+
     int exit_status;
 
     for (m = 0; m < proce; m++) {

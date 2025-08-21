@@ -473,7 +473,6 @@ struct __Analse_t {
 
         std::size_t number = e2q::e2l_thread_map.number(_id);
 
-        std::size_t idx = e2q::GlobalDBPtr->getId();
         double total_cash = 0;
         float postion = 0;
 
@@ -485,8 +484,10 @@ struct __Analse_t {
             postion = e2q::FixPtr->_cash._thread_pos[number]._postion;
         }
 
+        std::size_t idx = e2q::GlobalDBPtr->getId();
         e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
         if (gsql == nullptr) {
+            log::bug("analse not enough pg idx!");
             e2q::GlobalDBPtr->release(idx);
             return;
         }
@@ -502,12 +503,18 @@ struct __Analse_t {
             gsql->insert_field("argv", it.argv.c_str());
             gsql->insert_field("postion", postion);
             gsql->insert_field("init_cash", total_cash);
+            gsql->insert_field("ctime", now);
+
             gsql->insert_query(
                 "verid",
                 "( SELECT id FROM trade_info WHERE active = 1 ORDER "
                 " BY ctime LIMIT 1) ");
-            gsql->insert_field("ctime", now);
+
             gsql->insert_commit();
+            int count = gsql->command_count();
+            if (count <= 0) {
+                log::bug("analse insert command count == 0!!!");
+            }
         }
         e2q::GlobalDBPtr->release(idx);
     }

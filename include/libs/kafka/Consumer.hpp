@@ -96,7 +96,8 @@ public:
                     _kafka_run = 0;
                 }
                 log::bug("FATAL ERROR (", RdKafka::err2str(event.err()),
-                         "): ", event.str());
+                         "): ", event.str(), " bokers:", _bokers,
+                         " topic:", _topic);
                 break;
 
             case RdKafka::Event::EVENT_STATS:
@@ -105,7 +106,8 @@ public:
 
             case RdKafka::Event::EVENT_LOG:
                 log::bug("LOG-", event.severity(), "-", event.fac().c_str(),
-                         "-", event.str().c_str());
+                         "-", event.str().c_str(), " bokers:", _bokers,
+                         " topic:", _topic);
                 break;
 
             default:
@@ -114,6 +116,9 @@ public:
                 break;
         }
     }
+
+    std::string _bokers;
+    std::string _topic;
 };
 
 /*

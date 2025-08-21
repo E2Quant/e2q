@@ -72,7 +72,7 @@ E2Q::E2Q() {} /* -----  end of function E2Q:E2Q  ----- */
  *
  * ============================================
  */
-void E2Q::exchange(int pros)
+void E2Q::exchange(int pros, func_type<> child_process)
 {
     log::echo("server is run!");
     if (db_path.length() == 0) {
@@ -81,7 +81,7 @@ void E2Q::exchange(int pros)
     e2q::Fusion fusion;
     fusion.properties(db_path);
 
-    fusion.oms(e2l_path, esearch_dir, pros);
+    fusion.oms(e2l_path, esearch_dir, pros, child_process);
 } /* -----  end of function E2Q::exchange  ----- */
 
 /*
@@ -98,7 +98,7 @@ void E2Q::exchange(int pros)
 void E2Q::trader(size_t n, std::size_t quant_start, int run,
                  std::size_t total_pro)
 {
-    log::echo("node is run");
+    log::echo("node is run, quant_start:", quant_start, " run:", run);
     if (db_path.length() == 0) {
         log::echo("properties is empty");
     }

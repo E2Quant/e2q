@@ -334,6 +334,9 @@ FIX::SessionSettings MachineOS::EaSetting()
 
             settings.set(session, dict_session);
         }
+        else {
+            log::info("begin is empty!");
+        }
     }
     else {
         log::bug(sql);

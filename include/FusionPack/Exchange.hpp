@@ -60,7 +60,6 @@
 #include <quickfix/Initiator.h>
 #include <quickfix/SocketAcceptor.h>
 
-#include "quickfix/FixFields.h"
 #undef throw /* reset */
 #endif
 namespace e2q {
@@ -83,7 +82,7 @@ public:
     /**
      * 将 fix Risk 两个线程
      */
-    void RiskFix(int);
+    void RiskFix(int, func_type<> child_process);
     /**
      * 虚构交易者，触发 MarketData,link FeedData
      * trigger to FeedBalance
@@ -101,6 +100,7 @@ protected:
 
 private:
     /* =============  METHODS       =================== */
+    void InitQVersion();
     void match();
     FIX::SessionSettings ExSetting(int);
     /* =============  DATA MEMBERS  =================== */

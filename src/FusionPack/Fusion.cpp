@@ -86,7 +86,8 @@ Fusion::Fusion()
  *
  * ============================================
  */
-void Fusion::oms(std::string e2l_script, std::string &edir, int process)
+void Fusion::oms(std::string e2l_script, std::string &edir, int process,
+                 func_type<> child_process)
 {
     if (_Properties.length() > 0) {
         GlobalDBPtr =
@@ -94,7 +95,7 @@ void Fusion::oms(std::string e2l_script, std::string &edir, int process)
     }
 
     Exchange ex(e2l_script, edir);
-    ex.RiskFix(process);
+    ex.RiskFix(process, child_process);
 } /* -----  end of function Fusion::oms  ----- */
 
 /*

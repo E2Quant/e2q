@@ -698,6 +698,8 @@ void KafkaFeed::handle(TradType tradcall)
     conf->set("metadata.broker.list", _bokers, errstr);
 
     KfEventCb ex_event_cb;
+    ex_event_cb._bokers = _bokers;
+    ex_event_cb._topic = _topic;
     conf->set("event_cb", &ex_event_cb, errstr);
 
     signal(SIGINT, sigterm);
