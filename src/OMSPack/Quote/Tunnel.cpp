@@ -93,10 +93,8 @@ void Tunnel::handle(TradType tt)
     stream.exceptions(exceptionMask);
 
     std::size_t _symbol_id = 0;
-    std::string sym_file = FinFabr->_fix_symbols.at(_symbol_id);
+    std::string sym_file = FinFabr->_fix_symbols.at(_symbol_id).symbol;
 
-    //    std::string sym_file =
-    //    FinFabr->_fix_symbols.at(_symbol.at(_symbol_id));
     std::string _path = _dir + "/" + sym_file + ".csv";
 
     try {

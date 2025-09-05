@@ -49,6 +49,7 @@
 
 #include "E2L/E2LType.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
 #include "assembler/CodeGenContext.hpp"
 
@@ -109,12 +110,14 @@ void ScriptThread::init(const char* file, std::string edir)
             FixPtr->_ok = e2::InitOk::I_Proc;
             FixPtr->_gmt = 0;
             FixPtr->_analy.cash = 999000.0;
-
+            FixPtr->_cash.isApplyOk = false;
             break;
         }
         case e2lType::_OMS: {
             FinFabr = std::make_shared<FinancialFabricate>();
             FinFabr->_ok = e2::InitOk::I_Proc;
+            FinFabr->_offer_time = 0;
+            FinFabr->_fix_symbol_only_for_ea = OnlyEA::FORANLYONE;
             break;
         }
         default:

@@ -279,7 +279,7 @@ void AnalseLog(e2::Int_e key, e2::Int_e val, e2::Int_e type, e2::Int_e time)
         gsql->insert_field("type", _type);
 
         gsql->insert_field("ctime", time);
-        gsql->insert_commit();
+        InsertCommit(gsql);
     }
 
     e2q::GlobalDBPtr->release(gidx);

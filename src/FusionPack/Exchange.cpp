@@ -42,12 +42,15 @@
  */
 #include "FusionPack/Exchange.hpp"
 
+#include <cstddef>
 #include <memory>
 #include <string>
 
+#include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/Matcher/TraderAlgorithms.hpp"
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "libs/DB/pg.hpp"
 #include "quickfix/Dictionary.h"
 #include "quickfix/SessionID.h"
 
@@ -69,7 +72,9 @@ void Exchange::InitQVersion()
     char* field = nullptr;
     char* val = nullptr;
     int active = 0;
-    std::string sql = "SELECT active FROM trade_info ORDER BY id DESC LIMIT 1;";
+    std::string sql =
+        "SELECT id FROM trade_info where active = 1 ORDER BY id DESC LIMIT "
+        "1;";
 
     std::size_t idx = e2q::GlobalDBPtr->getId();
     e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
@@ -78,16 +83,33 @@ void Exchange::InitQVersion()
         return;
     }
 
-    bool r = gsql->select_sql(sql);
+    bool r = SelectSQL(gsql, sql);
     if (r && gsql->tuple_size() > 0) {
         gsql->OneHead(&field, &val);
         if (val != nullptr) {
             active = stoi(val);
         }
     }
-    if (active == 1) {
+    if (active == 0) {
         // 增加一个空的
+        e2q::UtilTime ut;
+        gsql->insert_table("trade_info");
+        gsql->insert_field("version", "0.0.1");
+        gsql->insert_field("desz", "default version");
+        gsql->insert_field("ctime", ut.time());
+        gsql->insert_field("active", 1);
+        gsql->insert_return("id");
+        r = InsertCommit(gsql);
+        if (r) {
+            gsql->OneHead(&field, &val);
+            if (val != nullptr) {
+                active = stoi(val);
+            }
+        }
     }
+
+    e2q::FinFabr->_QuantVerId = active;
+    e2q::GlobalDBPtr->release(idx);
 } /* -----  end of function Exchange::InitQVersion  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -114,6 +136,11 @@ Exchange::Exchange(std::string& e2l, std::string& edir)
     }
 
     _program->toScript(argc, argc);
+
+    if (FinFabr->_QuantVerId == 0) {
+        // 如果没有人初始化，就默认一个版本号
+        InitQVersion();
+    }
 
 } /* -----  end of function Exchange::Exchange  ----- */
 
@@ -226,8 +253,10 @@ FIX::SessionSettings Exchange::ExSetting(int process)
 {
     FIX::SessionSettings settings(FinFabr->_fix_cfg);
 
+    int account_number = 0;
     char* field = nullptr;
     char* val = nullptr;
+    bool r = false;
     bool isDb = GlobalDBPtr->isInit();
     int insert_id = 0;
     if (isDb == false) {
@@ -246,45 +275,69 @@ FIX::SessionSettings Exchange::ExSetting(int process)
         "datadictionary,ctime,host,port)  (SELECT beginstring, "
         "sendercompid,targetcompid,filestorepath,datadictionary,ctime,host,"
         "port from fixsession WHERE id = 1) RETURNING id;";
-    std::string usql = "";
-    bool r;
 
-    // log::bug("procee :", sql);
-    for (int m = 0; m < process; m++) {
+    std::string usql = log::format(
+        "SELECT count(*) as number FROM account WHERE verid=%d LIMIT 1; ",
+        FinFabr->_QuantVerId);
+
+    r = SelectSQL(pg, usql);
+    if (r && pg->tuple_size() > 0) {
+        pg->OneHead(&field, &val);
+        if (val != nullptr) {
+            account_number = stoi(val);
+        }
+    }
+
+    int need = process - account_number;
+
+    for (int m = 0; m < need; m++) {
         pg->pgbegin();
-        r = pg->insert_sql(sql);
+        r = InsertSQL(pg, sql);
         if (r) {
             pg->OneHead(&field, &val);
             if (val != nullptr) {
                 insert_id = stoi(val);
             }
         }
-        if (insert_id == 0) {
+        if (insert_id <= 1) {
             continue;
         }
         usql = log::format(
-            "UPDATE fixsession SET targetcompid = 'CLIENT%d' WHERE id = %d ",
+            "UPDATE fixsession SET targetcompid = 'CLIENT%d', login=0 WHERE id "
+            "= %d ",
             insert_id, insert_id);
 
         pg->update_sql(usql);
-        pg->update_commit();
+        UpdateCommit(pg);
 
         pg->pgcommit();
     }
-    sql = log::format(
-        "SELECT  beginstring, sendercompid,targetcompid, "
-        "filestorepath,datadictionary from fixsession ORDER BY id DESC LIMIT "
-        "%d;",
-        process);
 
-    r = pg->select_sql(sql);
+    if (need <= 0) {
+        sql = log::format(
+            "SELECT  beginstring, sendercompid,targetcompid, "
+            "filestorepath,datadictionary FROM fixsession  WHERE id in (SELECT "
+            "sessionid from account WHERE verid=%d)   ORDER BY id DESC ;",
+            FinFabr->_QuantVerId);
+    }
+    else {
+        sql = log::format(
+            "SELECT  beginstring, sendercompid,targetcompid, "
+            "filestorepath,datadictionary FROM fixsession ORDER BY id DESC "
+            "LIMIT "
+            "%d;",
+            process);
+    }
+
+    //  log::echo(sql);
+    r = SelectSQL(pg, sql);
 
     FIX::Dictionary dict_session;
     dict_session.setDouble("LogonTimeout", 30);
     dict_session.setBool("ResetOnLogon", true);
     dict_session.setBool("ResetOnDisconnect", false);
     dict_session.setBool("SendResetSeqNumFlag", true);
-    // int idx = 0;
+
     int col = 0;
     std::string begin;
     std::string seder;
@@ -298,7 +351,6 @@ FIX::SessionSettings Exchange::ExSetting(int process)
             }
             if (pg->row()) {
                 FIX::SessionID session(begin, seder, target);
-
                 settings.set(session, dict_session);
                 // idx++;
                 col = 0;
@@ -324,9 +376,13 @@ FIX::SessionSettings Exchange::ExSetting(int process)
             FIX::SessionID session(begin, seder, target);
 
             settings.set(session, dict_session);
+
             // idx++;
             col = 0;
         }
+    }
+    else {
+        log::info("no session");
     }
 
     GlobalDBPtr->release(gidx);

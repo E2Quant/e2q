@@ -83,6 +83,7 @@
 #include "Toolkit/Util.hpp"
 #include "assembler/BaseNode.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/DB/pg.hpp"
 #include "libs/kafka/producer.hpp"
 #include "libs/kafka/protocol/nbo.hpp"
 #include "libs/kafka/protocol/proto.hpp"
@@ -509,8 +510,7 @@ struct __Analse_t {
                 "verid",
                 "( SELECT id FROM trade_info WHERE active = 1 ORDER "
                 " BY ctime LIMIT 1) ");
-
-            gsql->insert_commit();
+            InsertCommit(gsql);
             int count = gsql->command_count();
             if (count <= 0) {
                 log::bug("analse insert command count == 0!!!");

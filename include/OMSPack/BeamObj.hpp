@@ -45,10 +45,12 @@
 #ifndef BEAMOBJ_INC
 #define BEAMOBJ_INC
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <thread>
 
 #include "E2L/E2LType.hpp"
+#include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/FixApplication.hpp"
 #include "OMSPack/foreign.hpp"
 #include "SessionGlobal.hpp"
@@ -148,19 +150,22 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
 
         for (auto it = SessionSymList.begin(); it != SessionSymList.end();
              it++) {
+            if (it->second.empty()) {
+                // 应该是  OnlyEA::LOCKFOREA, 还没有来得及订阅
+                //  log::info("sid:", it->first.getTargetCompID().getValue(),
+                //           " not has symbol:", stock);
+                continue;
+            }
+
             if (stock == 0) {
                 // 如果没有申请 symbole 就只发送 index 的 symbole
+                // OnlyEA::FORANLYONE 否则会出错
+                // && 先不做这儿的处理
+                // FinFabr->_fix_symbol_only_for_ea == OnlyEA::FORANLYONE
                 _fix.MarketMessage(it->first, rec_data);
                 continue;
             }
 
-            if (it->second.empty()) {
-                log::info("sid:", it->first.getSenderCompID().getValue(),
-                          " sid:", it->first.getTargetCompID().getValue(),
-                          " size:", SessionSymList.size());
-                log::info("not symbol stock:", stock);
-                continue;
-            }
             // session select symbols
 
             for (auto id : it->second) {
@@ -168,9 +173,10 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
                     continue;
                 }
                 if (FinFabr->_fix_symbols.count(id) == 0) {
-                    log::bug("bug id:", id);
+                    log::bug("bug stock:", id);
                     continue;
                 }
+
                 if (id == (std::size_t)stock) {
                     _fix.MarketMessage(it->first, rec_data);
 

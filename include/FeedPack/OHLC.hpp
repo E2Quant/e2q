@@ -248,7 +248,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
                             // cnt == cfi code == index code
                             cnt = _cnt_ptr->data_ptr->push(rec_data);
                             if (cnt == -1) {
-                                log::bug("cnt == -1");
+                                // log::bug("cnt == -1");
                                 continue;
                             }
                             if (cnt == 0) {
@@ -256,8 +256,10 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
                                 _cnt_ptr->data_ptr->emit();
                             }
                             else {
-                                if (off == e2::Offers::OF_Tick) {
-                                    log::echo("off:", off);
+                                if (off == e2::Offers::OF_Tick ||
+                                    GlobalMainArguments.number_for_bin_read >=
+                                        0) {
+                                    // 历史记录，不需要有指数的
                                     _cnt_ptr->data_ptr->emit();
                                 }
                             }

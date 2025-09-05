@@ -50,6 +50,7 @@
 #include "E2LScript/foreign.hpp"
 #include "E2LScript/util_inline.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
 
@@ -86,7 +87,14 @@ void Settlement(e2::Int_e t)
  */
 e2::Int_e SymbolsTotal()
 {
-    e2::Int_e num = e2q::FixPtr->_fix_symbols.size();
+    e2::Int_e num = 0;
+
+    if (e2q::FixPtr != nullptr) {
+        num = e2q::FixPtr->_fix_symbols.size();
+    }
+    else if (e2q::FinFabr != nullptr) {
+        num = e2q::FinFabr->_fix_symbols.size();
+    }
 
     return VALNUMBER(num);
 } /* -----  end of function SymbolsTotal  ----- */
@@ -117,6 +125,10 @@ void SymbolName(e2::Int_e cfi) {} /* -----  end of function SymbolName  ----- */
 e2::Int_e SymbolCFICode(e2::Int_e idx)
 {
     std::size_t _id = (std::size_t)NUMBERVAL(idx);
+
+    if (e2q::FixPtr == nullptr) {
+        return 0;
+    }
     if (_id >= e2q::FixPtr->_fix_symbols.size()) {
         _id = 0;
     }
@@ -130,7 +142,6 @@ e2::Int_e SymbolCFICode(e2::Int_e idx)
         }
         m++;
     }
-
     return VALNUMBER(cfi);
 } /* -----  end of function SymbolCFICode  ----- */
 
@@ -149,11 +160,54 @@ e2::Int_e SymbolCFICode(e2::Int_e idx)
 void SymbolSelect(e2::Int_e id)
 {
     std::size_t cfi_code = NUMBERVAL(id);
+    if (e2q::FixPtr == nullptr) {
+        return;
+    }
+
     if (std::find(e2q::FixPtr->_symbols.begin(), e2q::FixPtr->_symbols.end(),
                   cfi_code) == e2q::FixPtr->_symbols.end()) {
         e2q::FixPtr->_symbols.push_back(cfi_code);
     }
+
 } /* -----  end of function SymbolSelect  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  SymbolOnlyForEA
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void SymbolLockForEA()
+{
+    e2q::FinFabr->_fix_symbol_only_for_ea = e2q::OnlyEA::LOCKFOREA;
+} /* -----  end of function SymbolOnlyForEA  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Delisting
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e Delisting(e2::Int_e cficode)
+{
+    e2::Int_e ret = 0;
+    size_t _cficode = NUMBERVAL(cficode);
+    if (e2q::FixPtr->_fix_symbols.count(_cficode) == 1 &&
+        e2q::FixPtr->_fix_symbols[_cficode].dia == e2q::DoIAction::DELISTING) {
+        ret = e2q::FixPtr->_fix_symbols[_cficode].uinx_time;
+    }
+    return ret;
+} /* -----  end of function Delisting  ----- */
 
 /*
  * ===  FUNCTION  =============================
@@ -168,6 +222,9 @@ void SymbolSelect(e2::Int_e id)
  */
 e2::Int_e SymbolCurrent()
 {
+    if (e2q::FixPtr == nullptr) {
+        return 0;
+    }
     std::size_t m = 0;
     int cficode = 0;
     for (auto it : e2q::FixPtr->_fix_symbols) {
@@ -192,6 +249,9 @@ e2::Int_e SymbolCurrent()
  */
 void BarOnOpen()
 {
+    if (e2q::FixPtr == nullptr) {
+        return;
+    }
     e2q::FixPtr->_onOpen = true;
 
 } /* -----  end of function BarOnOpen  ----- */

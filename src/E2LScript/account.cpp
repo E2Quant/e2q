@@ -143,6 +143,23 @@ e2::Int_e AccountProfit()
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  AccountNumber
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e AccountNumber()
+{
+    e2::Int_e ret = 0;
+    return ret;
+} /* -----  end of function AccountNumber  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  ThreadPosition
  *  ->  void *
  *  Parameters:

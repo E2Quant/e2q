@@ -76,7 +76,7 @@ void STLog::TicketComment(std::size_t quantid, std::size_t ticket, int side,
         gsql->insert_field("type", oe);
 
         gsql->insert_field("ctime", e2q::ticket_now);
-        gsql->insert_commit();
+        InsertCommit(gsql);
     }
 
     GlobalDBPtr->release(idx);

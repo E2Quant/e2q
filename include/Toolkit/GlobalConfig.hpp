@@ -96,6 +96,15 @@ typedef std::tuple<void *, size_t, std::string, bool, std::string> E2lFun_t;
  */
 // inline std::string GlobalProperties;
 
+struct __main_arguments {
+    std::string bin_dir = "";
+    int number_for_bin_read = 0;
+}; /* ----------  end of struct __main_arguments  ---------- */
+
+typedef struct __main_arguments main_arguments;
+
+inline main_arguments GlobalMainArguments;
+
 inline std::size_t GlobalProcessId;
 
 /**

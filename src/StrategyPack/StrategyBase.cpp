@@ -177,7 +177,6 @@ void StrategyBase::runScript()
             FixPtr->_quantId.insert({_id, {_uuid, num}});
 
             e2q::e2_analse.init(_id);
-
 #ifndef KAFKALOG
             elog.init(_id);
 #endif
@@ -188,14 +187,17 @@ void StrategyBase::runScript()
                       std::thread::id _id) {
         // 每次重来，都要初始化一下 storeid 这些值
         e2l_thread_map.AutoInit(_id, num);
-
-        // try {
-        this->_program.toScript(tk_size, num);
-        e2l_thread_map.runs(_id);
-        // }
-        // catch (std::exception &e) {
-        //     log::bug(e.what(), " num:", num);
-        // }
+#ifndef DEBUG
+        try {
+#endif
+            this->_program.toScript(tk_size, num);
+            e2l_thread_map.runs(_id);
+#ifndef DEBUG
+        }
+        catch (std::exception &e) {
+            log::bug(e.what(), " num:", num);
+        }
+#endif
     };  // -----  end ambda  -----
 
     ThreadPool<std::size_t> pool{e2l_thread_num};
@@ -205,7 +207,7 @@ void StrategyBase::runScript()
 
     do {
         next_row = e2l_cnt->data_ptr->aquire();
-
+        //  log::echo(next_row);
         for (; e2l_count < next_row; e2l_count++) {
             pool.emit(e2l_count);
 

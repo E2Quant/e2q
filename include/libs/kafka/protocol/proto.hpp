@@ -52,7 +52,7 @@
 #include <vector>
 
 #include "Toolkit/Norm.hpp"
-
+#include "libs/kafka/protocol/nbo.hpp"
 namespace e2q {
 
 enum e2l_pro_t {
@@ -60,6 +60,7 @@ enum e2l_pro_t {
     XDXR = 'X',
     SUSPEND = 'S',
     TICK = 'T',
+    MARKETING = 'M',
     CUSTOM = 'C',
     EXIT = 'E',
     LOG = 'L'
@@ -88,21 +89,81 @@ enum InitType {
     INDEX = 'i',
     TRADE = 't'
 }; /* ----------  end of enum InitType  ---------- */
-
 typedef enum InitType InitType;
-struct SystemInitMessage : public BaseMessage {
+
+struct StockInfoMessage : public BaseMessage {
     char Stock[E2QSTOCK_LENGTH] = {0};
     std::uint32_t CfiCode = 0;
+    std::uint64_t unix_time = 0;
+}; /* ----------  end of struct StockInfoMessage  ---------- */
+
+typedef struct StockInfoMessage StockInfoMessage;
+
+/* -------
+| Name         | Offset | Length | Value   | Notes|
+| :----------- | ------ | ------ | ------- | ------------  |
+| Message Type | 0      | 1      | 'I'     | Init Type     |
+| stock        | 1      | 10     | Alpha   | 股票名称      |
+| cficode      | 11     | 4      | Integer | cfi code      |
+| type         | 15     | 1      | Alpha   | InitType      |
+| TickTime     | 16     | 4      | Integer | 报价的间隔时间|
+| unix_time    | 20     | 8      | Inte 64 | 默认为上市时间|
+| Aligned      | 28     | 1      | Alpha   | Aligned_t     |
+
+
+--------
+*/
+struct SystemInitMessage : public StockInfoMessage {
     char Itype = InitType::INDEX;
     std::uint32_t OfferTime = 0;
+
 }; /* ----------  end of struct SystemInitMessage  ---------- */
 
 typedef struct SystemInitMessage SystemInitMessage;
+
+// 交易市场信息，新上市股票或退市
+
+/*
+ *
+ | Name         | Offset | Length | Value   | Notes|
+| :----------- | ------ | ------ | ------- | -------------- |
+| Message Type | 0      | 1      | 'I'     | Init Type      |
+| action       | 1      | 1      | Alpha   | DoIAction      |
+| stock        | 2      | 10     | Alpha   | 股票名称       |
+| cficode      | 12     | 4      | Integer | cfi code       |
+| unix_time    | 16     | 8      | Inte 64 | 上市or退市时间 |
+| Aligned      | 24     | 1      | Alpha   | Aligned_t      |
+
+ */
+
+struct MarketDelOrIPOMessage : public StockInfoMessage {
+    char action = DoIAction::LIST;
+
+}; /* ----------  end of struct MarketDelOrIPOMessage  ---------- */
+
+typedef struct MarketDelOrIPOMessage MarketDelOrIPOMessage;
 
 /**
  * 分红 配股
  */
 
+/* ----
+| Name         | Offset | Length | Value   | Notes      |
+| :----------- | ------ | ------ | ------- | ---------- |
+| Message Type | 0      | 1      | 'X'     | 除权分红   |
+| cficode      | 1      | 4      | Integer | cfi code   |
+| year         | 5      | 2      | Integer | year       |
+| month        | 7      | 2      | Integer | month      |
+| day          | 9      | 2      | Integer | day        |
+| category     | 11     | 2      | Integer | category   |
+| fenhong      | 13     | 4      | Integer | fenhong    |
+| songzhuangu  | 17     | 4      | Integer | songzhuangu|
+| outstanding  | 21     | 4      | Integer | outstanding|
+| outstandend  | 25     | 4      | Integer | outstandend|
+| mrketCaping  | 29     | 4      | Integer | mrketCaping|
+| Aligned      | 33     | 1      | Alpha   | aligned_t  |
+
+*/
 struct StockAXdxrMessage : public BaseMessage {
     std::uint32_t CfiCode = 0;
     std::uint16_t year = 0;
@@ -119,6 +180,21 @@ struct StockAXdxrMessage : public BaseMessage {
 
 typedef struct StockAXdxrMessage StockAXdxrMessage;
 
+/*--
+
+| Name         | Offset | Length | Value   | Notes       |
+| :----------- | ------ | ------ | --------- | --------- |
+| Message Type | 0      | 1      | 'T'       | Tick      |
+| cficode      | 1      | 4      | Integer   |  cfi code |
+| unix_time    | 5      | 8      | Integer64 | unix_time |
+| frame        | 13     | 2      | Integer16 | frame     |
+| side         | 15     | 1      | Alpha     | 'B', 'S'  |
+| price        | 16     | 6      | Integer64 | price     |
+| qty          | 22     | 6      | Integer64 | qty       |
+| number       | 28     | 6      | Integer32 | number    |
+| Aligned      | 34     | 1      | Alpha     | Aligned_t |
+
+ */
 // if qty == 0   // 涨跌停 不撮合交易
 struct MarketTickMessage : public BaseMessage {
     std::uint32_t CfiCode = 0;
@@ -128,6 +204,58 @@ struct MarketTickMessage : public BaseMessage {
     std::uint64_t price = 0;  // last price
     std::uint64_t qty = 0;
     std::uint32_t number = 0;
+
+    /*
+     * ===  FUNCTION  =============================
+     *
+     *         Name:  mtm
+     *  ->  void *
+     *  Parameters:
+     *  - size_t  arg
+     *  Description:
+     *
+     * ============================================
+     */
+    void mtm(const char *ptr, int sz)
+    {
+        std::size_t idx = 0;
+        mlen = 1;
+        mlen += sizeof(CfiCode);
+        mlen += sizeof(unix_time);
+        mlen += sizeof(frame);
+        mlen++;  // side
+        mlen += sizeof(price) - 2;
+        mlen += sizeof(qty) - 2;
+        mlen += sizeof(number);
+
+        if (sz != (int)mlen) {
+            printf("sz:%d  mlen:%ld \n", sz, mlen);
+
+            // log::bug(err);
+            return;
+        }
+        idx += parse_uint_t(ptr + idx, CfiCode);
+
+        if (CfiCode > 0) {
+            CfiCode += E2QCfiStart;
+        }
+
+        idx += parse_uint_t(ptr + idx, unix_time);
+
+        idx += parse_uint_t(ptr + idx, frame);
+
+        side = *(ptr + idx);
+        idx++;
+
+        idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, price);
+        idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, qty);
+        idx += parse_uint_t(ptr + idx, number);
+
+        Aligned = *(ptr + idx);
+    } /* -----  end of function mtm  ----- */
+
+private:
+    std::size_t mlen = 1;  // aligned
 }; /* ----------  end of struct MarketTickMessage  ---------- */
 
 typedef struct MarketTickMessage MarketTickMessage;
@@ -144,6 +272,19 @@ enum CmType {
 }; /* ----------  end of enum CmType  ---------- */
 
 typedef enum CmType CmType;
+
+/*
+| Name         | Offset | Length | Value     | Notes          |
+| :----------- | ------ | ------ | --------- | -------------- |
+| Message Type | 0      | 1      | 'C'       | Custom process |
+| cficode      | 1      | 4      | Integer   |  cfi code      |
+| index        | 5      | 2      | Integer16 | value deci     |
+| size         | 7      | 2      | Integer16 | value deci     |
+| type         | 9      | 1      | Alpha     | CmType         |
+| value        | 10     | 2,4,8..| I16,32,64 | data list      |
+| Aligned      |listsize| 1      | Alpha     | aligned_t      |
+
+*/
 
 struct CustomMessage : public BaseMessage {
     std::uint32_t CfiCode = 0;

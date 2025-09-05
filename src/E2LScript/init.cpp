@@ -236,18 +236,7 @@ void mkcsv(const char *source, const char *symbol)
         log::bug("path , symbol, code not  nullptr");
         return;
     }
-    std::string _symbol = std::string(symbol);
-    std::stringstream symsplit(_symbol);
-    std::string seg;
-    std::string sym;
-    std::string id;
-    std::string::size_type n;
-    while (std::getline(symsplit, seg, ',')) {
-        n = seg.find(":");
-        sym = seg.substr(0, n);
-        id = seg.substr(n, seg.length());
-        e2q::FinFabr->_fix_symbols.insert({atoll(id.c_str()), sym});
-    }
+
     e2q::FinFabr->_source = std::string(source);
     e2q::FinFabr->_csv_kafka = MKType::mk_csv;
 
@@ -562,8 +551,9 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
     }
     gsql->update_table("trade_info");
     gsql->update_field("active", 0);
-    gsql->update_commit();
-    bool r = gsql->select_sql(sql);
+    UpdateCommit(gsql);
+
+    bool r = SelectSQL(gsql, sql);
     if (r && gsql->tuple_size() > 0) {
         gsql->OneHead(&field, &val);
         if (val != nullptr) {
@@ -577,7 +567,8 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
         gsql->insert_field("desz", v);
         gsql->insert_field("ctime", ut.time());
         gsql->insert_return("id");
-        r = gsql->insert_commit();
+        r = InsertCommit(gsql);
+
         if (r) {
             gsql->OneHead(&field, &val);
             if (val != nullptr) {
@@ -589,7 +580,7 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
     gsql->update_table("trade_info");
     gsql->update_field("active", 1);
     gsql->update_condition("id", e2q::FinFabr->_QuantVerId);
-    gsql->update_commit();
+    UpdateCommit(gsql);
 
     e2q::GlobalDBPtr->release(idx);
 

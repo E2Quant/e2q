@@ -108,7 +108,8 @@ void FixApplication::onLogon(const FIX::SessionID& sid)
         SessionSymList[sid] = symbols;
     }
     else {
-        log::info("sid is login ok");
+        log::info("sid is login ok, SessionId",
+                  sid.getTargetCompID().getValue());
     }
 
 } /* -----  end of function FixApplication::onLogon  ----- */
@@ -124,7 +125,16 @@ void FixApplication::onLogon(const FIX::SessionID& sid)
  *
  * ============================================
  */
-void FixApplication::onLogout(const FIX::SessionID&) {
+void FixApplication::onLogout(const FIX::SessionID& sid)
+{
+    log::info("logout:", sid.getTargetCompID());
+    if (SessionSymList.count(sid) == 1) {
+        //  SessionSymList.erase(sid);
+        SessionSymList[sid].clear();
+    }
+
+    GlobalMatcher->SessionLogout(sid);
+
 } /* -----  end of function FixApplication::onLogout  ----- */
 
 /*
@@ -188,6 +198,7 @@ void FixApplication::toApp(FIX::Message& msg, const FIX::SessionID&)
  */
 void FixApplication::fromAdmin(const FIX::Message& msg, const FIX::SessionID&)
 {
+    // log::info(msg.toXML());
 } /* -----  end of function FixApplication::fromAdmin  ----- */
 
 /*
@@ -220,6 +231,7 @@ void FixApplication::fromApp(const FIX::Message& msg, const FIX::SessionID& sid)
     catch (FIX::UnsupportedMessageType& t) {
         log::bug(t.what());
     }
+
 } /* -----  end of function FixApplication::fromApp  ----- */
 
 /*
@@ -252,7 +264,11 @@ void FixApplication::onMessage(const FIX44::Heartbeat& message,
 void FixApplication::onMessage(const FIX44::QuoteRequest& message,
                                const FIX::SessionID& sid)
 {
+#ifdef DEBUG
+    log::info("QuoteRequest");
+#endif
     FIX44::QuoteRequest::NoRelatedSym relateGroup;
+
     int num = message.groupCount(relateGroup.field());
 
     std::vector<std::size_t> symbols;
@@ -274,33 +290,67 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
         if (relateGroup.isSetField(coq)) {
             relateGroup.getField(coq);
             cash = coq.getValue();
-            GlobalMatcher->traders(sid, cash);
         }
     }
-    if (symbols.size() == 0) {
-        log::info("symbols is empty!");
-    }
-    if (SessionSymList.count(sid) == 0) {
-        SessionSymList.insert({sid, symbols});
-    }
-    else {
-        SessionSymList[sid] = symbols;
+
+    bool onlyone = false;
+    for (auto it : FinFabr->_fix_symbols) {
+        if (it.second.only_ea == OnlyEA::FORANLYONE) {
+            onlyone = true;
+            break;
+        }
     }
 
-    FIX::QuoteRespID respid;
-    respid.setValue(UUidGen());
-    FIX::QuoteRespType resptype;
-    resptype.setValue(1);
-
-    FIX44::QuoteResponse qr(respid, resptype);
-
-    FIX::MidPx px;
-    px.setValue(cash);
-    qr.setField(px);
-    try {
-        FIX::Session::sendToTarget(qr, sid);
+    if (onlyone == false) {
+        // 1. 在收到新的上市股票 前 登录的
+        // 如果不处理的话，就那是由 MarketIng 来处理了
+#ifdef DEBUG
+        log::info("onlyone false, fix_symbols:", FinFabr->_fix_symbols.size());
+#endif
+        return;
     }
-    catch (FIX::SessionNotFound&) {
+
+    // onlyone > 0
+    // FinFabr->_fix_symbols.size()>0  这个时候， 应该是有新的账号登录了
+
+    //        if (onlyone) {
+    // 2. 在收到新的上市股票 后 登录的
+    // MassQuote 否则 ea 就没有办法初始化了
+    MassQuote(sid);
+
+    if (symbols.size() > 0) {
+        // 如果是 ea 自己定义的 symoble 有可能是错误的
+        // 不过不验证了， BeamObj 这儿处理吧
+        // 确定订阅及分配资金
+        if (SessionSymList.count(sid) == 0) {
+            SessionSymList.insert({sid, symbols});
+        }
+        else {
+            log::echo("tag:", sid.getTargetCompID().getValue());
+            SessionSymList[sid] = symbols;
+        }
+    }
+
+    if (cash > 0) {
+        // 实际申请到的值
+        cash = GlobalMatcher->traders(sid, cash);
+
+        // if cash == 0 set ea total_cash == 0
+        FIX::QuoteRespID respid;
+        respid.setValue(UUidGen());
+        FIX::QuoteRespType resptype;
+        resptype.setValue(1);
+
+        FIX44::QuoteResponse qr(respid, resptype);
+
+        FIX::MidPx px;
+        px.setValue(cash);
+        qr.setField(px);
+        try {
+            FIX::Session::sendToTarget(qr, sid);
+        }
+        catch (FIX::SessionNotFound&) {
+        }
     }
 
 } /* -----  end of function FixApplication::onMessage  ----- */
@@ -613,7 +663,7 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
 
         int cfi = 0;
         for (auto it : FinFabr->_fix_symbols) {
-            if (it.second == symbol.getValue()) {
+            if (it.second.symbol == symbol.getValue()) {
                 cfi = it.first;
                 break;
             }
@@ -634,8 +684,7 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         gsql->insert_field("quantid", quantId);
         gsql->insert_field("qty", qty);
         gsql->insert_field("price", NUMBERVAL(price));
-
-        gsql->insert_commit();
+        InsertCommit(gsql);
         //  }
     }
 
@@ -684,7 +733,7 @@ void FixApplication::FeedDataHandle()
         std::string sym = "";
         for (auto it : FinFabr->_fix_symbols) {
             if (it.first == cfi) {
-                sym = it.second;
+                sym = it.second.symbol;
                 break;
             }
         }
@@ -874,7 +923,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
      *  以后再优化把 symbol 全部转为 int 值
      */
     for (auto syms : FinFabr->_fix_symbols) {
-        if (syms.second == symbol.getValue()) {
+        if (syms.second.symbol == symbol.getValue()) {
             sym = syms.first;
         }
     }
@@ -883,6 +932,9 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
     // long or short order
     if (ordType == FIX::OrdType_LIMIT || ordType == FIX::OrdType_MARKET) {
+        // ctime > otime 24h
+        // history
+
         if (FinFabr->_StopOrder) {
             // 不接受新的订单
             rejectOrder(sid, clOrdID, symbol, side, "stop order now", ticket,

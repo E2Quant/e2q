@@ -99,6 +99,7 @@ public:
                             std::size_t ctime) = 0;
 
     virtual void exist() = 0;
+    void SessionLogout(const FIX::SessionID &) {};
     /* =============  OPERATORS     =================== */
 
 protected:

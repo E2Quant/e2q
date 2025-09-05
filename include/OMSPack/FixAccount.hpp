@@ -46,6 +46,7 @@
 #define FIXACCOUNT_INC
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -123,17 +124,23 @@ public:
         _target = sid.getTargetCompID();
         _begin = sid.getBeginString();
     }
-    void onLogon(const FIX::SessionID&) override {};
+    void onLogon(const FIX::SessionID& sid) override
+    {
+        log::echo("onLogon:", sid.getSenderCompID().getValue());
+    };
 
     // Notification of a session logging off or disconnecting
     void onLogout(const FIX::SessionID& sid) override {
-        // log::echo("onLogout:", sid.getSenderCompID().getValue());
+        //  log::echo("onLogout:", sid.getSenderCompID().getValue());
     };
     // Notification of admin message being sent to target
-    void toAdmin(FIX::Message&, const FIX::SessionID&) override {};
+    void toAdmin(FIX::Message& msg, const FIX::SessionID& sid) override {
+        //          log::echo(msg.toXML());
+    };
     // Notification of app message being sent to target
     void toApp(FIX::Message& msg, const FIX::SessionID& sid) override
     {
+//        log::echo(msg.toString());
 #ifdef DEBUG
         try {
             FIX::PossDupFlag possDupFlag;
@@ -150,14 +157,15 @@ public:
 #endif
     };
     // Notification of admin message being received from target
-    void fromAdmin(const FIX::Message&, const FIX::SessionID&) override {
-        // log::info("fromadmin come in ........");
+    void fromAdmin(const FIX::Message& msg, const FIX::SessionID&) override {
+        //  log::info("fromadmin come in ", msg.toString());
     };
     // Notification of app message being received from target
     void fromApp(const FIX::Message& msg, const FIX::SessionID& sid)
 
         override
     {
+        // log::info(msg.toXML());
         // log::info("fromapp come in ........");
         try {
             crack(msg, sid);
@@ -278,7 +286,7 @@ public:
     void CallBack(fixType);
     void wait();
 
-    void quit();
+    void quit(const FIX::SessionID&);
     /* =============  OPERATORS     =================== */
 
 protected:
@@ -295,6 +303,11 @@ private:
                                 std::size_t ticket, e2::Int_e closetck,
                                 std::size_t thread_number, bool rc);
     void UpdateQuantProfit();
+
+    void delisting(std::size_t cficode, std::uint64_t dtime,
+                   const FIX::SessionID&);
+
+    void History();
     /* =============  DATA MEMBERS  =================== */
     FIX::SenderCompID _sender;
     FIX::TargetCompID _target;

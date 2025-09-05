@@ -66,16 +66,15 @@ public:
      */
 
     void setCfg(std::string &, std::string &);
+    void exchange(int pros, func_type<> child_process);
+    void log_dir(std::string &);
+    void search_dir(std::string &);
+    void trader(size_t n, std::size_t quant_start, int run);
     /* ====================  MUTATORS =======================================
      */
 
     /* ====================  OPERATORS =======================================
      */
-    void exchange(int pros, func_type<> child_process);
-    void log_dir(std::string &);
-    void search_dir(std::string &);
-    void trader(size_t n, std::size_t quant_start, int run,
-                std::size_t total_pro);
 
 protected:
     /* ====================  METHODS =======================================

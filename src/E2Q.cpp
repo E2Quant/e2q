@@ -41,7 +41,7 @@
  * =====================================================================================
  */
 
-#include "../include/E2Q.hpp"
+#include "E2Q.hpp"
 
 #include <string>
 
@@ -95,8 +95,7 @@ void E2Q::exchange(int pros, func_type<> child_process)
  *
  * ============================================
  */
-void E2Q::trader(size_t n, std::size_t quant_start, int run,
-                 std::size_t total_pro)
+void E2Q::trader(size_t n, std::size_t quant_start, int run)
 {
     log::echo("node is run, quant_start:", quant_start, " run:", run);
     if (db_path.length() == 0) {
@@ -104,9 +103,10 @@ void E2Q::trader(size_t n, std::size_t quant_start, int run,
     }
     e2q::Fusion fusion;
     fusion.properties(db_path);
-    fusion.ea(e2l_path, esearch_dir, n, quant_start, total_pro);
+    fusion.ea(e2l_path, esearch_dir, n, quant_start);
 
 } /* -----  end of function E2Q::trader  ----- */
+
 /*
  * ===  FUNCTION  =============================
  *

@@ -44,13 +44,15 @@
 
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <set>
 #include <string>
 
 #include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/GlobalConfig.hpp"
-#include "libs/DB/PGConnectPool.hpp"
+#include "quickfix/SessionID.h"
 #include "quickfix/SessionSettings.h"
 #include "utility/Log.hpp"
 
@@ -88,11 +90,11 @@ MachineOS::MachineOS()
  *
  * ============================================
  */
-void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
-                      std::size_t quantId_start, std::size_t total_process)
+void MachineOS::enter(std::string& e2l_script, std::string& edir,
+                      size_t node_idx, std::size_t quantId_start)
 {
-    _node = n;
-    GlobalProcessId = n;
+    _node = node_idx;
+    GlobalProcessId = node_idx;
     if (GlobalDBPtr == nullptr) {
         log::info("db init nullptr");
         return;
@@ -106,7 +108,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
     /**
      * strategy thread
      */
-    quantId_start += n;
+    quantId_start += node_idx;
     StrategyBase _sbase(this->_resource, this->_beam_data, quantId_start);
     _sbase.ProgramInit(e2l_script, edir);
 
@@ -138,32 +140,38 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
                                                 settings);
 #endif
 
-        std::size_t bug_client = 0;
+        std::size_t bug_client = 5;
         do {
             log::info("initiator start, e2l path:", e2l_script);
             if (_initiator.isStopped() == false) {
                 _initiator.stop();
             }
-            settings = EaSetting();
 
-            if (bug_client == 5) {
+            if (bug_client <= 0) {
                 break;
             }
             _initiator.start();
             sleep(1);
-            bug_client++;
+            bug_client--;
         } while (_initiator.isLoggedOn() ==
                  false); /* -----  end do-while  ----- */
-        if (bug_client < 5) {
+
+        if (bug_client > 0) {
             log::info("node start ok!");
         }
 
         if (_initiator.isLoggedOn()) {
-            auto fun = [this, &_sbase]() {
+            FIX::SessionID sid;
+            std::set<FIX::SessionID> sids = settings.getSessions();
+            std::for_each(sids.cbegin(), sids.cend(),
+                          [&sid](FIX::SessionID x) { sid = x; });
+
+            auto fun = [this, &sid, &_sbase]() {
                 this->ctrl();
 
                 _sbase.runScript();
-                fix_application.quit();
+
+                fix_application.quit(sid);
             };  // -----  end lambda  -----
 
             THREAD_FUN(fun);
@@ -180,7 +188,6 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir, size_t n,
     }
     catch (std::exception& e) {
         log::bug(e.what());
-        // GlobalDBPtr->auto_release();
         return;
     }
 
@@ -224,9 +231,7 @@ void MachineOS::ctrl()
     /**
      * 4. 请求数据
      */
-    if (FixPtr->_symbols.size() > 0) {
-        fix_application.QuoteRequest(FixPtr->_symbols);
-    }
+    fix_application.QuoteRequest(FixPtr->_symbols);
 
 } /* -----  end of function MachineOS::ctrl  ----- */
 
@@ -279,16 +284,58 @@ FIX::SessionSettings MachineOS::EaSetting()
         return settings;
     }
 
-    std::string sql = log::format(
-        "SELECT beginstring, targetcompid, sendercompid,"
-        "filestorepath,datadictionary,host as SocketConnectHost,port as "
-        "SocketConnectPort from fixsession WHERE id not IN (SELECT sessionid "
-        "from account)  ORDER BY id DESC OFFSET %ld "
-        "LIMIT 1",
-        _node);
+    field = nullptr;
+    val = nullptr;
+    std::string sql =
+        "SELECT id FROM trade_info WHERE active=1 ORDER BY id DESC LIMIT 1;";
 
-    // log::info(sql);
-    bool r = pg->select_sql(sql);
+    bool r = SelectSQL(pg, sql);
+    if (r && pg->tuple_size() > 0) {
+        pg->OneHead(&field, &val);
+        if (val != nullptr) {
+            e2q::FixPtr->_QuantVerId = stoi(val);
+        }
+    }
+    else {
+        log::info("trade info is empty");
+    }
+
+    sql = log::format(
+        "SELECT sessionid FROM account WHERE verid = %d AND sessionid in "
+        "(SELECT id FROM fixsession WHERE login=0)  ORDER BY id DESC "
+        "OFFSET %ld LIMIT 1;",
+        FixPtr->_QuantVerId, _node);
+
+    r = SelectSQL(pg, sql);
+    int sessionid = 0;
+    if (r && pg->tuple_size() > 0) {
+        pg->OneHead(&field, &val);
+        if (val != nullptr) {
+            sessionid = stoi(val);
+        }
+    }
+
+    if (sessionid == 0) {
+        sql = log::format(
+            "SELECT beginstring, targetcompid, sendercompid,"
+            "filestorepath,datadictionary,host as SocketConnectHost,port as "
+            " SocketConnectPort FROM fixsession WHERE id not IN (SELECT "
+            "sessionid "
+            " FROM  account WHERE verid= %d) AND id > 1 AND login=0  ORDER BY "
+            "id DESC OFFSET %ld"
+            " LIMIT 1",
+            FixPtr->_QuantVerId, _node);
+    }
+    else {
+        sql = log::format(
+            "SELECT beginstring, targetcompid, sendercompid,"
+            "filestorepath,datadictionary,host as SocketConnectHost,port as "
+            " SocketConnectPort FROM fixsession WHERE id =%d "
+            " LIMIT 1",
+            sessionid);
+    }
+
+    r = SelectSQL(pg, sql);
     FIX::Dictionary dict_session;
     dict_session.setDouble("LogonTimeout", 30);
     dict_session.setInt("HeartBtInt", 30);
@@ -335,12 +382,14 @@ FIX::SessionSettings MachineOS::EaSetting()
             settings.set(session, dict_session);
         }
         else {
+            log::info(sql);
             log::info("begin is empty!");
         }
     }
     else {
         log::bug(sql);
     }
+
     GlobalDBPtr->release(gidx);
 
     return settings;

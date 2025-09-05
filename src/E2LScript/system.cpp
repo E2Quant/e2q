@@ -173,7 +173,7 @@ void SymbolUnion()
     std::cout << "union ISymbols { \n";
 
     for (auto syms : e2q::FixPtr->_fix_symbols) {
-        std::cout << "  " << syms.second << "=" << syms.first << ";\n";
+        std::cout << "  " << syms.second.symbol << "=" << syms.first << ";\n";
     }
     std::cout << "}" << std::endl;
 

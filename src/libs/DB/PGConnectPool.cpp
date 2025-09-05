@@ -43,6 +43,8 @@
 #include "libs/DB/PGConnectPool.hpp"
 
 #include <cstddef>
+#include <string>
+#include <utility>
 
 #include "utility/Log.hpp"
 namespace e2q {
@@ -58,7 +60,7 @@ namespace e2q {
  *
  * ============================================
  */
-std::size_t PGConnectPool::getId()
+std::size_t PGConnectPool::getId(const char* file, long lineNumber)
 {
     BasicLock _lock(_PoolMutex);
 
@@ -79,6 +81,16 @@ std::size_t PGConnectPool::getId()
     if (idx > _used_idx) {
         _used_idx = idx;
     }
+#ifdef DEBUG
+    if (_used_idx_log.count(idx) == 0) {
+        std::pair<std::string, long> data = {std::string(file), lineNumber};
+        _used_idx_log.insert({idx, data});
+    }
+    else {
+        _used_idx_log.at(idx).first = std::string(file);
+        _used_idx_log.at(idx).second = lineNumber;
+    }
+#endif
     return idx;
 } /* -----  end of function PGConnectPool::getId  ----- */
 
@@ -141,6 +153,12 @@ void PGConnectPool::release(std::size_t idx)
         return;
     }
     _pool.at(idx).first = true;
+#ifdef DEBUG
+    if (_used_idx_log.count(idx) == 1) {
+        _used_idx_log.at(idx).first = "";
+        _used_idx_log.at(idx).second = 0;
+    }
+#endif
 } /* -----  end of function PGConnectPool::release  ----- */
 
 /*

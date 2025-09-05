@@ -248,7 +248,7 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
         }
         int cfi = 0;
         for (auto it : FinFabr->_fix_symbols) {
-            if (it.second == order.symbol) {
+            if (it.second.symbol == order.symbol) {
                 cfi = it.first;
                 break;
             }
@@ -324,8 +324,7 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
 
         executionReport.set(FIX::LastParPx(order.adjprice));
         gsql->insert_field("adjpx", order.adjprice, deci);
-
-        gsql->insert_commit();
+        InsertCommit(gsql);
 
         if (order.TradeTicket > 0 && order.lastExecutedQuantity > 0) {
             // sell update buy ticket openqty
@@ -337,8 +336,7 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
 
             gsql->update_condition("ticket", order.TradeTicket);
             gsql->update_condition("stat", (int)e2::OrdStatus::ost_Filled);
-
-            gsql->update_commit();
+            UpdateCommit(gsql);
 
             /**
              * 如果这个订单是在分红之前的话，就得加一个 分红的值
@@ -354,6 +352,111 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
         log::bug(e.what());
     }
 } /* -----  end of function FixGuard::updateOrder  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixGuard::MassQuote
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  '.'  size == 1
+ * ============================================
+ */
+void FixGuard::MassQuote(const FIX::SessionID& session)
+{
+    FIN_FABR_IS_NULL();
+#ifdef DEBUG
+    log::info("MassQuote");
+#endif
+    FIX44::MassQuote mq = FIX44::MassQuote(FIX::QuoteID(UUidGen()));
+    FIX44::MassQuote::NoQuoteSets nqs = FIX44::MassQuote::NoQuoteSets();
+    FIX44::MassQuote::NoQuoteSets::NoQuoteEntries pid =
+        FIX44::MassQuote::NoQuoteSets::NoQuoteEntries();
+
+    FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents pdate;
+    FIX::QuoteSetID qsid;
+    FIX::QuoteEntryID qeid;
+    FIX::TotNoQuoteEntries tne;
+    FIX::Symbol symbol;
+
+    std::size_t m = 0;
+    std::string date;
+    char fmt[] = "%02ld%02ld%02ld%02ld";
+    FIX::EventDate edate;
+
+    for (auto it : FinFabr->_tradetime) {
+        pdate = FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents();
+        date = log::format(fmt, it.open_hour, it.open_min, it.close_hour,
+                           it.close_min);
+        edate = FIX::EventDate();
+        edate.setValue(date);
+
+        pdate.setField(edate);
+        nqs.addGroup(pdate);
+    }
+
+    for (auto sym : e2q::FinFabr->_fix_symbols) {
+        if (sym.second.dia == DoIAction::DELISTING ||
+            sym.second.only_ea == OnlyEA::LOCKFOREA) {
+            // delisting 就不要再传过去了
+            continue;
+        }
+
+        symbol = FIX::Symbol(sym.second.symbol);
+        pid.setField(symbol);
+        // log::echo("code:", sym.first,
+        //           " tag:", session.getTargetCompID().getValue());
+        qeid = FIX::QuoteEntryID(std::to_string(sym.first));
+        pid.setField(qeid);
+
+        nqs.addGroup(pid);
+
+        // lockforea 状态，只会发送一个cficode
+        if (sym.first > 0 &&
+            FinFabr->_fix_symbol_only_for_ea == OnlyEA::LOCKFOREA) {
+            FinFabr->_fix_symbols.at(sym.first).only_ea = OnlyEA::LOCKFOREA;
+            break;
+        }
+    }
+
+    qsid = FIX::QuoteSetID("");
+    nqs.setField(qsid);
+
+    tne = FIX::TotNoQuoteEntries(m);
+    nqs.setField(tne);
+
+    // 保证金率
+    FIX::DefBidSize dbs;
+    dbs.setValue(FinFabr->_margin_rate);
+    mq.setField(dbs);
+
+    /**
+     * 每笔报价时间的间隔
+     */
+    FIX::DefOfferSize offsize;
+    offsize.setValue(FinFabr->_offer_time);
+    mq.setField(offsize);
+
+    /**
+     * 最少交易笔数
+     */
+    FIX::UnderlyingQty qty;
+    qty.setValue(FinFabr->_lot_and_share);
+    mq.setField(qty);
+
+    mq.addGroup(nqs);
+
+    try {
+        FIX::Session::sendToTarget(mq, session);
+    }
+
+    catch (FIX::SessionNotFound& e) {
+        log::bug(e.what());
+    }
+
+} /* -----  end of function FixGuard::MassQuote  ----- */
 
 /*
  * ===  FUNCTION  =============================

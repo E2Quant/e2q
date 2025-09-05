@@ -54,21 +54,25 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
-#include "OMSPack/FixGuard.hpp"
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
 #include "Toolkit/UtilTime.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/DB/pg.hpp"
 #include "libs/kafka/protocol/nbo.hpp"
 #include "libs/kafka/protocol/proto.hpp"
 #include "quickfix/FixFields.h"
+#include "quickfix/FixValues.h"
+#include "quickfix/fix44/Quote.h"
 #include "quickfix/fix44/QuoteStatusReport.h"
 #include "utility/Log.hpp"
 
@@ -89,6 +93,11 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
 {
     std::size_t idx = 0;
 
+    if (FinFabr->_offer_time > 0) {
+        // 已初始了，有变动，就使用 MarketIng
+        return;
+    }
+
     SystemInitMessage sinit;
     std::size_t mlen = 1;  // len(msgtype + aligned)
     std::size_t stock_len = fldsiz(SystemInitMessage, Stock);
@@ -96,6 +105,7 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     mlen += fldsiz(SystemInitMessage, CfiCode);
     mlen += fldsiz(SystemInitMessage, Itype);
     mlen += fldsiz(SystemInitMessage, OfferTime);
+    mlen += fldsiz(SystemInitMessage, unix_time);
 
     if (sz != (int)(mlen - 1)) {
         std::string err = log::format("sz:%d  mlen:%ld \n", sz, (mlen - 1));
@@ -118,10 +128,13 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     idx++;
 
     idx += parse_uint_t(p + idx, sinit.OfferTime);
+    idx += parse_uint_t(p + idx, sinit.unix_time);
+
     sinit.Aligned = *(p + idx);
 
     std::string symbol = std::string(sinit.Stock);
-    FinFabr->_fix_symbols.insert({sinit.CfiCode, symbol});
+    FixSymbolType info{symbol, DoIAction::LIST, OnlyEA::FORANLYONE};
+    FinFabr->_fix_symbols.insert({sinit.CfiCode, info});
 
     std::size_t gidx = GlobalDBPtr->getId();
     Pgsql *gsql = GlobalDBPtr->ptr(gidx);
@@ -132,7 +145,8 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
         gsql->insert_field("symbol", sinit.CfiCode);
         gsql->insert_field("stock", sinit.Stock);
         gsql->insert_field("verid", FinFabr->_QuantVerId);
-        gsql->insert_commit();
+        gsql->insert_field("ctime", sinit.unix_time);
+        InsertCommit(gsql);
     }
 
     GlobalDBPtr->release(gidx);
@@ -148,11 +162,192 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
          */
         for (auto it = SessionSymList.begin(); it != SessionSymList.end();
              it++) {
+            // FixGuard
             MassQuote(it->first);
         }
     }
 
 } /* -----  end of function KfConsumeCb::SymbolIntP  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  KfConsumeCb::MarketIng
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void KfConsumeCb::MarketIng(const char *p, int sz)
+{
+    std::size_t idx = 0;
+    MarketDelOrIPOMessage mdoi;
+    std::size_t mlen = 1;
+    std::size_t stock_len = fldsiz(MarketDelOrIPOMessage, Stock);
+    mlen += stock_len;
+    mlen += fldsiz(MarketDelOrIPOMessage, action);
+    mlen += fldsiz(MarketDelOrIPOMessage, CfiCode);
+    mlen += fldsiz(MarketDelOrIPOMessage, unix_time);
+
+    if (sz != (int)(mlen - 1)) {
+        std::string err = log::format("sz:%d  mlen:%ld \n", sz, (mlen - 1));
+        log::bug(err);
+        return;
+    }
+
+    mdoi.action = *(p + idx);
+    idx++;
+
+    stock_len--;
+    memcpy(&mdoi.Stock, p + idx, stock_len);
+    idx += stock_len;
+
+    idx += parse_uint_t(p + idx, mdoi.CfiCode);
+
+    mdoi.CfiCode += E2QCfiStart;
+
+    idx += parse_uint_t(p + idx, mdoi.unix_time);
+
+    //  std::uint32_t del_code = 0;
+    std::string symbol = std::string(mdoi.Stock);
+
+    if (mdoi.action == DoIAction::LIST) {
+        if (FinFabr->_fix_symbols.count(mdoi.CfiCode) == 0) {
+            FixSymbolType info{symbol, DoIAction::LIST, OnlyEA::FORANLYONE};
+            FinFabr->_fix_symbols.insert({mdoi.CfiCode, info});
+
+            std::size_t gidx = GlobalDBPtr->getId();
+            Pgsql *gsql = GlobalDBPtr->ptr(gidx);
+            std::string table = "public.";
+            if (gsql != nullptr) {
+                gsql->public_table(table);
+                gsql->insert_table("stockinfo");
+                gsql->insert_field("symbol", mdoi.CfiCode);
+                gsql->insert_field("stock", mdoi.Stock);
+                gsql->insert_field("verid", FinFabr->_QuantVerId);
+                gsql->insert_field("ctime", (mdoi.unix_time / 1000));
+                InsertCommit(gsql);
+            }
+
+            GlobalDBPtr->release(gidx);
+        }
+        else {
+            // 已存在不没必要了
+            // 可能需要重新激活一下吧
+            log::info("CfiCode exist:", mdoi.CfiCode);
+            return;
+        }
+    }
+
+    if (mdoi.action == DoIAction::DELISTING) {
+        //  del_code = 1;
+
+        if (FinFabr->_fix_symbols.count(mdoi.CfiCode) == 1) {
+            FinFabr->_fix_symbols[mdoi.CfiCode].dia = DoIAction::DELISTING;
+            FinFabr->_fix_symbols[mdoi.CfiCode].uinx_time = mdoi.unix_time;
+
+            std::size_t gidx = GlobalDBPtr->getId();
+
+            Pgsql *gsql = GlobalDBPtr->ptr(gidx);
+            std::string table = "public.";
+            if (gsql != nullptr) {
+                gsql->update_table("stockinfo");
+
+                gsql->update_field("dtime", (mdoi.unix_time / 1000));
+                std::string cont =
+                    log::format("symbol=%d and verid=%d", mdoi.CfiCode,
+                                FinFabr->_QuantVerId);
+                gsql->update_condition(cont);
+
+                UpdateCommit(gsql);
+            }
+
+            GlobalDBPtr->release(gidx);
+        }
+        else {
+            log::bug("bug cficode:", mdoi.CfiCode);
+            // 不存在不没必要了
+            return;
+        }
+    }
+    // if (FinFabr->_fix_symbol_only_for_ea == OnlyEA::LOCKFOREA) {
+    // 这种情况下，只发有这个 code 的 session
+    // }
+    // else {
+    for (auto it = SessionSymList.begin(); it != SessionSymList.end(); it++) {
+        if (mdoi.action == DoIAction::LIST) {
+            if (it->second.empty()) {
+                // 这个情况可能是新的账号在上市新股票前登录的
+                // 可能需要用 MassQuote 这个，否则 EA 不能初始化的
+                MassQuote(it->first);
+            }
+            else {
+                // 这个情况，是对现在的账号处理通告
+                Quote(it->first, mdoi);
+            }
+        }
+        if (mdoi.action == DoIAction::DELISTING) {
+            if (std::find(std::begin(it->second), std::end(it->second),
+                          mdoi.CfiCode) != std::end(it->second)) {
+                // 如果是退市，就只发给当前的一个sessionid
+                log::echo("delisting:", mdoi.CfiCode);
+                Quote(it->first, mdoi);
+            }
+        }
+    }
+    // }
+
+} /* -----  end of function KfConsumeCb::MarketIng  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  KfConsumeCb::Quote
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void KfConsumeCb::Quote(const FIX::SessionID &session,
+                        MarketDelOrIPOMessage mdoi)
+{
+    log::info("Quote");
+    std::string cstr = "";
+
+    std::string sym = std::string(mdoi.Stock);
+
+    FIX::QuoteID id;
+    id.setValue(log::format("%ld", mdoi.unix_time));
+
+    FIX44::Quote quote(id);
+
+    FIX::Symbol symbol = FIX::Symbol(sym);
+    quote.setField(symbol);
+
+    FIX::QuoteType qt = FIX::QuoteType_INDICATIVE;
+
+    if (mdoi.action == DoIAction::LIST) {
+        //        DoIAction::LIST
+        qt = FIX::QuoteType_TRADEABLE;
+    }
+
+    quote.setField(qt);
+
+    cstr = log::format("%d", mdoi.CfiCode);
+    FIX::QuoteReqID rid = FIX::QuoteReqID(cstr);
+    quote.setField(rid);
+
+    try {
+        FIX::Session::sendToTarget(quote, session);
+    }
+    catch (FIX::SessionNotFound &e) {
+        log::bug(e.what());
+    }
+} /* -----  end of function KfConsumeCb::Quote  ----- */
 
 /*
  * ===  FUNCTION  =============================
@@ -234,9 +429,19 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
     }
     else {
         ExRD c_node = FinFabr->_exrd[cfiCode].back();
+
+        if (c_node._ymd > node._ymd) {
+#ifdef DEBUG
+            log::info("exist:", c_node._ymd, " now ymd:", node._ymd);
+#endif
+            return;
+        }
         if (c_node._ymd == node._ymd && c_node._extype == node._extype) {
             // 小于日是线级别的时候，可能会重复传送这个数据
             // 在这儿过滤一下
+#ifdef DEBUG
+            log::bug("exist:", c_node._ymd, " now ymd:", node._ymd);
+#endif
             return;
         }
         FinFabr->_exrd.at(cfiCode).push_back(node);
@@ -245,8 +450,10 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
     std::size_t gidx = GlobalDBPtr->getId();
     Pgsql *gsql = GlobalDBPtr->ptr(gidx);
     std::string cfi_str = log::format(
-        "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC LIMIT 1 )",
-        saxm.CfiCode);
+        "(SELECT id FROM stockinfo WHERE symbol=%d and verid=%d ORDER BY id "
+        "DESC LIMIT "
+        "1 )",
+        saxm.CfiCode, FinFabr->_QuantVerId);
     if (gsql != nullptr) {
         gsql->insert_table("exdr");
         gsql->insert_field("symbol", cfi_str);
@@ -261,12 +468,12 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         gsql->insert_field("marketcapend",
                            NUMBERVAL(node._mshare._MarketCapend));
         gsql->insert_return("id");
-        gsql->insert_commit();
+        InsertCommit(gsql);
     }
     std::vector<long> tickets;
     std::string stock = "";
     if (FinFabr->_fix_symbols.count(saxm.CfiCode) == 1) {
-        stock = FinFabr->_fix_symbols.at(saxm.CfiCode);
+        stock = FinFabr->_fix_symbols.at(saxm.CfiCode).symbol;
     }
     // 现金收益，add trade_report
     if (stock.length() > 0 && (cash > 0 || shares > 0)) {
@@ -279,14 +486,17 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         char *val = nullptr;
 
         std::string sql = log::format(
-            "SELECT ticket from trades WHERE symbol = (SELECT id FROM "
+            "SELECT ticket FROM trades WHERE symbol = (SELECT id FROM "
             "stockinfo "
-            "WHERE symbol =%d ORDER BY id DESC LIMIT 1)  AND  side = 1  AND "
-            "stat = 2 AND ticket not IN (SELECT closetck from  trades) ORDER "
+            "WHERE symbol =%d AND verid=%d ORDER BY id DESC LIMIT 1)  AND  "
+            "side = 1  "
+            "AND "
+            "stat = 2 AND ticket not IN (SELECT closetck FROM trades) "
+            "ORDER "
             "BY id; ",
-            saxm.CfiCode);
+            saxm.CfiCode, FinFabr->_QuantVerId);
 
-        bool r = gsql->select_sql(sql);
+        bool r = SelectSQL(gsql, sql);
 
         std::string ret = "";
         if (r && gsql->tuple_size() > 0) {
@@ -350,94 +560,6 @@ void KfConsumeCb::ExitOrder()
 {
     _kafka_run = 0;
 } /* -----  end of function KfConsumeCb::ExitOrder  ----- */
-/*
- * ===  FUNCTION  =============================
- *
- *         Name:  KfConsumeCb::MassQuote
- *  ->  void *
- *  Parameters:
- *  - size_t  arg
- *  Description:
- *  '.'  size == 1
- * ============================================
- */
-void KfConsumeCb::MassQuote(const FIX::SessionID &session)
-{
-    FIN_FABR_IS_NULL();
-
-    FIX44::MassQuote mq = FIX44::MassQuote(FIX::QuoteID(UUidGen()));
-    FIX44::MassQuote::NoQuoteSets nqs = FIX44::MassQuote::NoQuoteSets();
-    FIX44::MassQuote::NoQuoteSets::NoQuoteEntries pid =
-        FIX44::MassQuote::NoQuoteSets::NoQuoteEntries();
-
-    FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents pdate;
-    FIX::QuoteSetID qsid;
-    FIX::TotNoQuoteEntries tne;
-    FIX::Symbol symbol;
-
-    FIX::QuoteEntryID qeid;
-    std::size_t m = 0;
-    std::string date;
-    char fmt[] = "%02ld%02ld%02ld%02ld";
-    FIX::EventDate edate;
-
-    for (auto it : FinFabr->_tradetime) {
-        pdate = FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents();
-        date = log::format(fmt, it.open_hour, it.open_min, it.close_hour,
-                           it.close_min);
-        edate = FIX::EventDate();
-        edate.setValue(date);
-
-        pdate.setField(edate);
-        nqs.addGroup(pdate);
-    }
-
-    for (auto sym : e2q::FinFabr->_fix_symbols) {
-        symbol = FIX::Symbol(sym.second);
-        pid.setField(symbol);
-
-        qeid = FIX::QuoteEntryID(std::to_string(sym.first));
-        pid.setField(qeid);
-
-        nqs.addGroup(pid);
-    }
-
-    qsid = FIX::QuoteSetID("");
-    nqs.setField(qsid);
-
-    tne = FIX::TotNoQuoteEntries(m);
-    nqs.setField(tne);
-
-    // 保证金率
-    FIX::DefBidSize dbs;
-    dbs.setValue(FinFabr->_margin_rate);
-    mq.setField(dbs);
-
-    /**
-     * 每笔报价时间的间隔
-     */
-    FIX::DefOfferSize offsize;
-    offsize.setValue(FinFabr->_offer_time);
-    mq.setField(offsize);
-
-    /**
-     * 最少交易笔数
-     */
-    FIX::UnderlyingQty qty;
-    qty.setValue(FinFabr->_lot_and_share);
-    mq.setField(qty);
-
-    mq.addGroup(nqs);
-
-    try {
-        FIX::Session::sendToTarget(mq, session);
-    }
-
-    catch (FIX::SessionNotFound &e) {
-        log::bug(e.what());
-    }
-
-} /* -----  end of function KfConsumeCb::MassQuote  ----- */
 
 /*
  * ===  FUNCTION  =============================
@@ -528,7 +650,7 @@ void KfConsumeCb::CustomMsg(const char *ptr, int sz, int64_t moffset)
 /*
  * ===  FUNCTION  =============================
  *
- *         Name:  KfConsumeCb::callback
+ *         Name:  KfConsumeCb::TicketMsg
  *  ->  void *
  *  Parameters:
  *  - size_t  arg
@@ -536,44 +658,10 @@ void KfConsumeCb::CustomMsg(const char *ptr, int sz, int64_t moffset)
  *
  * ============================================
  */
-void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
+void KfConsumeCb::TicketMsg(const char *ptr, int sz, int64_t moffset)
 {
-    std::array<SeqType, trading_protocols> _call_data{0};
-    std::size_t idx = 0;
     MarketTickMessage mtm;
-    std::size_t mlen = 1;  // aligned
-    mlen += fldsiz(MarketTickMessage, CfiCode);
-    mlen += fldsiz(MarketTickMessage, unix_time);
-    mlen += fldsiz(MarketTickMessage, frame);
-    mlen++;  // side
-    mlen += fldsiz(MarketTickMessage, price) - 2;
-    mlen += fldsiz(MarketTickMessage, qty) - 2;
-    mlen += fldsiz(MarketTickMessage, number);
-
-    if (sz != (int)mlen) {
-        std::string err = log::format("sz:%d  mlen:%ld \n", sz, mlen);
-
-        log::bug(err);
-        return;
-    }
-    idx += parse_uint_t(ptr + idx, mtm.CfiCode);
-
-    if (mtm.CfiCode > 0) {
-        mtm.CfiCode += E2QCfiStart;
-    }
-
-    idx += parse_uint_t(ptr + idx, mtm.unix_time);
-
-    idx += parse_uint_t(ptr + idx, mtm.frame);
-
-    mtm.side = *(ptr + idx);
-    idx++;
-
-    idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, mtm.price);
-    idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, mtm.qty);
-    idx += parse_uint_t(ptr + idx, mtm.number);
-
-    mtm.Aligned = *(ptr + idx);
+    mtm.mtm(ptr, sz);
 
     // if (mtm.Aligned == Aligned_t::PULL) {
     //     if (_lastTime == mtm.unix_time) {
@@ -582,9 +670,10 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
     // }
     if (_lastTime > mtm.unix_time) {
         log::bug("bug tick: lastTime:", _lastTime,
-                 " _unix_time:", mtm.unix_time, " offset:");
-        printf("size:%d,  %s\n", sz, ptr);
+                 " _unix_time:", mtm.unix_time);
+#ifdef DEBUG
         logs(_call_data, moffset);
+#endif
         return;
     }
     else {
@@ -600,15 +689,15 @@ void KfConsumeCb::callback(const char *ptr, int sz, int64_t moffset)
 
     _call_data[Trading::t_qty] = mtm.qty;
     _call_data[Trading::t_price] = mtm.price;
+    _call_data[Trading::t_adjprice] = mtm.price;
     _call_data[Trading::t_msg] = mtm.number;
     _call_data[Trading::t_stock] = mtm.CfiCode;
-    _call_data[Trading::t_adjprice] = mtm.price;
 
     if (_TunCall != nullptr) {
         _TunCall(_call_data);
     }
 
-} /* -----  end of function KfConsumeCb::callback  ----- */
+} /* -----  end of function KfConsumeCb::TicketMsg  ----- */
 /*
  * ===  FUNCTION  =============================
  *

@@ -91,7 +91,7 @@ void Container::InitCell()
 {
     std::vector<size_t> symId = FixPtr->_symbols;
 
-    if (_time_frames.size() == 0) {
+    if (_time_frames.size() == 0 || symId.size() == 0) {
         log::bug("_time_frames.size() == 0");
         return;
     }
@@ -100,17 +100,21 @@ void Container::InitCell()
         log::bug("source ptr is nullptr");
         return;
     }
-    if (_cells.size() > 0) {
-        log::echo("cells size:", _cells.size());
-        return;
+    // if (_cells.size() > 0) {
+    //     log::echo("cells size:", _cells.size());
+    //     return;
+    // }
+
+    if (_cells.count(0) == 0) {
+        for (auto t : _time_frames) {
+            CellShape cell;
+            cell.frame = t;
+            cell.idx = 0;
+            cell.data = _source_ptr->MemPtr<SilkPermit<SeqType>>(ohlc_column);
+            _cells[0].push_back(cell);
+        }
     }
-    for (auto t : _time_frames) {
-        CellShape cell;
-        cell.frame = t;
-        cell.idx = 0;
-        cell.data = _source_ptr->MemPtr<SilkPermit<SeqType>>(ohlc_column);
-        _cells[0].push_back(cell);
-    }
+
     for (auto id : symId) {
         if (id == 0) {
             continue;
@@ -127,6 +131,7 @@ void Container::InitCell()
             }
         }
     }
+
 #ifdef DEBUG
     log::info("init cell and symId size:", symId.size());
 #endif

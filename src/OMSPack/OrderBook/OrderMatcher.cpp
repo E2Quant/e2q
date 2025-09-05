@@ -224,7 +224,7 @@ int OrderMatcher::AddBotTicket(SeqType ticket, e2::OrdType ordType,
 
         FIX::Symbol symfix;
         e2::Int_e qid_bot = 0;
-        symfix.setValue(FinFabr->_fix_symbols[symbol]);
+        symfix.setValue(FinFabr->_fix_symbols[symbol].symbol);
         OrderItem* bot =
             MALLOC(OrderItem, ticket, "", symfix, sid, bside, ordType,
                    order_price, bot_qty, qid_bot, ctime, ctime);

@@ -97,6 +97,8 @@ public:
 
     void ExdrChange(SeqType, SeqType ticket, double cash, double qty,
                     std::size_t);
+
+    void SessionLogout(const FIX::SessionID &);
     void exist()
     {
 #ifdef DEBUG

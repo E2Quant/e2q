@@ -317,6 +317,9 @@ void E2LFunList()
            "(cfi_id, idx);");
     AddFun(CustomDataGet, 3, "FCustomDataGet", E2L_RETURN,
            "(cfi_id, idx, pos);");
+
+    AddFun(SymbolLockForEA, 0, "FSymbolLockForEA", E2L_NORETURN, "();");
+    AddFun(Delisting, 1, "FDelisting", E2L_RETURN, "(cfi_id);");
     /**
      * market info end
      */

@@ -42,6 +42,7 @@
  */
 #include "OMSPack/BrokerBase.hpp"
 
+#include <cstdlib>
 #include <string>
 
 #include "E2L/E2LType.hpp"
@@ -345,7 +346,7 @@ double BrokerBase::CheckMargin(const FIX::SessionID& id, double price, long qty)
  *   balance 的变动
  * ============================================
  */
-void BrokerBase::traders(const FIX::SessionID& id, double cash)
+double BrokerBase::traders(const FIX::SessionID& id, double cash)
 {
     char* field = nullptr;
     char* val = nullptr;
@@ -354,7 +355,7 @@ void BrokerBase::traders(const FIX::SessionID& id, double cash)
     if (gsql == nullptr) {
         GlobalDBPtr->release(idx);
         log::bug("pgsql is null, idx:", idx);
-        return;
+        return 0;
     }
     int fix_id = 0;
 
@@ -372,8 +373,7 @@ void BrokerBase::traders(const FIX::SessionID& id, double cash)
         inc = " credit + " + std::to_string(cash);
         gsql->update_field("credit", inc);
         gsql->update_condition("id", fix_id);
-
-        gsql->update_commit();
+        UpdateCommit(gsql);
     }
     else {
         // 初始化资金
@@ -382,41 +382,60 @@ void BrokerBase::traders(const FIX::SessionID& id, double cash)
         std::string sql = "SELECT id from fixsession WHERE targetcompid='" +
                           compid + "' LIMIT 1; ";
 
-        bool r = gsql->select_sql(sql);
+        bool r = SelectSQL(gsql, sql);
 
-        if (r) {
-            for (gsql->begin(); gsql->end(); gsql->next()) {
-                int m = gsql->PGResult(&field, &val);
-                if (m == -1) {
-                    continue;
-                }
-                if (field != nullptr) {
-                    fix_id = std::stoi(val);
-                }
+        if (r && gsql->tuple_size() > 0) {
+            gsql->OneHead(&field, &val);
+            if (val != nullptr) {
+                fix_id = std::stoi(val);
             }
         }
+
         if (fix_id == 0) {
             log::bug("fix_id == 0!");
             GlobalDBPtr->release(idx);
-            return;
+            return 0;
         }
+
         TraderInfo ti;
         ti.fix_id = fix_id;
         ti.total_cash = cash;
-        _traders.insert({id, ti});
 
-        UtilTime ut;
-        gsql->insert_table("account");
-        gsql->insert_field("sessionid", fix_id);
-        gsql->insert_field("balance", cash);
-        gsql->insert_field("credit", cash);
-        gsql->insert_field("verid", FinFabr->_QuantVerId);
-        gsql->insert_field("ctime", ut.time());
-        gsql->insert_commit();
+        sql = log::format(
+            "SELECT credit FROM account WHERE sessionid= %d LIMIT 1 ;", fix_id);
+
+        r = SelectSQL(gsql, sql);
+
+        if (r && gsql->tuple_size() > 0) {
+            // 使用已存在的账号来交易
+            gsql->OneHead(&field, &val);
+            if (val != nullptr) {
+                ti.total_cash = atol(val);
+            }
+        }
+        else {
+            UtilTime ut;
+            gsql->insert_table("account");
+            gsql->insert_field("sessionid", fix_id);
+            gsql->insert_field("balance", cash);
+            gsql->insert_field("credit", cash);
+            gsql->insert_field("verid", FinFabr->_QuantVerId);
+            gsql->insert_field("ctime", ut.time());
+            InsertCommit(gsql);
+        }
+
+        sql = log::format("UPDATE fixsession SET login=1 WHERE id = %d ;",
+                          fix_id);
+
+        gsql->update_sql(sql);
+        UpdateCommit(gsql);
+
+        _traders.insert({id, ti});
     }
 
     GlobalDBPtr->release(idx);
 
+    return _traders.at(id).total_cash;
 } /* -----  end of function BrokerBase::traders  ----- */
 
 /*
@@ -493,7 +512,7 @@ void BrokerBase::trade_report(OrderLots& lots)
     pgsql->insert_field("side", side);
     pgsql->insert_field("credit", credit, 3);
     pgsql->insert_field("ctime", lots.ctime);
-    pgsql->insert_commit();
+    InsertCommit(pgsql);
 
     pgsql->update_table("account");
     pgsql->update_field("balance", balance, 3);
@@ -510,7 +529,7 @@ void BrokerBase::trade_report(OrderLots& lots)
     }
 
     pgsql->update_condition("sessionid", sessionid);
-    pgsql->update_commit();
+    UpdateCommit(pgsql);
 
     GlobalDBPtr->release(idx);
 
@@ -571,7 +590,7 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
                 pgsql->insert_field("side", 3);
                 pgsql->insert_field("credit", credit, 3);
                 pgsql->insert_field("ctime", ctime);
-                pgsql->insert_commit();
+                InsertCommit(pgsql);
 
                 // 现金分红
                 pgsql->update_table("account");
@@ -580,7 +599,7 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
                 pgsql->update_field("credit", credit, 3);
 
                 pgsql->update_condition("sessionid", sessionid);
-                pgsql->update_commit();
+                UpdateCommit(pgsql);
             }
 
             break;
@@ -627,10 +646,28 @@ void BrokerBase::AddExdrQty(SeqType cfi, SeqType ticket, double qty,
 
     gsql->update_condition("ticket", ticket);
     gsql->update_condition("stat", (int)e2::OrdStatus::ost_Filled);
-
-    gsql->update_commit();
+    UpdateCommit(gsql);
 
     GlobalDBPtr->release(idx);
 
 } /* -----  end of function BrokerBase::AddExdrQty  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  BrokerBase::CloseSession
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void BrokerBase::CloseSession(const FIX::SessionID& sid)
+{
+    if (_traders.count(sid) == 1) {
+        _traders.erase(sid);
+    }
+
+} /* -----  end of function BrokerBase::CloseSession  ----- */
 }  // namespace e2q

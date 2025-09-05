@@ -84,7 +84,7 @@ public:
     /* =============  ACCESSORS     =================== */
 
     /* =============  MUTATORS      =================== */
-    void enter(std::string &, std::string &, size_t, std::size_t, std::size_t);
+    void enter(std::string &, std::string &, size_t, std::size_t);
     /* =============  OPERATORS     =================== */
 
 protected:

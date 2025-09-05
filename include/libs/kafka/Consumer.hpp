@@ -53,10 +53,8 @@
 #include <string>
 #include <vector>
 
-#include "OMSPack/IDGenerator.hpp"
-#include "OMSPack/SessionGlobal.hpp"
-#include "OMSPack/foreign.hpp"
-#include "Toolkit/Norm.hpp"
+#include "OMSPack/FixGuard.hpp"
+#include "Toolkit/pack.hpp"
 #include "assembler/BaseType.hpp"
 #include "librdkafka/rdkafkacpp.h"
 #include "libs/bprinter/table_printer.h"
@@ -71,6 +69,7 @@
 #include <quickfix/FixFields.h>
 #include <quickfix/Session.h>
 #include <quickfix/fix44/MassQuote.h>
+#include <quickfix/fix44/Quote.h>
 #include <quickfix/fix44/QuoteStatusReport.h>
 
 #undef throw /* reset */
@@ -127,7 +126,7 @@ public:
  *  Description:
  * ================================
  */
-class KfConsumeCb : public RdKafka::ConsumeCb {
+class KfConsumeCb : public RdKafka::ConsumeCb, FixGuard {
 public:
     /* =============  LIFECYCLE     =================== */
     KfConsumeCb() {}; /* constructor */
@@ -177,25 +176,28 @@ public:
                 }
                 _lastoffset = now_offset;
 
-                int sz = static_cast<int>(message->len());
+                int sz = static_cast<int>(message->len()) - 1;
 
                 const char *p = static_cast<const char *>(message->payload());
 
                 switch (*p) {
                     case e2l_pro_t::INIT:
-                        SymbolInit(p + 1, sz - 1);
+                        SymbolInit(p + 1, sz);
                         break;
                     case e2l_pro_t::XDXR:
-                        SymbolExrd(p + 1, sz - 1);
+                        SymbolExrd(p + 1, sz);
                         break;
                     case e2l_pro_t::TICK:
-                        callback(p + 1, sz - 1, _lastoffset);
+                        TicketMsg(p + 1, sz, _lastoffset);
                         break;
                     case e2l_pro_t::SUSPEND:
                         StopOrder();
                         break;
+                    case e2l_pro_t::MARKETING:
+                        MarketIng(p + 1, sz);
+                        break;
                     case e2l_pro_t::CUSTOM:
-                        CustomMsg(p + 1, sz - 1, _lastoffset);
+                        CustomMsg(p + 1, sz, _lastoffset);
                         break;
                     case e2l_pro_t::EXIT:
                         ExitOrder();
@@ -242,32 +244,23 @@ private:
 
     void SymbolInit(const char *p, int sz);
     void SymbolExrd(const char *p, int sz);
+    void MarketIng(const char *p, int sz);
     void CustomMsg(const char *p, int sz, int64_t);
     void StopOrder();
     void ExitOrder();
-    void MassQuote(const FIX::SessionID &);
+
+    void Quote(const FIX::SessionID &, MarketDelOrIPOMessage mdoi);
     void QuoteStatusReport(const FIX::SessionID &, ExRD, std::size_t,
                            std::vector<long>);
     void logs(std::array<SeqType, trading_protocols>, int64_t);
 
-    /*
-     * ===  FUNCTION  =============================
-     *
-     *         Name:  callback
-     *  ->  void *
-     *  Parameters:
-     *  - size_t  arg
-     *  Description:
-     *
-     * ============================================
-     */
-
-    void callback(const char *ptr, int sz, int64_t);
-
-    /* -----  end of function callback  ----- */
+    void TicketMsg(const char *ptr, int sz, int64_t);
 
     /* =============  DATA MEMBERS  =================== */
     TradType _TunCall = nullptr;
+
+    std::array<SeqType, trading_protocols> _call_data{0};
+
     uint64_t _lastTime = 0;
 
     int64_t _lastoffset;

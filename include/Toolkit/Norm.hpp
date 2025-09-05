@@ -259,9 +259,8 @@ typedef struct __TraderData TraderData_t;
  */
 struct __TraderInfo {
     int fix_id = 0;
-    double total_cash;  // 余额
-
-    //  tick -> TraderData_t
+    double total_cash;                               // 余额
+    bool isApplyOk;                                  // 申请资金是否完成
     std::map<std::size_t, TraderData_t> order_cash;  // 当前一笔 订单的资产
 }; /* ----------  end of struct TraderInfo  ---------- */
 
@@ -394,6 +393,29 @@ struct __ExRD {
 
 typedef struct __ExRD ExRD;
 
+enum DoIAction {
+    LIST = 'L',      // 上市
+    DELISTING = 'D'  // 退市
+}; /* ----------  end of enum DoIAction  ---------- */
+
+typedef enum DoIAction DoIAction;
+
+enum OnlyEA {
+    FORANLYONE = true,
+    LOCKFOREA = false
+}; /* ----------  end of enum OnlyEA  ---------- */
+
+typedef enum OnlyEA OnlyEA;
+
+struct __FixSymbolType {
+    std::string symbol;
+    DoIAction dia;
+    OnlyEA only_ea;
+    std::uint64_t uinx_time = 0;
+}; /* ----------  end of struct __FixSymbolType  ---------- */
+
+typedef struct __FixSymbolType FixSymbolType;
+
 struct __MarketInfo {
     // 版本ID
     int _QuantVerId = 0;
@@ -427,12 +449,12 @@ struct __MarketInfo {
     }
 
     // e2l cfi code,  std::string data current stock code
-    std::map<int, std::string> _fix_symbols;  // fix full symbols
+    std::map<int, FixSymbolType> _fix_symbols;  // fix full symbols
 
     std::string _fix_cfg;               //  cfg path
     std::vector<TradeTime> _tradetime;  // trade time
     e2::InitOk _ok;                     // init ok
-    e2::Int_e _offer_time = 100;        //  每笔报价时间的间隔
+    e2::Int_e _offer_time = 0;          //  每笔报价时间的间隔,如果没有默认100
 
     std::string log_topic = "";  // log kafka topic
                                  //
@@ -503,6 +525,9 @@ struct __FinancialInstrument : public MarketInfo {
     std::vector<e2::TimeFrames> _tf;
     e2::TimeFrames _current_tf = e2::TimeFrames::PERIOD_CURRENT;
     //  弱匹配 id 不一定等于 symbol 的代码 ,以后再优化 吧
+    //  实际订阅的 symbol
+    //  如果是空，会默认订阅所有
+    // 自定义在这儿设置 SymbolSelect -> FSymbol
     std::vector<size_t> _symbols;
     e2::Offers _offers;  // Offers 报价的方式
 
@@ -611,6 +636,8 @@ struct __FinancialFabricate : public MarketInfo {
      * exdr ticket -> qty, in order match use
      */
     std::map<SeqType, double> _exdr_qty;
+
+    OnlyEA _fix_symbol_only_for_ea = OnlyEA::FORANLYONE;
 }; /* ----------  end of struct __FinancialFabricate  ---------- */
 
 typedef struct __FinancialFabricate FinancialFabricate;

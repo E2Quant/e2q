@@ -47,7 +47,7 @@
 #include <string>
 
 #include "Toolkit/Log.hpp"
-#include "postgresql/libpq-fe.h"
+#include "utility/Colors.hpp"
 namespace e2q {
 
 /*
@@ -268,11 +268,11 @@ void Pgsql::insert_return(std::string field)
  *
  * ============================================
  */
-bool Pgsql::delete_commit(std::string sql)
+bool Pgsql::delete_commit(std::string sql, const char *file, long lineNumber)
 {
     std::string _sql = sql + ";";
 
-    bool r = exec(_sql);
+    bool r = exec(_sql, file, lineNumber);
     if (r == false) {
         _command_count = 0;
     }
@@ -289,11 +289,11 @@ bool Pgsql::delete_commit(std::string sql)
  *
  * ============================================
  */
-bool Pgsql::select_sql(std::string sql)
+bool Pgsql::select_sql(std::string sql, const char *file, long lineNumber)
 {
     _idx = 0;
     std::string _sql = sql + ";";
-    bool r = exec(_sql);
+    bool r = exec(_sql, file, lineNumber);
     if (r == false) {
         _nfields = 0;
         _ntuples = 0;
@@ -307,6 +307,39 @@ bool Pgsql::select_sql(std::string sql)
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  Pgsql::update_commit
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+bool Pgsql::update_commit(const char *file, long lineNumber)
+{
+    if (_update_set.length() > 0) {
+        _update_sql += _update_set;
+    }
+
+    if (_update_condition.length() > 0) {
+        _update_sql += " WHERE " + _update_condition;
+    }
+    _update_sql += ";";
+
+    bool ret = exec(_update_sql, file, lineNumber);
+    if (ret == false) {
+        _command_count = 0;
+    }
+    _update_sql = "UPDATE  ";
+    _update_set = "";
+    _update_condition = "";
+
+    return ret;
+} /* -----  end of function Pgsql::update_commit  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  Pgsql::exec
  *  ->  void *
  *  Parameters:
@@ -315,7 +348,7 @@ bool Pgsql::select_sql(std::string sql)
  *
  * ============================================
  */
-bool Pgsql::exec(std::string sql)
+bool Pgsql::exec(std::string sql, const char *file, long lineNumber)
 {
     bool ret = false;
     if (_conn == nullptr) {
@@ -363,8 +396,9 @@ bool Pgsql::exec(std::string sql)
         case PGRES_FATAL_ERROR:
         default:
             std::string err = log::format("exec : %s", PQerrorMessage(_conn));
-            log::bug(err);
-            log::bug(sql);
+            log::log_cout(file, __FUNCTION__, lineNumber, KRED, err);
+            log::log_cout(file, __FUNCTION__, lineNumber, KRED, sql);
+
             PQclear(_res);
             _res = nullptr;
             break;

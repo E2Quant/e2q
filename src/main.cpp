@@ -44,7 +44,9 @@
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -53,6 +55,7 @@
 #include "E2Q.hpp"
 #include "Toolkit/DaemonProcess.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "Toolkit/Norm.hpp"
 #include "ast/ParserCtx.hpp"
 /*
  * ===  FUNCTION  =============================
@@ -112,6 +115,7 @@ int e2q_action(int argc, char* argv[])
     char buffer[2];
     pipe(fd);
 
+    char* b = nullptr;
     char* e = nullptr;
     char* s = nullptr;
     char* p = nullptr;
@@ -122,6 +126,8 @@ int e2q_action(int argc, char* argv[])
     int index;
 
     int run = 0;  // 第几次运行进程
+    std::size_t account_number_idx =
+        0;  // oms 默认 3 account 数量, ea 0 account idx
 
     std::string properties = "";
     std::vector<std::string> eas_el;
@@ -135,16 +141,20 @@ int e2q_action(int argc, char* argv[])
         "%s -e script.e2 \n \
                 Usage: \n \
                 -h help \n \
+                -a if oms default fix account number or if ea account index \n \
+                -b bin history ticket file directory \n \
+                -d daemon run \n \
                 -e which loading ea e2l script \n \
-                -s which loading oms e2l script \n \
-                -p which loading db properties \n \
-                -l show llvm ir for e2l \n \
-                -r e2l run number \n \
-                -o only test e2l script \n \
-                -v show e2q version \n \
                 -f log directory \n \
+                -l show llvm ir for e2l \n \
+                -n read number bin history tickets \n \
                 -i e2l import codes directory,def:/usr/local/include/e2/ \n \
-                -d daemon run \n";
+                -s which loading oms e2l script \n \
+                -o only test e2l script \n \
+                -p which loading db properties \n \
+                -r e2l run number \n \
+                -v show e2q version \n \
+                ";
 
     if (argc < 2) {
         printf(help.c_str(), argv[0]);
@@ -154,7 +164,7 @@ int e2q_action(int argc, char* argv[])
     e2q::process_debug = false;
 
     //./e2q -e node.e2 -e node2.e2 -e node3.e2
-    while ((h = getopt(argc, argv, "hdlve:s:p:r:o:f:i:")) != -1) {
+    while ((h = getopt(argc, argv, "hdlve:s:p:r:a:o:f:i:b:n:")) != -1) {
         switch (h) {
             case 'h': {
                 printf(help.c_str(), argv[0]);
@@ -190,13 +200,28 @@ int e2q_action(int argc, char* argv[])
             case 'p': {
                 p = optarg;
                 if (p != nullptr) {
-                    properties = std::string(p);
+                    int file_ok = access(p, R_OK);
+                    if (file_ok != -1) {
+                        properties = std::string(p);
+                    }
+                    else {
+                        printf("properties is not exist!\n");
+                    }
                 }
                 break;
             }
             case 'r': {
                 if (optarg != nullptr) {
                     run = atoi(optarg);
+                }
+                break;
+            }
+            case 'a': {
+                if (optarg != nullptr) {
+                    account_number_idx = (std::size_t)atoi(optarg);
+                    if (account_number_idx <= 0) {
+                        account_number_idx = 3;
+                    }
                 }
                 break;
             }
@@ -211,17 +236,28 @@ int e2q_action(int argc, char* argv[])
                 f = optarg;
                 if (f != nullptr) {
                     log_dir = std::string(f);
-
-                    break;
                 }
+                break;
             }
             case 'i': {
                 i = optarg;
                 if (i != nullptr) {
                     searh_path = std::string(i);
-
-                    break;
                 }
+                break;
+            }
+            case 'b': {
+                b = optarg;
+                if (b != nullptr) {
+                    e2q::GlobalMainArguments.bin_dir = std::string(b);
+                }
+                break;
+            }
+            case 'n': {
+                if (optarg != nullptr) {
+                    e2q::GlobalMainArguments.number_for_bin_read = atoi(optarg);
+                }
+                break;
             }
             case '?':
             default:
@@ -265,10 +301,10 @@ int e2q_action(int argc, char* argv[])
     // 128 threads number
     // e mathematical constant deci start
     std::size_t now = ut.time() - 718281828 + 128 * (1 + run);
-    int proce = eas_el.size();
+    std::size_t proce = eas_el.size();
     e2q::process_run_number = run;
     std::vector<pid_t> pids;
-    int m = 0;
+    std::size_t m = 0;
     e2q::E2Q _e2q;
     if (log_dir.length() > 0) {
         _e2q.log_dir(log_dir);
@@ -276,6 +312,19 @@ int e2q_action(int argc, char* argv[])
     if (searh_path.length() > 0) {
         _e2q.search_dir(searh_path);
     }
+
+    if (proce == 1 && oms_el.size() == 0) {
+        // 单独运行 fix account node
+        printf("[Child] I'm Child process\n");
+        printf("[Child] Child's PID is %d name: %s \n", getpid(),
+               eas_el[m].c_str());
+        _e2q.setCfg(eas_el[m], properties);
+
+        _e2q.trader(account_number_idx, now, run);
+
+        return 0;
+    }
+
     for (m = 0; m < proce; m++) {
         pid = fork();
         pids.push_back(pid);
@@ -291,18 +340,16 @@ int e2q_action(int argc, char* argv[])
                 printf("[Child] I'm Child process\n");
                 printf("[Child] Child's PID is %d name: %s \n", getpid(),
                        eas_el[m].c_str());
-                if (eas_el.size() != 0) {
-                    _e2q.setCfg(eas_el[m], properties);
+                _e2q.setCfg(eas_el[m], properties);
 
-                    if (oms_el.size() != 0) {
-                        close(fd[1]);
-                        read(fd[0], buffer, 2);
-                        close(fd[0]);
-                        printf("trader start \n");
-                    }
-
-                    _e2q.trader(m, now, run, proce);
+                if (oms_el.size() != 0) {
+                    close(fd[1]);
+                    read(fd[0], buffer, 2);
+                    close(fd[0]);
                 }
+
+                _e2q.trader(m, now, run);
+
                 return 0;
             }
             // PID > 0 代表是父程序
@@ -314,18 +361,28 @@ int e2q_action(int argc, char* argv[])
         now += processor_count;
     }
 
-    if (oms_el.size() != 0) {
+    if (oms_el.size() > 0) {
         _e2q.setCfg(oms_el, properties);
 
-        auto call_child_fun = [fd]() {
-            int num = 1;
+        e2q::func_type<> call_child_fun = nullptr;
 
-            close(fd[0]);
-            write(fd[1], &num, sizeof(num));
-            close(fd[1]);
-        };  // -----  end lambda  -----
+        if (proce > 0) {
+            call_child_fun = [fd]() {
+                int num = 1;
 
-        _e2q.exchange(proce, call_child_fun);
+                close(fd[0]);
+                write(fd[1], &num, sizeof(num));
+                close(fd[1]);
+            };  // -----  end lambda  -----
+        }
+
+        if (proce > account_number_idx) {
+            account_number_idx = proce;
+        }
+        if (account_number_idx == 0) {
+            account_number_idx = 3;
+        }
+        _e2q.exchange(account_number_idx, call_child_fun);
     }
 
     int exit_status;

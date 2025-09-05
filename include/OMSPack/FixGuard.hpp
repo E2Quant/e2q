@@ -96,12 +96,13 @@ public:
 
     void CustemRequest(const FIX::SessionID &, std::string &, int);
     void updateOrder(const OrderLots &, char status, double);
+
+    void MassQuote(const FIX::SessionID &);
     /* =============  OPERATORS     =================== */
 
 protected:
     /* =============  METHODS       =================== */
 
-    // std::string genOrderID() { return std::to_string(sequence()); };
     std::string genExecID() { return UUidGen(); };
 
     e2::Side convert(const FIX::Side &);

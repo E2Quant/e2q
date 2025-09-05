@@ -194,20 +194,38 @@ public:
     }
     void insert_return(std::string field);
 
-    bool insert_commit()
+#define InsertCommit(db)                                   \
+    ({                                                     \
+        bool __ret = false;                                \
+        do {                                               \
+            __ret = db->insert_commit(__FILE__, __LINE__); \
+        } while (0);                                       \
+        __ret;                                             \
+    })
+
+    bool insert_commit(const char* file, long lineNumber)
     {
         _insert_sql += _insert_field + ") VALUES (" + _insert_val + ") " +
                        _insert_return + ";";
 
-        return insert_sql(_insert_sql);
+        return insert_sql(_insert_sql, file, lineNumber);
     }
 
-    bool insert_sql(std::string sql)
+#define InsertSQL(db, sql)                                   \
+    ({                                                       \
+        bool __ret = false;                                  \
+        do {                                                 \
+            __ret = db->insert_sql(sql, __FILE__, __LINE__); \
+        } while (0);                                         \
+        __ret;                                               \
+    })
+
+    bool insert_sql(std::string sql, const char* file, long lineNumber)
     {
         _nfields = 0;
         _ntuples = 0;
 
-        bool ret = exec(sql);
+        bool ret = exec(sql, file, lineNumber);
 
         _insert_sql = "INSERT INTO ";
         _insert_field = "";
@@ -287,32 +305,32 @@ public:
 
     void update_sql(std::string& sql) { _update_sql = sql; }
 
-    bool update_commit()
-    {
-        if (_update_set.length() > 0) {
-            _update_sql += _update_set;
-        }
+#define UpdateCommit(db)                       \
+    do {                                       \
+        db->update_commit(__FILE__, __LINE__); \
+    } while (0)
 
-        if (_update_condition.length() > 0) {
-            _update_sql += " WHERE " + _update_condition;
-        }
-        _update_sql += ";";
+    bool update_commit(const char* file, long lineNumber);
 
-        bool ret = exec(_update_sql);
-        if (ret == false) {
-            _command_count = 0;
-        }
-        _update_sql = "UPDATE  ";
-        _update_set = "";
-        _update_condition = "";
+#define DeleteCommit(db, sql)                       \
+    do {                                            \
+        db->delete_commit(sql, __FILE__, __LINE__); \
+    } while (0)
 
-        return ret;
-    }
-    bool delete_commit(std::string);
+    bool delete_commit(std::string, const char* file, long lineNumber);
 
     int command_count() { return _command_count; }
 
-    bool select_sql(std::string sql);
+#define SelectSQL(db, sql)                                   \
+    ({                                                       \
+        bool __ret = false;                                  \
+        do {                                                 \
+            __ret = db->select_sql(sql, __FILE__, __LINE__); \
+        } while (0);                                         \
+        __ret;                                               \
+    })
+
+    bool select_sql(std::string sql, const char* file, long lineNumber);
     bool row();
     std::size_t col();
     int field_size() { return _nfields; }
@@ -329,7 +347,7 @@ protected:
 private:
     /* =============  METHODS       =================== */
     void exit_nicely();
-    bool exec(std::string);
+    bool exec(std::string, const char* file, long lineNumber);
     template <typename T>
     std::string fmt(T t, std::size_t deci = 0)
     {
@@ -428,7 +446,7 @@ private:
 
     bool debug = false;
     std::string _properties;
-}; /* -----  end of class Pgsql  ----- */
+};  // namespace e2q
 
 }  // namespace e2q
 #endif /* ----- #ifndef PG_INC  ----- */

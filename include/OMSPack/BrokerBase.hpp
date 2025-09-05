@@ -84,12 +84,13 @@ public:
     void freeMargin(const FIX::SessionID &, std::size_t, double);
     bool Margin(const FIX::SessionID &, std::size_t, double, long);
     double CheckMargin(const FIX::SessionID &, double, long);
-    void traders(const FIX::SessionID &, double);
+    double traders(const FIX::SessionID &, double);
 
     void AddExdrCash(SeqType ticket, double cash, std::size_t);
     void AddExdrQty(SeqType, SeqType ticket, double qty, std::size_t);
 
     void trade_report(OrderLots &);
+    void CloseSession(const FIX::SessionID &);
     /* ====================  MUTATORS =======================================
      */
 

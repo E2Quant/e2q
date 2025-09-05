@@ -110,14 +110,14 @@ void Fusion::oms(std::string e2l_script, std::string &edir, int process,
  * ============================================
  */
 void Fusion::ea(std::string e2l_script, std::string &edir, size_t n,
-                std::size_t quantId_start, std::size_t tpro)
+                std::size_t quantId_start)
 {
     if (_Properties.length() > 0) {
         GlobalDBPtr = std::make_shared<PGConnectPool>(1, _Properties);
     }
 
     MachineOS mos;
-    mos.enter(e2l_script, edir, n, quantId_start, tpro);
+    mos.enter(e2l_script, edir, n, quantId_start);
 } /* -----  end of function Fusion::ea  ----- */
 
 /*

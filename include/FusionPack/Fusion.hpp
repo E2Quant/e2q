@@ -68,7 +68,7 @@ public:
     void oms(std::string e2l_script, std::string &edir, int,
              func_type<> child_process);
     void ea(std::string e2l_script, std::string &edir, size_t n,
-            std::size_t quantId_start, std::size_t tpro);
+            std::size_t quantId_start);
 
     void properties(std::string &);
     void enter(const char *);

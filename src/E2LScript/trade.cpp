@@ -84,7 +84,11 @@ e2::Bool OrderClose(
 {
     ticket = NUMBERVAL(ticket);
     lots = NUMBERVAL(lots);
+    if (e2q::GlobalMainArguments.number_for_bin_read > 0) {
+        log::info("history test for order close:");
 
+        return e2::Bool::B_FALSE;
+    }
     std::size_t exit = e2q::FixPtr->_OrderTicket.count(ticket);
     if (exit == 0) {
         log::bug("ticket not found:", ticket);
@@ -192,11 +196,16 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     std::thread::id _id = std::this_thread::get_id();
 
     if (e2q::FixPtr->_fix_symbols.count(symbol) == 0) {
-        log::bug("id == 0, id:", id);
+        log::bug("symbol is empty:", symbol);
 
         return e2::Bool::B_FALSE;
     }
 
+    if (e2q::GlobalMainArguments.number_for_bin_read > 0) {
+        log::info("history test NewOrder for:", symbol);
+
+        return e2::Bool::B_FALSE;
+    }
     /**
      * 简单计算 一下钱够不够
      */

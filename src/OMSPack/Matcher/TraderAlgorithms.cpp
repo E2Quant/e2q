@@ -71,7 +71,7 @@ void TraderAlgorithms::InitSequence()
         GlobalDBPtr->release(idx);
         return;
     }
-    bool r = gsql->select_sql(sql);
+    bool r = SelectSQL(gsql, sql);
     if (r && gsql->tuple_size() > 0) {
         gsql->OneHead(&field, &val);
         if (val != nullptr) {
@@ -196,7 +196,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
                     "stat",
                     (int)e2::OrdStatus::ost_Canceled);  // OrdStatus: Canceled
                 gsql->update_condition("ticket", ol.ticket);
-                gsql->update_commit();
+                UpdateCommit(gsql);
             }
             GlobalDBPtr->release(idx);
             _broker.freeMargin(ol.owner, ol.ticket, 0);
@@ -447,8 +447,9 @@ double TraderAlgorithms::CheckMargin(const FIX::SessionID& sid, double price,
  */
 double TraderAlgorithms::traders(const FIX::SessionID& sid, double cash)
 {
-    _broker.traders(sid, cash);
-    return cash;
+    // 返回总的实际资金
+    double rcash = _broker.traders(sid, cash);
+    return rcash;
 } /* -----  end of function TraderAlgorithms::traders  ----- */
 
 /*
@@ -468,4 +469,20 @@ void TraderAlgorithms::ExdrChange(SeqType cfi, SeqType ticket, double cash,
     _broker.AddExdrCash(ticket, cash, ctime);
     _broker.AddExdrQty(cfi, ticket, qty, ctime);
 } /* -----  end of function TraderAlgorithms::ExdrChange  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  TraderAlgorithms::SessionLogout
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void TraderAlgorithms::SessionLogout(const FIX::SessionID& sid)
+{
+    _broker.CloseSession(sid);
+} /* -----  end of function TraderAlgorithms::SessionLogout  ----- */
 }  // namespace e2q

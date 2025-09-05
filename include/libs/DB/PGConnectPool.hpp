@@ -80,14 +80,18 @@ public:
     }; /* constructor */
     ~PGConnectPool()
     {
-        /* log::info("release pg pool, now size:", _pool.size(), */
-        /*           " init size:", _max_connect, " used idx:", _used_idx); */
         std::size_t num = 0;
         for (auto it : _pool) {
             while (it.first == false && num < 5) {
                 sleep(1);
                 num++;
                 log::bug("pg is runing...");
+#ifdef DEBUG
+                for (auto uil : _used_idx_log) {
+                    log::bug("not release:", uil.second.first,
+                             " code line:", uil.second.second);
+                }
+#endif
             }
             RELEASE(it.second);
         }
@@ -96,7 +100,7 @@ public:
 
     /* =============  MUTATORS      =================== */
     bool isInit() { return _pool.size() > 0; }
-    std::size_t getId();
+    std::size_t getId(const char *file = __FILE__, long lineNumber = __LINE__);
     void e2lThread(std::size_t);
     Pgsql *ptr(std::size_t);
     void release(std::size_t);
@@ -117,6 +121,11 @@ private:
     std::string _properties = "";
     std::size_t _used_idx = 0;
     std::vector<std::pair<bool, Pgsql *>> _pool;
+
+#ifdef DEBUG
+    // idx -> <code file, code line>
+    std::map<std::size_t, std::pair<std::string, long>> _used_idx_log;
+#endif
 
     using Mutex = typename e2q::BasicLock::mutex_type;
     mutable Mutex _PoolMutex;
