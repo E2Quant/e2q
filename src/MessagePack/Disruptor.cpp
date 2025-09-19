@@ -221,7 +221,7 @@ SeqType Barrier::last()
  */
 SeqType Barrier::wait_for(SeqType pos) const
 {
-    // log::info("_limit_seq size:", _limit_seq.size());
+    // elog::info("_limit_seq size:", _limit_seq.size());
     if (_last_min > pos) return _last_min;
     SeqType itr_pos = 0;
     SeqType min_pos = -1;
@@ -557,7 +557,7 @@ void Disruptor::quit()
     me_seq = _sequence_ptr->aquire();
 
     follow_min = _barrier_list.get_min();
-    log::info("name:", _name, " sleep 1, me_seq:", me_seq,
+    elog::info("name:", _name, " sleep 1, me_seq:", me_seq,
               " follow:", follow_min, " pid:", getpid());
 #endif
 
@@ -602,7 +602,7 @@ void Disruptor::wait_for(wait_for_t fun)
 
 #ifdef DEBUG
 
-    log::echo(_name, ", me_seq:", me_seq, " follow:", follow_min,
+    elog::echo(_name, ", me_seq:", me_seq, " follow:", follow_min,
               " pid:", getpid());
 #endif
 

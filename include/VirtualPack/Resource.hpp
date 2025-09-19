@@ -44,7 +44,6 @@
 
 #ifndef RESOURCE_INC
 #define RESOURCE_INC
-#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -68,7 +67,7 @@ namespace MessageShare {
 template <typename T>
 struct StashPack {
     StashPack &operator=(const StashPack &_other);
-    size_t id;  // beam assign return id
+    size_t id;        // beam assign return id
     size_t type = 0;  //  messagepack set add here, 通过查找，可以找出这个ID
                       //  对应的内存，进行不同的操作
     std::shared_ptr<T> data_ptr;
@@ -100,7 +99,7 @@ public:
     std::shared_ptr<T> MemPtr(const size_t column)
     {
         if (_source_ptr == nullptr) {
-            log::bug(" _source_ptr not init");
+            elog::bug(" _source_ptr not init");
         }
         return _source_ptr->make_share<T>(column);
     } /* -----  end of function ResourcePtr  ----- */
@@ -109,7 +108,7 @@ public:
     T ResourceObj(const size_t column)
     {
         if (_source_ptr == nullptr) {
-            log::bug(" _source_ptr not init");
+            elog::bug(" _source_ptr not init");
         }
         return _source_ptr->apply<T>(column);
     } /* -----  end of function ResourcePtr  ----- */
@@ -132,8 +131,10 @@ public:
     std::shared_ptr<T> ResourcePtr(size_t column)
     {
         if (_source_ptr == nullptr) {
-            log::bug(" _source_ptr not init");
+            elog::bug(" _source_ptr not init");
+            return nullptr;
         }
+
         std::shared_ptr<T> _msg_share_ptr = std::make_shared<T>();
         _msg_share_ptr->id = 0;
         _msg_share_ptr->data_ptr = _source_ptr->make_share<MT>(column);
@@ -148,7 +149,7 @@ public:
     std::shared_ptr<T> StashPtr()
     {
         if (_source_ptr == nullptr) {
-            log::bug(" _source_ptr not init");
+            elog::bug(" _source_ptr not init");
         }
         std::shared_ptr<T> _msg_share_ptr = std::make_shared<T>();
         _msg_share_ptr->id = 0;
@@ -175,9 +176,13 @@ public:
             _message_list.get_vector<std::shared_ptr<T>>();
         for (auto it : mt) {
             if (it->type == type) {
-                //  log::info("found");
+                //  elog::info("found");
                 return it;
             }
+        }
+        elog::bug("mt size:", mt.size(), " type:", type);
+        for (auto it : mt) {
+            elog::info("not found:", it->type);
         }
         return nullptr;
     } /* -----  end of function fetch  ----- */

@@ -99,7 +99,7 @@ std::shared_ptr<FinancialFabricate> FinFabr = nullptr;
 void ScriptThread::init(const char* file, std::string edir)
 {
     if (file == nullptr) {
-        log::bug("e2 language file is empty");
+        llog::bug("e2 language file is empty");
         return;
     }
 
@@ -173,7 +173,7 @@ void ScriptThread::e2lInit()
         _context.runCode();
     }
     else {
-        e2q::log::bug("isgc is error");
+        e2q::llog::bug("isgc is error");
     }
 } /* -----  end of function ScriptThread::e2lInit  ----- */
 /*
@@ -195,7 +195,7 @@ int ScriptThread::toScript(double argc, double argv)
         ret = _context.runFunction(argc, argv);
     }
     else {
-        e2q::log::bug("generateCode is error");
+        e2q::llog::bug("generateCode is error");
     }
     return ret;
 } /* -----  end of function ScriptThread::toScript  ----- */
@@ -225,7 +225,7 @@ size_t ScriptThread::MemSize()
         }
         /* if (st.nt == e2::NodeType::_variable || */
         /*     st.nt == e2::NodeType::_identifier) { */
-        /*     log::echo(st.name); */
+        /*     llog::echo(st.name); */
         /* } */
     }
     return num;

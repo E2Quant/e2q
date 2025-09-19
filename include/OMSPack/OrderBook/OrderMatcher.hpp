@@ -72,7 +72,7 @@ public:
 
     ~OrderMatcher()
     {
-        // log::echo("release order matcher ...");
+        // elog::echo("release order matcher ...");
         for (auto it = _markets->begin(); it != _markets->end(); ++it) {
             RELEASE(it->second);
         }

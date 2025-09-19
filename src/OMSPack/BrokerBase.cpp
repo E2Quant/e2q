@@ -49,8 +49,8 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/UtilTime.hpp"
+#include "Toolkit/eLog.hpp"
 #include "assembler/BaseType.hpp"
-#include "utility/Log.hpp"
 namespace e2q {
 
 /*
@@ -68,15 +68,15 @@ void BrokerBase::Debug()
 {
     for (auto it : _traders) {
         std::string id = it.first.getTargetCompID().getValue();
-        std::string cont = log::format("%.2f", it.second.total_cash);
-        log::info("sid:", id, " total:", cont);
+        std::string cont = elog::format("%.2f", it.second.total_cash);
+        elog::info("sid:", id, " total:", cont);
 
         for (auto ze : it.second.order_cash) {
-            cont = log::format("report: %d, equity:%.2f, margin: %.2f",
-                               ze.second.report, ze.second.equity,
+            cont = elog::format("report: %d, equity:%.2f, margin: %.2f",
+                                ze.second.report, ze.second.equity,
 
-                               ze.second.margin);
-            log::info("ticket:", ze.first, " margin:", cont);
+                                ze.second.margin);
+            elog::info("ticket:", ze.first, " margin:", cont);
         }
     }
 } /* -----  end of function BrokerBase::Debug  ----- */
@@ -188,11 +188,11 @@ void BrokerBase::SettlInst(OrderLots& lots)
             if (FinFabr->_tif == e2::TimeInForce::tif_day) {
                 if (neet_equity > margin) {
                     double _price = NUMBERVAL(price);
-                    std::string cont = log::format(
+                    std::string cont = elog::format(
                         " price: %.2f, margin: %.2f,neet equity:%.2f", _price,
                         margin, neet_equity);
-                    log::bug(" settl error ticket:", ticket, cont,
-                             " qty:", qty);
+                    elog::bug(" settl error ticket:", ticket, cont,
+                              " qty:", qty);
                     return;
                 }
             }
@@ -246,7 +246,7 @@ void BrokerBase::freeMargin(const FIX::SessionID& sid, std::size_t ticket,
         _traders.at(sid).total_cash += margin;
     }
     else {
-        log::bug("free bug ticket:", ticket, " margin:", margin);
+        elog::bug("free bug ticket:", ticket, " margin:", margin);
     }
 
 } /* -----  end of function BrokerBase::freeMargin  ----- */
@@ -273,9 +273,9 @@ bool BrokerBase::Margin(const FIX::SessionID& sid, std::size_t ticket,
     }
     if (_traders.at(sid).total_cash < margin) {
         std::string fmt =
-            log::format("total: %.2f, margin:%.2f,  ticket:%ld",
-                        _traders.at(sid).total_cash, margin, ticket);
-        log::bug(fmt);
+            elog::format("total: %.2f, margin:%.2f,  ticket:%ld",
+                         _traders.at(sid).total_cash, margin, ticket);
+        elog::bug(fmt);
         return ret;
     }
 
@@ -319,7 +319,7 @@ double BrokerBase::CheckMargin(const FIX::SessionID& id, double price, long qty)
         return 0;
     }
     if (_traders.count(id) == 0) {
-        log::bug("sid:", id.getTargetCompID().getValue());
+        elog::bug("sid:", id.getTargetCompID().getValue());
         return 0;
     }
 
@@ -327,9 +327,9 @@ double BrokerBase::CheckMargin(const FIX::SessionID& id, double price, long qty)
 
     if (_traders.at(id).total_cash < margin) {
         std::string erro =
-            log::format("total_cash %.3f  margin: %.3f price:%.3f,  qty:%ld",
-                        _traders.at(id).total_cash, margin, price, qty);
-        log::bug(erro);
+            elog::format("total_cash %.3f  margin: %.3f price:%.3f,  qty:%ld",
+                         _traders.at(id).total_cash, margin, price, qty);
+        elog::bug(erro);
         margin = -1;
     }
     return margin;
@@ -354,7 +354,7 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
     Pgsql* gsql = GlobalDBPtr->ptr(idx);
     if (gsql == nullptr) {
         GlobalDBPtr->release(idx);
-        log::bug("pgsql is null, idx:", idx);
+        elog::bug("pgsql is null, idx:", idx);
         return 0;
     }
     int fix_id = 0;
@@ -365,6 +365,8 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
         // 回测中增加资金
         _traders.at(id).total_cash += cash;
         fix_id = _traders.at(id).fix_id;
+
+        elog::echo("total_cash:", _traders.at(id).total_cash);
 
         gsql->update_table("account");
         std::string inc = " balance + " + std::to_string(cash);
@@ -392,7 +394,7 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
         }
 
         if (fix_id == 0) {
-            log::bug("fix_id == 0!");
+            elog::bug("fix_id == 0!");
             GlobalDBPtr->release(idx);
             return 0;
         }
@@ -401,7 +403,7 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
         ti.fix_id = fix_id;
         ti.total_cash = cash;
 
-        sql = log::format(
+        sql = elog::format(
             "SELECT credit FROM account WHERE sessionid= %d LIMIT 1 ;", fix_id);
 
         r = SelectSQL(gsql, sql);
@@ -424,8 +426,8 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
             InsertCommit(gsql);
         }
 
-        sql = log::format("UPDATE fixsession SET login=1 WHERE id = %d ;",
-                          fix_id);
+        sql = elog::format("UPDATE fixsession SET login=1 WHERE id = %d ;",
+                           fix_id);
 
         gsql->update_sql(sql);
         UpdateCommit(gsql);
@@ -463,7 +465,7 @@ void BrokerBase::trade_report(OrderLots& lots)
 
     // 记录单个 quantid 的 margin
     margin = _traders.at(sid).order_cash.at(ticket).equity;
-    // log::info("margin:", _traders.at(sid).order_cash.at(ticket).margin);
+    // elog::info("margin:", _traders.at(sid).order_cash.at(ticket).margin);
 
     if (isClose) {
         side = e2::Side::os_Sell;
@@ -482,9 +484,9 @@ void BrokerBase::trade_report(OrderLots& lots)
         "(SELECT id FROM fixsession WHERE targetcompid = '%s' LIMIT 1)";
 
     std::string sessionid =
-        log::format(fmt, sid.getTargetCompID().getString().c_str());
+        elog::format(fmt, sid.getTargetCompID().getString().c_str());
 
-    std::string ticket_to_id = log::format(
+    std::string ticket_to_id = elog::format(
         "(select id from trades where ticket='%ld'  limit 1)", ticket);
 
     // 在数据库是记录当前所有 ticket 加起来的 balace
@@ -500,7 +502,7 @@ void BrokerBase::trade_report(OrderLots& lots)
 
     if (pgsql == nullptr) {
         GlobalDBPtr->release(idx);
-        log::bug("pg idx is nullptr, idx:", idx);
+        elog::bug("pg idx is nullptr, idx:", idx);
         return;
     }
     pgsql->insert_table("trade_report");
@@ -565,10 +567,10 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
                     "(SELECT id FROM fixsession WHERE targetcompid = '%s' "
                     "LIMIT 1)";
 
-                std::string sessionid = log::format(
+                std::string sessionid = elog::format(
                     fmt, it.first.getTargetCompID().getString().c_str());
 
-                std::string ticket_to_id = log::format(
+                std::string ticket_to_id = elog::format(
                     "(select id from trades where ticket='%ld'  "
                     "limit 1)",
                     (std::size_t)ticket);
@@ -628,7 +630,7 @@ void BrokerBase::AddExdrQty(SeqType cfi, SeqType ticket, double qty,
     Pgsql* gsql = GlobalDBPtr->ptr(idx);
     if (gsql == nullptr) {
         GlobalDBPtr->release(idx);
-        log::bug("error in ticket:", ticket, " qty:", qty);
+        elog::bug("error in ticket:", ticket, " qty:", qty);
         return;
     }
 
@@ -665,6 +667,22 @@ void BrokerBase::AddExdrQty(SeqType cfi, SeqType ticket, double qty,
  */
 void BrokerBase::CloseSession(const FIX::SessionID& sid)
 {
+    std::string compid = sid.getTargetCompID().getValue();
+
+    std::string sql = elog::format(
+        "UPDATE fixsession SET login=0 WHERE targetcompid = '%s' ;",
+        compid.c_str());
+
+    std::size_t idx = GlobalDBPtr->getId();
+    Pgsql* gsql = GlobalDBPtr->ptr(idx);
+
+    if (gsql != nullptr) {
+        gsql->update_sql(sql);
+        UpdateCommit(gsql);
+    }
+
+    GlobalDBPtr->release(idx);
+
     if (_traders.count(sid) == 1) {
         _traders.erase(sid);
     }

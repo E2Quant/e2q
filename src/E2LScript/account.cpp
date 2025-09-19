@@ -49,7 +49,6 @@
 #include "E2LScript/foreign.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
-#include "utility/Log.hpp"
 
 namespace e2l {
 
@@ -182,12 +181,12 @@ void ThreadPosition(e2::Int_e tid, e2::Int_e position)
     }
     double free_postion = e2q::FixPtr->_cash.all_postion - thread_post._postion;
     if (free_postion < 0) {
-        std::string cond = log::format(
+        std::string cond = llog::format(
             "postion: %.03f all_postion:%.03f free:%.08f\n",
             thread_post._postion, e2q::FixPtr->_cash.all_postion, free_postion);
-        log::bug(cond);
+        llog::bug(cond);
     }
-    // log::info("number:", num, " post:", thread_post._postion);
+    // llog::info("number:", num, " post:", thread_post._postion);
     e2q::FixPtr->_cash.all_postion -= thread_post._postion;
     e2q::FixPtr->_cash._thread_pos.insert({num, thread_post});
     e2q::FixPtr->_cash._tsize++;

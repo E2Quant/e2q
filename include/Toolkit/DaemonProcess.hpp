@@ -86,7 +86,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "Toolkit/Log.hpp"
+#include "Toolkit/eLog.hpp"
 namespace e2q {
 #define MAXFD 64
 #define MAXCONNS 1024
@@ -120,7 +120,7 @@ private:
     /* =============  METHODS       =================== */
 
     /* =============  DATA MEMBERS  =================== */
-
+    pid_t _pid;
 }; /* -----  end of class DProcess  ----- */
 
 }  // namespace e2q

@@ -137,6 +137,7 @@ typedef struct SystemInitMessage SystemInitMessage;
  */
 
 struct MarketDelOrIPOMessage : public StockInfoMessage {
+    std::uint16_t count_down;
     char action = DoIAction::LIST;
 
 }; /* ----------  end of struct MarketDelOrIPOMessage  ---------- */
@@ -231,7 +232,7 @@ struct MarketTickMessage : public BaseMessage {
         if (sz != (int)mlen) {
             printf("sz:%d  mlen:%ld \n", sz, mlen);
 
-            // log::bug(err);
+            // elog::bug(err);
             return;
         }
         idx += parse_uint_t(ptr + idx, CfiCode);

@@ -179,7 +179,7 @@ Dimensional<Ts...>::Dimensional(const std::vector<std::string> *names)
             this->resize<T>(names->at(m));
         }
         else {
-            this->resize<T>(log::format("%d", m));
+            this->resize<T>(elog::format("%d", m));
         }
 
         m++;

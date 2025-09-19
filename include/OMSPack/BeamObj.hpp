@@ -66,12 +66,12 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
         bridge::ReceiveType<DisruptorStashSharePtr> rfun =
             [this](DisruptorStashSharePtr ptr) {
                 if (ptr == nullptr) {
-                    log::echo("ptr is nullptr");
+                    elog::echo("ptr is nullptr");
                     return;
                 }
 
                 auto thread_fun = [this](DisruptorStashSharePtr ptr) {
-                    // log::echo("fix ok ptr ");
+                    // elog::echo("fix ok ptr ");
 
                     ptr->data_ptr->name(
                         "FixBeam slave [disruptor -> fixaccount]");
@@ -83,7 +83,7 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
                             size_t row = m % ptr->data_ptr->rows();
                             int ret = ptr->data_ptr->fixed(&rec_data, row);
                             if (ret == -1) {
-                                log::bug(ptr->data_ptr->name(),
+                                elog::bug(ptr->data_ptr->name(),
                                          " row error:", row, " m:", m,
                                          " start:", start, " end:", end);
                                 continue;
@@ -152,7 +152,7 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
              it++) {
             if (it->second.empty()) {
                 // 应该是  OnlyEA::LOCKFOREA, 还没有来得及订阅
-                //  log::info("sid:", it->first.getTargetCompID().getValue(),
+                //  elog::info("sid:", it->first.getTargetCompID().getValue(),
                 //           " not has symbol:", stock);
                 continue;
             }
@@ -173,7 +173,7 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
                     continue;
                 }
                 if (FinFabr->_fix_symbols.count(id) == 0) {
-                    log::bug("bug stock:", id);
+                    elog::bug("bug stock:", id);
                     continue;
                 }
 

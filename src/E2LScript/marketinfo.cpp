@@ -136,6 +136,9 @@ e2::Int_e SymbolCFICode(e2::Int_e idx)
     std::size_t m = 0;
     std::size_t cfi = 0;
     for (auto it : e2q::FixPtr->_fix_symbols) {
+        // if (it.first == 0) {
+        //     continue;
+        // }
         if (m == _id) {
             cfi = it.first;
             break;
@@ -202,10 +205,12 @@ e2::Int_e Delisting(e2::Int_e cficode)
 {
     e2::Int_e ret = 0;
     size_t _cficode = NUMBERVAL(cficode);
+
     if (e2q::FixPtr->_fix_symbols.count(_cficode) == 1 &&
         e2q::FixPtr->_fix_symbols[_cficode].dia == e2q::DoIAction::DELISTING) {
-        ret = e2q::FixPtr->_fix_symbols[_cficode].uinx_time;
+        ret = e2q::FixPtr->_fix_symbols[_cficode].unix_time;
     }
+
     return ret;
 } /* -----  end of function Delisting  ----- */
 
@@ -373,7 +378,7 @@ e2::Int_e BarSeries(e2::BarType bt)
     std::size_t len = e2q::e2l_bar_ohlc.size(pid);
 
     if (bt >= len) {
-        log::bug("error len:", len, " bt:", bt);
+        llog::bug("error len:", len, " bt:", bt);
         return ret;
     }
     ret = e2q::e2l_bar_ohlc.value(pid, bt);

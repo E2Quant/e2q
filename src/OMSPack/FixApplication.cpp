@@ -57,6 +57,7 @@
 #include "OMSPack/OrderBook/Order.hpp"
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/eLog.hpp"
 #include "assembler/BaseType.hpp"
 #include "quickfix/Exceptions.h"
 #include "quickfix/Field.h"
@@ -69,7 +70,6 @@
 #include "quickfix/fix44/MessageCracker.h"
 #include "quickfix/fix44/OrderCancelReject.h"
 #include "quickfix/fix44/QuoteResponse.h"
-#include "utility/Log.hpp"
 namespace e2q {
 /*
  * ===  FUNCTION  =============================
@@ -107,9 +107,9 @@ void FixApplication::onLogon(const FIX::SessionID& sid)
     if (SessionSymList.count(sid) == 0) {
         SessionSymList[sid] = symbols;
     }
-    else {
-        log::info("sid is login ok, SessionId",
-                  sid.getTargetCompID().getValue());
+    if (SessionSymList[sid].size() == 0) {
+        elog::info("sid is login ok, SessionId:",
+                   sid.getTargetCompID().getValue());
     }
 
 } /* -----  end of function FixApplication::onLogon  ----- */
@@ -127,13 +127,7 @@ void FixApplication::onLogon(const FIX::SessionID& sid)
  */
 void FixApplication::onLogout(const FIX::SessionID& sid)
 {
-    log::info("logout:", sid.getTargetCompID());
-    if (SessionSymList.count(sid) == 1) {
-        //  SessionSymList.erase(sid);
-        SessionSymList[sid].clear();
-    }
-
-    GlobalMatcher->SessionLogout(sid);
+    //   elog::echo("heeeee:", sid.getTargetCompID().getValue());
 
 } /* -----  end of function FixApplication::onLogout  ----- */
 
@@ -150,7 +144,7 @@ void FixApplication::onLogout(const FIX::SessionID& sid)
  */
 void FixApplication::toAdmin(FIX::Message& msg, const FIX::SessionID&)
 {
-    //  log::echo(msg.toXML());
+    //  elog::echo(msg.toXML());
 } /* -----  end of function FixApplication::toAdmin  ----- */
 
 /*
@@ -177,8 +171,8 @@ void FixApplication::toApp(FIX::Message& msg, const FIX::SessionID&)
         }
     }
     catch (FIX::FieldNotFound& f) {
-        log::bug(f.what(), " field:", f.field);
-        log::echo(msg.toXML());
+        elog::bug(f.what(), " field:", f.field);
+        elog::echo(msg.toXML());
     }
 
 #endif
@@ -198,7 +192,7 @@ void FixApplication::toApp(FIX::Message& msg, const FIX::SessionID&)
  */
 void FixApplication::fromAdmin(const FIX::Message& msg, const FIX::SessionID&)
 {
-    // log::info(msg.toXML());
+    // elog::info(msg.toXML());
 } /* -----  end of function FixApplication::fromAdmin  ----- */
 
 /*
@@ -214,22 +208,23 @@ void FixApplication::fromAdmin(const FIX::Message& msg, const FIX::SessionID&)
  */
 void FixApplication::fromApp(const FIX::Message& msg, const FIX::SessionID& sid)
 {
-    // log::bug("message come in....");
+    // elog::bug("message come in....");
     try {
         crack(msg, sid);
     }
     catch (FIX::FieldNotFound& f) {
-        log::bug(f.what(), " field:", f.field);
+        elog::bug(f.what(), " field:", f.field);
     }
     catch (FIX::IncorrectDataFormat& i) {
-        log::bug(i.what());
+        elog::bug(i.what());
+        elog::bug(msg.toXML());
     }
     catch (FIX::IncorrectTagValue& v) {
-        log::bug(v.what());
-        log::info(msg.toXML());
+        elog::bug(v.what());
+        elog::info(msg.toXML());
     }
     catch (FIX::UnsupportedMessageType& t) {
-        log::bug(t.what());
+        elog::bug(t.what());
     }
 
 } /* -----  end of function FixApplication::fromApp  ----- */
@@ -248,7 +243,7 @@ void FixApplication::fromApp(const FIX::Message& msg, const FIX::SessionID& sid)
 void FixApplication::onMessage(const FIX44::Heartbeat& message,
                                const FIX::SessionID&)
 {
-    log::echo("11");
+    elog::echo("11");
 } /* -----  end of function FixApplication::onMessage  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -265,7 +260,7 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
                                const FIX::SessionID& sid)
 {
 #ifdef DEBUG
-    log::info("QuoteRequest");
+    elog::info("QuoteRequest");
 #endif
     FIX44::QuoteRequest::NoRelatedSym relateGroup;
 
@@ -274,6 +269,8 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
     std::vector<std::size_t> symbols;
     std::size_t sym_id = 0;
     double cash = 0;
+    int isRet = 1;
+
     for (int m = 1; m <= num; m++) {
         message.getGroup(m, relateGroup);
         if (relateGroup.isEmpty()) {
@@ -291,6 +288,14 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
             relateGroup.getField(coq);
             cash = coq.getValue();
         }
+
+        FIX::PutOrCall pc;
+
+        if (relateGroup.isSetField(pc)) {
+            relateGroup.getField(pc);
+
+            isRet = pc.getValue();
+        }
     }
 
     bool onlyone = false;
@@ -305,18 +310,10 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
         // 1. 在收到新的上市股票 前 登录的
         // 如果不处理的话，就那是由 MarketIng 来处理了
 #ifdef DEBUG
-        log::info("onlyone false, fix_symbols:", FinFabr->_fix_symbols.size());
+        elog::info("onlyone false, fix_symbols:", FinFabr->_fix_symbols.size());
 #endif
         return;
     }
-
-    // onlyone > 0
-    // FinFabr->_fix_symbols.size()>0  这个时候， 应该是有新的账号登录了
-
-    //        if (onlyone) {
-    // 2. 在收到新的上市股票 后 登录的
-    // MassQuote 否则 ea 就没有办法初始化了
-    MassQuote(sid);
 
     if (symbols.size() > 0) {
         // 如果是 ea 自己定义的 symoble 有可能是错误的
@@ -326,9 +323,19 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
             SessionSymList.insert({sid, symbols});
         }
         else {
-            log::echo("tag:", sid.getTargetCompID().getValue());
             SessionSymList[sid] = symbols;
         }
+    }
+
+    // onlyone > 0
+    // FinFabr->_fix_symbols.size()>0  这个时候， 应该是有新的账号登录了
+
+    //        if (onlyone) {
+    // 2. 在收到新的上市股票 后 登录的
+    // MassQuote 否则 ea 就没有办法初始化了
+
+    if (isRet) {
+        MassQuote(sid);
     }
 
     if (cash > 0) {
@@ -366,10 +373,24 @@ void FixApplication::onMessage(const FIX44::QuoteRequest& message,
  *
  * ============================================
  */
-void FixApplication::onMessage(const FIX44::QuoteCancel& message,
-                               const FIX::SessionID&)
+void FixApplication::onMessage(const FIX44::QuoteStatusReport& message,
+                               const FIX::SessionID& sid)
 {
-    log::echo("222");
+    FIX::QuoteStatus stat;
+    message.getFieldIfSet(stat);
+
+    if (stat.getValue() == 1) {
+        elog::echo("QuoteStatusReport sid:", sid.getTargetCompID().getValue());
+    }
+    else {
+        if (_is_logout) {
+            GlobalMatcher->SessionLogout(sid);
+            elog::info("logout:", sid.getTargetCompID());
+            if (SessionSymList.count(sid) == 1) {
+                SessionSymList[sid].clear();
+            }
+        }
+    }
 
 } /* -----  end of function FixApplication::onMessage  ----- */
 
@@ -392,7 +413,7 @@ void FixApplication::onMessage(const FIX44::NewOrderSingle& message,
             onMess(message);
             break;
         case e2::BookType::ABook:
-            log::info("ABook new order");
+            elog::info("ABook new order");
             onMess(message);
             break;
         default:
@@ -416,7 +437,7 @@ void FixApplication::onMessage(const FIX44::NewOrderSingle& message,
 void FixApplication::onMessage(const FIX44::OrderCancelRequest& message,
                                const FIX::SessionID&)
 {
-    log::echo("222");
+    elog::echo("222");
 
     FIX::OrigClOrdID origClOrdID;
     FIX::Symbol symbol;
@@ -448,7 +469,7 @@ void FixApplication::onMessage(const FIX44::OrderCancelRequest& message,
 void FixApplication::onMessage(const FIX44::OrderCancelReject&,
                                const FIX::SessionID&)
 {
-    log::echo("222");
+    elog::echo("222");
 
 } /* -----  end of function FixApplication::onMessage  ----- */
 
@@ -466,7 +487,7 @@ void FixApplication::onMessage(const FIX44::OrderCancelReject&,
 void FixApplication::onMessage(const FIX44::OrderCancelReplaceRequest& message,
                                const FIX::SessionID& sessionID)
 {
-    // log::info("OrderCancelReplaceRequest");
+    // elog::info("OrderCancelReplaceRequest");
 
     switch (FinFabr->_BookType) {
         case e2::BookType::BBook:
@@ -540,7 +561,7 @@ bool FixApplication::processOrder(OrderItem* order)
 
     bool ret = GlobalMatcher->insert(order);
     if (ret == false) {
-        log::bug("insert bug:", order->Pending()->getTicket());
+        elog::bug("insert bug:", order->Pending()->getTicket());
         return false;
     }
 
@@ -641,34 +662,24 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         // 开仓出现的
         stat = e2::OrdStatus::ost_Rejected;
     }
+
+    //  &&
+    //            it.second.dia == DoIAction::LIST
     Pgsql* gsql = GlobalDBPtr->ptr(idx);
     if (gsql != nullptr) {
-        // const char* fmt =
-        //     "SELECT quantid from trades WHERE ticket=%ld LIMIT 1;";
-        // std::string sql = log::format(fmt, ticket);
-        // // log::info(sql);
-        // bool r = gsql->select_sql(sql);
-        // if (r && gsql->tuple_size() > 0) {
-        //
-        //     gsql->update_table("trades");
-        //     gsql->update_field("stat", e2::OrdStatus::ost_Rejected);
-        //     gsql->update_field("qty", qty);
-        //     gsql->update_field("ctime", ticket_now);
-        //     gsql->update_field("otime", ticket_now);
-        //     gsql->update_field("price", NUMBERVAL(price));
-        //     gsql->update_condition("ticket", ticket);
-        //     gsql->update_commit();
-        // }
-        // else {
-
         int cfi = 0;
         for (auto it : FinFabr->_fix_symbols) {
+            if (it.first == 0) {
+                continue;
+            }
+            // 这儿以后优化吧
             if (it.second.symbol == symbol.getValue()) {
-                cfi = it.first;
-                break;
+                if (it.first > cfi) {
+                    cfi = it.first;
+                }
             }
         }
-        std::string cfi_str = log::format(
+        std::string cfi_str = elog::format(
             "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC "
             "LIMIT "
             "1 )",
@@ -676,7 +687,7 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         gsql->insert_table("trades");
         gsql->insert_field("symbol", cfi_str);
         gsql->insert_field("ticket", ticket);
-        gsql->insert_field("stat", stat);
+        gsql->insert_field("stat", int(stat));
         gsql->insert_field("ctime", ticket_now);
         gsql->insert_field("otime", ticket_now);
 
@@ -685,7 +696,6 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         gsql->insert_field("qty", qty);
         gsql->insert_field("price", NUMBERVAL(price));
         InsertCommit(gsql);
-        //  }
     }
 
     GlobalDBPtr->release(idx);
@@ -731,6 +741,7 @@ void FixApplication::FeedDataHandle()
         }
 
         std::string sym = "";
+        //&& it.second.dia == DoIAction::LIST
         for (auto it : FinFabr->_fix_symbols) {
             if (it.first == cfi) {
                 sym = it.second.symbol;
@@ -747,7 +758,7 @@ void FixApplication::FeedDataHandle()
             if (ticket_now == 0) {
                 global_id_class[0] = this_thread::get_id();
 #ifndef KAFKALOG
-                elog.init(global_id_class[0]);
+                log.init(global_id_class[0]);
 #endif
             }
             ticket_now = now;
@@ -775,6 +786,8 @@ void FixApplication::FeedDataHandle()
 
     _fdata.ctrl(fix_call);
 
+    _is_logout = false;
+
     for (auto session : SessionSymList) {
         QuoteCancel(session.first);
     }
@@ -783,7 +796,7 @@ void FixApplication::FeedDataHandle()
 
     _is_end = true;
 #ifdef KAFKALOG
-    elog.exist();
+    log.exist();
 #endif
 } /* -----  end of function FixApplication::FeedDataHandle  ----- */
 
@@ -815,7 +828,7 @@ void FixApplication::QuoteCancel(const FIX::SessionID& sid)
         FIX::Session::sendToTarget(qc, sid);
     }
     catch (FIX::SessionNotFound& s) {
-        log::bug(s.what());
+        elog::bug(s.what());
     }
 } /* -----  end of function FixApplication::QuoteCancel  ----- */
 
@@ -859,7 +872,7 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
         global_id_class[1] = std::this_thread::get_id();
 
 #ifndef KAFKALOG
-        elog.init(global_id_class[1]);
+        log.init(global_id_class[1]);
 #endif
         risk = _program->toScript(e2::OMSRisk::I_BROKER, symbol);
 
@@ -871,13 +884,13 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
             int ret = GlobalMatcher->AddBotTicket(ticket, ordType, side,
                                                   bot_qty, symbol);
             if (ret == -1) {
-                log::bug("AddBotTicket == -1");
+                elog::bug("AddBotTicket == -1");
                 return -1;
             }
         }
     }
     else {
-        log::bug("program is not run");
+        elog::bug("program is not run");
     }
     return risk;
 } /* -----  end of function FixApplication::E2LScript  ----- */
@@ -921,11 +934,21 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
     /**
      *  以后再优化把 symbol 全部转为 int 值
+     *
+     *  && syms.second.dia == DoIAction::LIST
      */
     for (auto syms : FinFabr->_fix_symbols) {
         if (syms.second.symbol == symbol.getValue()) {
             sym = syms.first;
         }
+    }
+    if (FinFabr->_stock.count(sym) == 0) {
+        elog::bug("bug stock:", sym, " side:", oside,
+                  " ticket:", oid.getValue(), " date:", tradeDate.getValue());
+        if (price.getLength() > 0) order_price = price.getValue();
+        rejectOrder(sid, clOrdID, symbol, side, "stop order now", ticket, qid,
+                    order_qty, order_price);
+        return;
     }
     SeqType ctime = FinFabr->_stock.at(sym)[Trading::t_time];
     long otime = atol(tradeDate.getValue().c_str());
@@ -969,7 +992,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
         }
     }
     if (order_price <= 0 || order_qty <= 0) {
-        log::echo("order_price == 0");
+        elog::echo("order_price == 0");
         rejectOrder(sid, clOrdID, symbol, side, "order_price == 0", ticket, qid,
                     order_qty, order_price);
         return;

@@ -120,7 +120,7 @@ void FixGuard::MarketMessage(const FIX::SessionID& sid,
         FIX::Session::sendToTarget(mdsfr, sid);
     }
     catch (FIX::SessionNotFound& s) {
-        log::bug(s.what());
+        elog::bug(s.what());
     }
 
 } /* -----  end of function FixGuard::MarketMessage  ----- */
@@ -157,7 +157,7 @@ void FixGuard::CustemRequest(const FIX::SessionID& sid, std::string& data,
         FIX::Session::sendToTarget(lss, sid);
     }
     catch (FIX::SessionNotFound& e) {
-        log::bug(e.what());
+        elog::bug(e.what());
     }
 } /* -----  end of function FixGuard::CustemRequest  ----- */
 
@@ -175,7 +175,7 @@ void FixGuard::CustemRequest(const FIX::SessionID& sid, std::string& data,
 void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
 {
     if (order.clOrdId.length() == 0) {
-        log::echo("clordis ie empty");
+        elog::echo("clordis ie empty");
         return;
     }
     /**
@@ -248,12 +248,20 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
         }
         int cfi = 0;
         for (auto it : FinFabr->_fix_symbols) {
+            if (it.first == 0) {
+                continue;
+            }
+            // &&
+            //    it.second.dia == DoIAction::LIST
+            // 这儿以后优化吧
+
             if (it.second.symbol == order.symbol) {
-                cfi = it.first;
-                break;
+                if (it.first > cfi) {
+                    cfi = it.first;
+                }
             }
         }
-        std::string cfi_str = log::format(
+        std::string cfi_str = elog::format(
             "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC LIMIT "
             "1 )",
             cfi);
@@ -273,11 +281,11 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
             }
 
             if (status == FIX::OrdStatus_NEW) {
-                // log::info("new price:", order.price);
+                // elog::info("new price:", order.price);
                 gsql->insert_field("price", order.price, deci);
             }
             else {
-                // log::info("trade price:", order.lastExecutedPrice);
+                // elog::info("trade price:", order.lastExecutedPrice);
 
                 gsql->insert_field("price", order.lastExecutedPrice, deci);
             }
@@ -349,7 +357,7 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
         FIX::Session::sendToTarget(executionReport, sid);
     }
     catch (FIX::SessionNotFound& e) {
-        log::bug(e.what());
+        elog::bug(e.what());
     }
 } /* -----  end of function FixGuard::updateOrder  ----- */
 
@@ -368,7 +376,7 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
 {
     FIN_FABR_IS_NULL();
 #ifdef DEBUG
-    log::info("MassQuote");
+    elog::info("MassQuote");
 #endif
     FIX44::MassQuote mq = FIX44::MassQuote(FIX::QuoteID(UUidGen()));
     FIX44::MassQuote::NoQuoteSets nqs = FIX44::MassQuote::NoQuoteSets();
@@ -386,17 +394,6 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
     char fmt[] = "%02ld%02ld%02ld%02ld";
     FIX::EventDate edate;
 
-    for (auto it : FinFabr->_tradetime) {
-        pdate = FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents();
-        date = log::format(fmt, it.open_hour, it.open_min, it.close_hour,
-                           it.close_min);
-        edate = FIX::EventDate();
-        edate.setValue(date);
-
-        pdate.setField(edate);
-        nqs.addGroup(pdate);
-    }
-
     for (auto sym : e2q::FinFabr->_fix_symbols) {
         if (sym.second.dia == DoIAction::DELISTING ||
             sym.second.only_ea == OnlyEA::LOCKFOREA) {
@@ -406,8 +403,7 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
 
         symbol = FIX::Symbol(sym.second.symbol);
         pid.setField(symbol);
-        // log::echo("code:", sym.first,
-        //           " tag:", session.getTargetCompID().getValue());
+
         qeid = FIX::QuoteEntryID(std::to_string(sym.first));
         pid.setField(qeid);
 
@@ -417,8 +413,26 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
         if (sym.first > 0 &&
             FinFabr->_fix_symbol_only_for_ea == OnlyEA::LOCKFOREA) {
             FinFabr->_fix_symbols.at(sym.first).only_ea = OnlyEA::LOCKFOREA;
+
             break;
         }
+    }
+
+    if (nqs.groupCount(pid.field()) <= 1) {
+        elog::info("empty fix_symbols ! session:",
+                   session.getTargetCompID().getValue());
+        return;
+    }
+
+    for (auto it : FinFabr->_tradetime) {
+        pdate = FIX44::MassQuote::NoQuoteSets::NoQuoteEntries::NoEvents();
+        date = elog::format(fmt, it.open_hour, it.open_min, it.close_hour,
+                            it.close_min);
+        edate = FIX::EventDate();
+        edate.setValue(date);
+
+        pdate.setField(edate);
+        nqs.addGroup(pdate);
     }
 
     qsid = FIX::QuoteSetID("");
@@ -453,7 +467,7 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
     }
 
     catch (FIX::SessionNotFound& e) {
-        log::bug(e.what());
+        elog::bug(e.what());
     }
 
 } /* -----  end of function FixGuard::MassQuote  ----- */

@@ -58,12 +58,12 @@ namespace e2q {
 void FixQuote::callback(std::shared_ptr<ConnectSignal> beam)
 {
     if (beam == nullptr || beam->id != SigId::_feedId) {
-        log::bug("ConnectSignal is null");
+        elog::bug("ConnectSignal is null");
 
         return;
     }
     if (_master == nullptr || _master->data_ptr == nullptr) {
-        log::bug("master is null");
+        elog::bug("master is null");
         return;
     }
     _master->id = _id;
@@ -90,7 +90,7 @@ void FixQuote::resource(_Resource_ptr ptr, std::size_t sleep_time)
 {
     _rptr = ptr;
     if (_rptr == nullptr) {
-        log::bug("resource is null");
+        elog::bug("resource is null");
         return;
     }
     _master = _rptr->ResourcePtr<DisruptorStash, Disruptor>(trading_protocols);
@@ -116,13 +116,13 @@ void FixQuote::resource(_Resource_ptr ptr, std::size_t sleep_time)
 void FixQuote::handle(std::array<SeqType, trading_protocols> &data)
 {
     if (_master == nullptr || _master->data_ptr == nullptr) {
-        log::bug("master is nullptr!");
+        elog::bug("master is nullptr!");
         return;
     }
     _master->data_ptr->wait_next();
     int ret = _master->data_ptr->deposit(data);
     if (ret == -1) {
-        log::echo("deposit ret:", ret);
+        elog::echo("deposit ret:", ret);
     }
 } /* -----  end of function Fixudo uote::handle  ----- */
 

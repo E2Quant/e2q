@@ -40,9 +40,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * =====================================================================================
  */
-#include "../include/Toolkit/Log.hpp"
+#include "Toolkit/eLog.hpp"
 namespace e2q {
-namespace log {
+
+namespace elog {
 
 std::string format(const char* fmt, ...)
 {
@@ -69,6 +70,5 @@ std::string format(const char* fmt, ...)
 
     return result;
 }
-}  // namespace log
+}  // namespace elog
 }  // namespace e2q
-

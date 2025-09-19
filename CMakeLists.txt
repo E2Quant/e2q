@@ -276,11 +276,13 @@ endforeach()
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC 
-    ${PROJECT_SOURCE_DIR}/include
-
+    
     /usr/local/include/e2
+
     ${UUID_INCLUDE_DIRS}
     ${PostgreSQL_INCLUDE_DIRS}
+
+    ${PROJECT_SOURCE_DIR}/include
 
     )
 

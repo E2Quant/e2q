@@ -208,7 +208,7 @@ typedef struct __Coordinate Coordinate;
             bool two = (0 <= val && val < p1);                 \
             __ret = (one || two);                              \
             if (__ret == false) {                              \
-                log::bug("_tailIndex:", p0, " val:", val,      \
+                elog::bug("_tailIndex:", p0, " val:", val,      \
                          " _writingIndex:", p1);               \
             }                                                  \
         } while (0);                                           \
@@ -310,19 +310,19 @@ public:
     {
         Lock _lock(SilkPMutex);
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (_mulberry.rw == _ENUM::r) {
-            log::bug("data is read only");
+            elog::bug("data is read only");
             return -1;
         }
         if (row >= _mulberry.row || column >= _mulberry.column) {
-            log::bug("row must -lt rows, column must -lt column");
+            elog::bug("row must -lt rows, column must -lt column");
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init");
+            elog::bug("data not init");
             return -1;
         }
 
@@ -330,7 +330,7 @@ public:
 
         if (row > now) {
             // it's the last row
-            log::bug("row -gt bottom ");
+            elog::bug("row -gt bottom ");
 
             return -1;
         }
@@ -352,19 +352,19 @@ public:
     {
         Lock _lock(SilkPMutex);
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (_mulberry.rw == _ENUM::r) {
-            log::bug("data is read only");
+            elog::bug("data is read only");
             return -1;
         }
         if (row >= _mulberry.row || data.size() != _mulberry.column) {
-            log::bug("row must -lt rows, column must -lt column");
+            elog::bug("row must -lt rows, column must -lt column");
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init");
+            elog::bug("data not init");
             return -1;
         }
 
@@ -372,7 +372,7 @@ public:
 
         if (row > now) {
             // it's the last row
-            log::bug("row -gt bottom ");
+            elog::bug("row -gt bottom ");
 
             return -1;
         }
@@ -406,7 +406,7 @@ public:
     {
         std::vector<int> ids;
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return ids;
         }
         int ret = 0;
@@ -477,17 +477,17 @@ public:
     int check(size_t Nc)
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (Nc != _mulberry.column) {
-            log::bug("Nm must eq column, ", Nc, "  c:", _mulberry.column);
+            elog::bug("Nm must eq column, ", Nc, "  c:", _mulberry.column);
 
             return -1;
         }
 
         if (_mulberry.rw == _ENUM::r) {
-            log::bug("data is read only");
+            elog::bug("data is read only");
             return -1;
         }
         size_t next_write = ((*_writedIndex) + 1) % _mulberry.row;
@@ -498,7 +498,7 @@ public:
                 ATOMICADD(_tailIndex);
             }
             else {
-                log::bug("data is full");
+                elog::bug("data is full");
                 return -1;
             }
         }
@@ -523,17 +523,17 @@ public:
     int cursor()
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (_mulberry.rw == _ENUM::r) {
-            log::bug("data is read only");
+            elog::bug("data is read only");
             return -1;
         }
 
         // one writed not clear
         if (ATOMICEQ(_writedIndex, _tailIndex)) {
-            log::info("data is empty");
+            elog::info("data is empty");
             return -1;
         }
         ATOMICADD(_tailIndex);
@@ -554,17 +554,17 @@ public:
     int cursor(size_t num)
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (_mulberry.rw == _ENUM::r) {
-            log::bug("data is read only");
+            elog::bug("data is read only");
             return -1;
         }
 
         // one writed not clear
         if (ATOMICEQ(_writedIndex, _tailIndex)) {
-            log::bug("data is empty");
+            elog::bug("data is empty");
             return -1;
         }
 
@@ -574,7 +574,7 @@ public:
         size_t real_num = ATOMICDIFF(_writedIndex, _tailIndex, _mulberry.row);
 
         if (num > real_num) {
-            log::bug("num:", num, " real_num:", real_num);
+            elog::bug("num:", num, " real_num:", real_num);
             num = real_num;
         }
 
@@ -623,16 +623,16 @@ public:
     int tail(std::array<T, Nc> *data, const int row)
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (Nc != _mulberry.column) {
-            log::bug("Nm must eq column");
+            elog::bug("Nm must eq column");
             return -1;
         }
 
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init");
+            elog::bug("data not init");
             return -1;
         }
         size_t _row = abs(row);
@@ -643,12 +643,12 @@ public:
         size_t total = hash_row() + 1;
         if (total < _row) {
             // it's the top row
-            log::bug("row -gt top ");
+            elog::bug("row -gt top ");
             return -1;
         }
         _row = total - _row;
 
-        // log::echo("_row:", _row);
+        // elog::echo("_row:", _row);
 
         size_t writed = *_writedIndex;
 
@@ -681,16 +681,16 @@ public:
     int read(std::array<T, Nc> *data)
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (Nc != _mulberry.column) {
-            log::bug("Nm must eq column");
+            elog::bug("Nm must eq column");
             return -1;
         }
 
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            // log::bug("data not init");
+            // elog::bug("data not init");
             return -1;
         }
         size_t row = 0;
@@ -702,16 +702,16 @@ public:
     int read(std::array<std::array<T, Nc>, Nr> *data)
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (Nc != _mulberry.column) {
-            log::bug("Nm must eq column");
+            elog::bug("Nm must eq column");
             return -1;
         }
 
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init");
+            elog::bug("data not init");
             return -1;
         }
         size_t row = 0;
@@ -743,16 +743,16 @@ public:
     int read(std::array<T, Nc> *data, const size_t row)
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (Nc != _mulberry.column) {
-            log::bug("Nm must eq column, Nc:", Nc,
+            elog::bug("Nm must eq column, Nc:", Nc,
                      "  column:", _mulberry.column);
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init");
+            elog::bug("data not init");
             return -1;
         }
 
@@ -764,7 +764,7 @@ public:
 
         if (row > now) {
             // it's the last row
-            log::bug("row -gt bottom row:", row, " now:", now);
+            elog::bug("row -gt bottom row:", row, " now:", now);
             return -1;
         }
 
@@ -795,16 +795,16 @@ public:
 
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         if (Nc != _mulberry.column) {
-            log::bug("Nm must eq column, Nc:", Nc,
+            elog::bug("Nm must eq column, Nc:", Nc,
                      "  column:", _mulberry.column);
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init");
+            elog::bug("data not init");
             return -1;
         }
 
@@ -816,7 +816,7 @@ public:
 
         if (row > now) {
             // it's the last row
-            log::bug("row -gt bottom row:", row, " now:", now);
+            elog::bug("row -gt bottom row:", row, " now:", now);
             return -1;
         }
 
@@ -852,17 +852,17 @@ public:
     T *fetch(const size_t row, const size_t column) const
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return nullptr;
         }
         size_t index = 0;
 
         if (row >= _mulberry.row || column >= _mulberry.column) {
-            log::bug("row must -lt rows, column must -lt column");
+            elog::bug("row must -lt rows, column must -lt column");
             return nullptr;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init");
+            elog::bug("data not init");
             return nullptr;
         }
         size_t now = hash_row();
@@ -873,7 +873,7 @@ public:
 
         if (row > now) {
             // it's the last row
-            log::bug("row -gt bottom ");
+            elog::bug("row -gt bottom ");
             return nullptr;
         }
 
@@ -896,7 +896,7 @@ public:
     int fetch(T **t, const size_t row, const size_t column)
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
         *t = this->fetch(row, column);
@@ -946,18 +946,18 @@ public:
 
     {
         if (isnull()) {
-            log::bug("data no init!");
+            elog::bug("data no init!");
             return -1;
         }
 
         if (ATOMICEBETWEEN(_tailIndex, row, _writingIndex, _mulberry.row) ==
             false) {
-            log::bug("row must -lt rows, column must -lt column,  row:", row,
+            elog::bug("row must -lt rows, column must -lt column,  row:", row,
                      " mulberry row:", _mulberry.row);
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            log::bug("data not init, writed index:", *_writedIndex,
+            elog::bug("data not init, writed index:", *_writedIndex,
                      " tail:", _tailIndex->load(std::memory_order_acquire));
             return -1;
         }
@@ -1034,7 +1034,7 @@ public:
 
     const SilkPermit<T> &operator[](size_t row)
     {
-        log::echo("[] row:", row);
+        elog::echo("[] row:", row);
         _rc = {row, 0};
 
         return *this;
@@ -1042,7 +1042,7 @@ public:
 
     const T operator[](int column) const
     {
-        log::echo("[] column:", column);
+        elog::echo("[] column:", column);
         return at(_rc.row, column);
     }
 
@@ -1054,7 +1054,7 @@ public:
     }
 
     // 之后再做
-    // void operator[](Coordinate c) { log::echo("x:", c.x, " y:", c.y); }
+    // void operator[](Coordinate c) { elog::echo("x:", c.x, " y:", c.y); }
 
     /* SilkPermit operator+(SilkPermit &_other) */
     /* { */
@@ -1102,18 +1102,18 @@ public:
     // 以后再开发
     /* SilkPermit &operator=(const T &v) */
     /* { */
-    /*     e2q::log::echo(" == int"); */
+    /*     e2q::elog::echo(" == int"); */
     /*     if (isnull()) { */
-    /*         log::bug("data no init!"); */
+    /*         elog::bug("data no init!"); */
     /*         return; */
     /*     } */
     /*     if (_mulberry.rw == _ENUM::r) { */
-    /*         log::bug("data is read only"); */
+    /*         elog::bug("data is read only"); */
     /*         return; */
     /*     } */
 
     /*     if (ATOMICEQ(_writedIndex, _writingIndex)) { */
-    /*         log::bug("data not init"); */
+    /*         elog::bug("data not init"); */
     /*         return; */
     /*     } */
 
@@ -1132,7 +1132,7 @@ protected:
             _mulberry.callback(_mulberry.first, _mulberry.offset,
                                _mulberry.index);
             /* #ifdef DEBUG */
-            /*             log::echo("release SilkPermit ... rw"); */
+            /*             elog::echo("release SilkPermit ... rw"); */
             /* #endif */
         }
         _mulberry.callback = nullptr;
@@ -1210,11 +1210,11 @@ public:
     ~Silkworm()
     {
         Silk<T> *ptr = nullptr;
-        // log::echo("_current_id:", _current_id);
+        // elog::echo("_current_id:", _current_id);
         for (int m = 0; m <= _current_id; m++) {
             int i = _silk_tree_ptr->fetch(&ptr, m);
             if (i == -1 || ptr == nullptr) {
-                log::bug("ptr is null");
+                elog::bug("ptr is null");
                 continue;
             }
             if (ptr->data != nullptr) {
@@ -1257,7 +1257,7 @@ public:
         Silk<T> *ptr = nullptr;
         int i = _silk_tree_ptr->fetch(&ptr, index);
         if (i == -1 || ptr == nullptr) {
-            log::bug("ptr is null");
+            elog::bug("ptr is null");
             return;
         }
 
@@ -1488,7 +1488,7 @@ private:
             }
         }
         if (id == -1) {
-            log::info("new bin tree");
+            elog::info("new bin tree");
             addOneBinTree();
             run_id = ranking(mul, _current_id, need_total);
         }

@@ -46,8 +46,8 @@
 #include <cstdio>
 #include <string>
 
-#include "Toolkit/Log.hpp"
-#include "utility/Colors.hpp"
+#include "Toolkit/Colors.hpp"
+#include "Toolkit/eLog.hpp"
 namespace e2q {
 
 /*
@@ -65,7 +65,7 @@ Pgsql::Pgsql(std::string file)
 {
     _properties = file;
     if (_properties.length() == 0) {
-        log::bug("properties is empty");
+        elog::bug("properties is empty");
         return;
     }
     init();
@@ -165,7 +165,7 @@ int Pgsql::PGResult(char **field, char **val)
 {
     int ret = -1;
     if (_res == nullptr) {
-        log::echo("res is null");
+        elog::echo("res is null");
         return ret;
     }
 
@@ -209,7 +209,7 @@ bool Pgsql::row()
 void Pgsql::OneHead(char **field, char **val)
 {
     if (_res == nullptr || _nfields == 0) {
-        log::echo("res is null");
+        elog::echo("res is null");
         return;
     }
 
@@ -352,11 +352,11 @@ bool Pgsql::exec(std::string sql, const char *file, long lineNumber)
 {
     bool ret = false;
     if (_conn == nullptr) {
-        log::bug("conn is nullptr");
+        elog::bug("conn is nullptr");
         init();
     }
     if (debug) {
-        log::info(sql);
+        elog::info(sql);
     }
     if (_res != nullptr) {
         PQclear(_res);
@@ -368,7 +368,7 @@ bool Pgsql::exec(std::string sql, const char *file, long lineNumber)
 
     switch (est) {
         case PGRES_EMPTY_QUERY:
-            log::echo("empty query");
+            elog::echo("empty query");
 
             break;
         case PGRES_COMMAND_OK: {
@@ -395,9 +395,9 @@ bool Pgsql::exec(std::string sql, const char *file, long lineNumber)
         case PGRES_NONFATAL_ERROR:
         case PGRES_FATAL_ERROR:
         default:
-            std::string err = log::format("exec : %s", PQerrorMessage(_conn));
-            log::log_cout(file, __FUNCTION__, lineNumber, KRED, err);
-            log::log_cout(file, __FUNCTION__, lineNumber, KRED, sql);
+            std::string err = elog::format("exec : %s", PQerrorMessage(_conn));
+            elog::log_cout(file, __FUNCTION__, lineNumber, KRED, err);
+            elog::log_cout(file, __FUNCTION__, lineNumber, KRED, sql);
 
             PQclear(_res);
             _res = nullptr;

@@ -99,7 +99,7 @@ bool RingLoop::init(e2::Int_e id, std::size_t length)
     }
     else {
         if (_ring_data.at(_tid).at(id).length != length) {
-            log::bug("id:", id, " len:", _ring_data.at(_tid).at(id).length,
+            elog::bug("id:", id, " len:", _ring_data.at(_tid).at(id).length,
                      " now length:", length);
             _ring_data.at(_tid).at(id).length = length;
             return false;
@@ -134,7 +134,7 @@ std::size_t RingLoop::length(std::thread::id _tid, e2::Int_e id)
 {
     std::map<e2::Int_e, RingLoopType> _data;
     if (_ring_data.count(_tid) == 0) {
-        log::bug("bad thread id:", _tid);
+        elog::bug("bad thread id:", _tid);
         return 0;
     }
     _data = _ring_data.at(_tid);
@@ -166,12 +166,12 @@ std::size_t RingLoop::size(std::thread::id _tid, e2::Int_e id)
 {
     std::map<e2::Int_e, RingLoopType> _data;
     if (_ring_data.count(_tid) == 0) {
-        // log::bug("bad thread id:", _tid);
+        // elog::bug("bad thread id:", _tid);
         return 0;
     }
     _data = _ring_data.at(_tid);
     if (_data.count(id) == 0) {
-        // log::bug("id not exit id:", id, " data size:", _data.size());
+        // elog::bug("id not exit id:", id, " data size:", _data.size());
         return 0;
     }
     return _data.at(id).data.size();
@@ -197,12 +197,12 @@ e2::Bool RingLoop::add(e2::Int_e id, e2::Int_e val)
 
     std::thread::id _tid = std::this_thread::get_id();
     if (_ring_data.count(_tid) == 0) {
-        log::bug("bad thread id:", _tid);
+        elog::bug("bad thread id:", _tid);
         return e2::Bool::B_FALSE;
     }
     _data = _ring_data.at(_tid);
     if (_data.count(id) == 0 || _data.at(id).length == 0) {
-        log::bug("bad data id:", id);
+        elog::bug("bad data id:", id);
         return e2::Bool::B_FALSE;
     }
 
@@ -275,7 +275,7 @@ void RingLoop::fixed(e2::Int_e id)
     _data = _ring_data.at(_tid);
 
     if (_data.count(id) == 0) {
-        log::bug("fixed not found id:", id);
+        elog::bug("fixed not found id:", id);
 
         return;
     }
@@ -304,7 +304,7 @@ e2::Int_e RingLoop::get(std::thread::id _tid, e2::Int_e id, std::size_t idx)
 
     std::map<e2::Int_e, RingLoopType> _data;
     if (_ring_data.count(_tid) == 0) {
-        log::bug("bad thread id:", _tid);
+        elog::bug("bad thread id:", _tid);
         return val;
     }
 
@@ -382,13 +382,13 @@ e2::Bool RingLoop::update(std::thread::id _tid, e2::Int_e id, std::size_t idx,
 
     std::map<e2::Int_e, RingLoopType> _data;
     if (_ring_data.count(_tid) == 0) {
-        log::bug("thread is empty ring data!");
+        elog::bug("thread is empty ring data!");
         return e2::Bool::B_FALSE;
     }
     _data = _ring_data.at(_tid);
 
     if (_data.count(id) == 0) {
-        log::bug("not found id:", id);
+        elog::bug("not found id:", id);
         return e2::Bool::B_FALSE;
     }
 

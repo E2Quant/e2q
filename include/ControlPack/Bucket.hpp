@@ -269,7 +269,7 @@ private:
             hasVisit = false;
         }
         if (hasVisit) {
-            log::bug("has nothing visit!!");
+            elog::bug("has nothing visit!!");
         }
     }
 

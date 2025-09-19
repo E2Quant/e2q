@@ -47,7 +47,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <ctime>
-#include <exception>
 #include <memory>
 #include <string>
 #include <thread>
@@ -55,6 +54,7 @@
 
 #include "E2L/E2LType.hpp"
 #include "E2L/general.hpp"
+#include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/util_inline.hpp"
 
 namespace e2q {
@@ -79,7 +79,7 @@ StrategyBase::StrategyBase(_Resource_ptr ptr,
 {
     _quantIdStart = quantId_start;
     if (ptr == nullptr) {
-        log::bug("sourece ptr is nullptr!!!");
+        elog::bug("sourece ptr is nullptr!!!");
     }
     else {
         _source_ptr = std::move(ptr);
@@ -114,7 +114,7 @@ void StrategyBase::ProgramInit(std::string &file, std::string &edir)
     bool call = _program.CheckCall();
 
     if (call) {
-        log::bug("call method is error!!");
+        elog::bug("call method is error!!");
         return;
     }
     _mem_size = _program.MemSize();
@@ -127,7 +127,7 @@ void StrategyBase::ProgramInit(std::string &file, std::string &edir)
         _program.toScript(argc, argc);
     }
     else {
-        log::bug("FixPtr is nullptr or ok != proc");
+        elog::bug("FixPtr is nullptr or ok != proc");
     }
 
     GlobalDBPtr->e2lThread(e2l_thread_num);
@@ -157,15 +157,13 @@ void StrategyBase::runScript()
         /**
          * 有时候 FeedBalance::obtain() 还没有准备好，就找不到了，以后再优化
          */
-        log::bug("e2l_cnt is null");
+        elog::bug("e2l_cnt is null");
         return;
     }
 
     ticket_now = 0;
     std::size_t e2l_count = 0;
     std::size_t next_row = 0;
-
-    std::srand(getpid());
 
     auto job_init = [this](std::size_t num, std::thread::id _id) {
         std::size_t _uuid = 0;
@@ -178,7 +176,7 @@ void StrategyBase::runScript()
 
             e2q::e2_analse.init(_id);
 #ifndef KAFKALOG
-            elog.init(_id);
+            log.init(_id);
 #endif
         }
     };  // -----  end lambda  -----
@@ -195,7 +193,7 @@ void StrategyBase::runScript()
 #ifndef DEBUG
         }
         catch (std::exception &e) {
-            log::bug(e.what(), " num:", num);
+            elog::bug(e.what(), " num:", num);
         }
 #endif
     };  // -----  end ambda  -----
@@ -207,7 +205,7 @@ void StrategyBase::runScript()
 
     do {
         next_row = e2l_cnt->data_ptr->aquire();
-        //  log::echo(next_row);
+        //  elog::echo(next_row);
         for (; e2l_count < next_row; e2l_count++) {
             pool.emit(e2l_count);
 
@@ -231,14 +229,17 @@ void StrategyBase::runScript()
 
     pool.exits();
 
-    elog.exist();
+    log.exist();
 
-    // e2l_thread_map.dump();
+#ifdef DEBUG
+    e2l_thread_map.dump();
+#endif
+
     /**
      * 先不管，到时候 优化再做
      */
 
-    log::bug("e2l end ............ ");
+    elog::bug("e2l end ............ ");
 } /* -----  end of function StrategyBase::runScript  ----- */
 
 }  // namespace e2q

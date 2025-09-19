@@ -54,7 +54,7 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/foreign.hpp"
 #include "assembler/BaseType.hpp"
-#include "utility/Log.hpp"
+#include "Toolkit/eLog.hpp"
 
 #if __cplusplus >= 201703L
 
@@ -110,7 +110,7 @@ public:
     std::size_t market_time() const { return _time; }
     bool isFilled() const
     {
-        /* log::info("ticket:", _ticket, " quantity:", _quantity, */
+        /* elog::info("ticket:", _ticket, " quantity:", _quantity, */
         /*           " execqty:", _executedQuantity, " openqty:",
          * _openQuantity); */
         return _quantity == _executedQuantity || _openQuantity == 0;
@@ -136,7 +136,7 @@ public:
      */
     void disable()
     {
-        log::bug("disable ticket:", _ticket);
+        elog::bug("disable ticket:", _ticket);
         _quantity = _executedQuantity = _openQuantity = 0;
     }
 
@@ -168,7 +168,7 @@ public:
     void Lots(long lots)
     {
         if (lots > _openQuantity || lots == 0) {
-            log::bug("error, lots:", lots, " in ticket:", _ticket);
+            elog::bug("error, lots:", lots, " in ticket:", _ticket);
             _openQuantity = 0;
             return;
         }
@@ -220,7 +220,7 @@ public:
 
         // 开仓的时候计算
         if (_bot == false && _long_short == 0) {
-            // log::echo(" margin :", _margin, " ticket:", _ticket);
+            // elog::echo(" margin :", _margin, " ticket:", _ticket);
             _margin -= trade_amount;
             if (_leavesQty > 0 && _margin <= 0) {
                 Closeed();
@@ -370,7 +370,7 @@ public:
     }
     ~OrderItem()
     {
-        // log::echo("release pending");
+        // elog::echo("release pending");
         RELEASE(_pending);
     }
     /* constructor */
@@ -413,7 +413,7 @@ public:
         lots.otime = _otime;
 
         lots.adjprice = NUMBERVAL(_pending->Adj());
-        // log::info("adj:", lots.adjprice);
+        // elog::info("adj:", lots.adjprice);
         lots.trade_amount = _pending->amount();
         lots.isCancel = false;
         if (_bot) {

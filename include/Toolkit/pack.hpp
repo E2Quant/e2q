@@ -42,12 +42,12 @@
  * =====================================================================================
  */
 
-//#ifndef TOOLKIT_PACK_INC
-//#define TOOLKIT_PACK_INC
+// #ifndef TOOLKIT_PACK_INC
+// #define TOOLKIT_PACK_INC
 #include "GlobalConfig.hpp"
-#include "Log.hpp"
 #include "Norm.hpp"
 #include "Util.hpp"
 #include "UtilTime.hpp"
+#include "eLog.hpp"
 #include "libs/bprinter/table_printer.h"
-///#endif /* ----- #ifndef PACK_INC  ----- */
+/// #endif /* ----- #ifndef PACK_INC  ----- */

@@ -411,7 +411,8 @@ struct __FixSymbolType {
     std::string symbol;
     DoIAction dia;
     OnlyEA only_ea;
-    std::uint64_t uinx_time = 0;
+    std::uint64_t unix_time = 0;
+    std::uint16_t count_down = 0;
 }; /* ----------  end of struct __FixSymbolType  ---------- */
 
 typedef struct __FixSymbolType FixSymbolType;

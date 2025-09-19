@@ -316,7 +316,7 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
     node_type *nn = nullptr;
     bool ret = false;
     if (*node == nullptr) {
-        log::bug("node is nullptr");
+        elog::bug("node is nullptr");
         return ret;
     }
     // right
@@ -324,7 +324,7 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
         // 1. current > item
         if (current->rightmost() == nullptr) {
 #ifdef DEBUG1
-            log::info("-right---1---");
+            elog::info("-right---1---");
 #endif
             nn = one_node(item);
             current->right(nn);
@@ -334,7 +334,7 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
                  current->rightmost()->leftmost() == nullptr) {
 // 2. item > current->right
 #ifdef DEBUG1
-            log::info("-right---2---");
+            elog::info("-right---2---");
 #endif
             nn = one_node(item);
 
@@ -361,13 +361,13 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
             // 3. rotate
             //  current > item  and current->right > item
 #ifdef DEBUG1
-            log::info("- rotate right--3--- r:", r);
+            elog::info("- rotate right--3--- r:", r);
 #endif
             right = std::move(current->rightmost());
             current->right(nullptr);
 
             if (right == nullptr) {
-                log::bug("right is nullptr");
+                elog::bug("right is nullptr");
                 return false;
             }
 
@@ -386,7 +386,7 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
                 ret = true;
             }
             else {
-                //  log::echo("=====");
+                //  elog::echo("=====");
                 ret = internal_insert(right->right(), right, item,
                                       RoType::_RIGHT);
             }
@@ -400,7 +400,7 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
         // item > current
         if (current->leftmost() == nullptr) {
 #ifdef DEBUG1
-            log::info("-left--1----");
+            elog::info("-left--1----");
 #endif
             nn = one_node(item);
             current->left(nn);
@@ -410,7 +410,7 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
                  current->leftmost()->rightmost() == nullptr) {
             // 2.  current->left > item
 #ifdef DEBUG1
-            log::info("-left--2----");
+            elog::info("-left--2----");
 #endif
             nn = one_node(item);
             nn->left(current->leftmost());
@@ -434,14 +434,14 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
                  current->leftmost()->rightmost() == nullptr &&
                  current->leftmost()->leftmost() != nullptr) {
 #ifdef DEBUG1
-            log::info("-rotate - left--3----");
+            elog::info("-rotate - left--3----");
 #endif
             // 3. rotate
             left = std::move(current->leftmost());
             current->left(nullptr);
 
             if (left == nullptr) {
-                log::bug("left is nullptr");
+                elog::bug("left is nullptr");
                 return false;
             }
             // 当前是 parent 的左边还是右边
@@ -456,14 +456,14 @@ bool Btree<T, compare, Lock>::internal_insert(node_type **node,
 
             if (left->leftmost() == nullptr) {
 #ifdef DEBUG1
-                log::info("-left--31----");
+                elog::info("-left--31----");
 #endif
                 nn = one_node(item);
                 left->left(nn);
                 ret = true;
             }
             else {
-                //  log::info("-left--32----");
+                //  elog::info("-left--32----");
                 ret = internal_insert(left->left(), left, item, RoType::_LEFT);
             }
         }
@@ -731,7 +731,7 @@ void Btree<T, compare, Lock>::internal_clear(node_type **cur)
             RELEASE(*cur);
         }
         else {
-            log::bug("error clear");
+            elog::bug("error clear");
         }
     }
 } /* -----  end of function Btree<T,compare>::internal_clear  ----- */

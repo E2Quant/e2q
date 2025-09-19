@@ -65,7 +65,7 @@ void FeedBalance::CtrlPack(std::shared_ptr<BeamData> data)
 {
     _data_ptr = std::move(data);
     if (_data_ptr == nullptr || _shu_ptr == nullptr) {
-        log::bug("data is nullptr");
+        elog::bug("data is nullptr");
         return;
     }
 
@@ -87,7 +87,7 @@ void FeedBalance::CtrlPack(std::shared_ptr<BeamData> data)
 void FeedBalance::obtain()
 {
     if (_resource == nullptr) {
-        log::bug("_resourece is nullptr!");
+        elog::bug("_resourece is nullptr!");
         return;
     }
 

@@ -52,9 +52,9 @@
 
 #include "E2LScript/ExternClazz.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "Toolkit/eLog.hpp"
 #include "quickfix/SessionID.h"
 #include "quickfix/SessionSettings.h"
-#include "utility/Log.hpp"
 
 namespace e2q {
 /**
@@ -96,7 +96,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
     _node = node_idx;
     GlobalProcessId = node_idx;
     if (GlobalDBPtr == nullptr) {
-        log::info("db init nullptr");
+        elog::info("db init nullptr");
         return;
     }
     sleep(1);
@@ -142,7 +142,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
 
         std::size_t bug_client = 5;
         do {
-            log::info("initiator start, e2l path:", e2l_script);
+            elog::info("initiator start, e2l path:", e2l_script);
             if (_initiator.isStopped() == false) {
                 _initiator.stop();
             }
@@ -157,19 +157,20 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
                  false); /* -----  end do-while  ----- */
 
         if (bug_client > 0) {
-            log::info("node start ok!");
+            elog::info("node start ok!");
         }
+        FIX::SessionID sid;
+        std::set<FIX::SessionID> sids = settings.getSessions();
+        std::for_each(sids.cbegin(), sids.cend(),
+                      [&sid](FIX::SessionID x) { sid = x; });
 
         if (_initiator.isLoggedOn()) {
-            FIX::SessionID sid;
-            std::set<FIX::SessionID> sids = settings.getSessions();
-            std::for_each(sids.cbegin(), sids.cend(),
-                          [&sid](FIX::SessionID x) { sid = x; });
-
             auto fun = [this, &sid, &_sbase]() {
                 this->ctrl();
 
                 _sbase.runScript();
+
+                fix_application.QuoteStatusReport(0);
 
                 fix_application.quit(sid);
             };  // -----  end lambda  -----
@@ -183,12 +184,16 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
             }
         }
         else {
-            log::bug("fix not login");
+            elog::bug("fix not login sid:", sid.getSenderCompID().getValue());
         }
     }
     catch (std::exception& e) {
-        log::bug(e.what());
+        elog::bug(e.what());
         return;
+    }
+
+    if (GlobalMainArguments.log_io.is_open()) {
+        GlobalMainArguments.log_io.close();
     }
 
 } /* -----  end of function MachineOS::enter  ----- */
@@ -231,7 +236,7 @@ void MachineOS::ctrl()
     /**
      * 4. 请求数据
      */
-    fix_application.QuoteRequest(FixPtr->_symbols);
+    fix_application.QuoteRequest(FixPtr->_symbols, 1);
 
 } /* -----  end of function MachineOS::ctrl  ----- */
 
@@ -272,7 +277,7 @@ FIX::SessionSettings MachineOS::EaSetting()
 
     bool isDb = GlobalDBPtr->isInit();
     if (isDb == false) {
-        log::bug("pd isnot init");
+        elog::bug("pd isnot init");
         return settings;
     }
     std::size_t gidx = e2q::GlobalDBPtr->getId();
@@ -280,7 +285,7 @@ FIX::SessionSettings MachineOS::EaSetting()
     Pgsql* pg = GlobalDBPtr->ptr(gidx);
     if (pg == nullptr) {
         e2q::GlobalDBPtr->release(gidx);
-        log::bug("pd is null");
+        elog::bug("pd is null");
         return settings;
     }
 
@@ -297,10 +302,10 @@ FIX::SessionSettings MachineOS::EaSetting()
         }
     }
     else {
-        log::info("trade info is empty");
+        elog::info("trade info is empty");
     }
 
-    sql = log::format(
+    sql = elog::format(
         "SELECT sessionid FROM account WHERE verid = %d AND sessionid in "
         "(SELECT id FROM fixsession WHERE login=0)  ORDER BY id DESC "
         "OFFSET %ld LIMIT 1;",
@@ -316,7 +321,7 @@ FIX::SessionSettings MachineOS::EaSetting()
     }
 
     if (sessionid == 0) {
-        sql = log::format(
+        sql = elog::format(
             "SELECT beginstring, targetcompid, sendercompid,"
             "filestorepath,datadictionary,host as SocketConnectHost,port as "
             " SocketConnectPort FROM fixsession WHERE id not IN (SELECT "
@@ -327,7 +332,7 @@ FIX::SessionSettings MachineOS::EaSetting()
             FixPtr->_QuantVerId, _node);
     }
     else {
-        sql = log::format(
+        sql = elog::format(
             "SELECT beginstring, targetcompid, sendercompid,"
             "filestorepath,datadictionary,host as SocketConnectHost,port as "
             " SocketConnectPort FROM fixsession WHERE id =%d "
@@ -338,7 +343,7 @@ FIX::SessionSettings MachineOS::EaSetting()
     r = SelectSQL(pg, sql);
     FIX::Dictionary dict_session;
     dict_session.setDouble("LogonTimeout", 30);
-    dict_session.setInt("HeartBtInt", 30);
+    dict_session.setInt("HeartBtInt", 15);
     dict_session.setBool("ResetOnLogon", true);
     dict_session.setBool("ResetOnDisconnect", false);
     dict_session.setBool("SendResetSeqNumFlag", true);
@@ -351,7 +356,7 @@ FIX::SessionSettings MachineOS::EaSetting()
         for (pg->begin(); pg->end(); pg->next()) {
             int m = pg->PGResult(&field, &val);
             if (m == -1) {
-                log::info("m == -1 ??");
+                elog::info("m == -1 ??");
                 break;
             }
 
@@ -382,12 +387,12 @@ FIX::SessionSettings MachineOS::EaSetting()
             settings.set(session, dict_session);
         }
         else {
-            log::info(sql);
-            log::info("begin is empty!");
+            elog::info(sql);
+            elog::info("begin is empty!");
         }
     }
     else {
-        log::bug(sql);
+        elog::bug(sql);
     }
 
     GlobalDBPtr->release(gidx);

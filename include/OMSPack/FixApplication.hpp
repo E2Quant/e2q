@@ -156,7 +156,7 @@ FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon)*/
     /**
      * cancel quote
      */
-    void onMessage(const FIX44::QuoteCancel& message,
+    void onMessage(const FIX44::QuoteStatusReport& message,
                    const FIX::SessionID&) override;
 
     /**
@@ -242,7 +242,7 @@ FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon)*/
             updateOrder(order, FIX::OrdStatus_NEW, equity);
         }
         catch (std::exception& e) {
-            log::bug("accept:", e.what());
+            elog::bug("accept:", e.what());
         }
     }
     void fillOrder(const OrderLots& order)
@@ -290,7 +290,7 @@ private:
     /* =============  DATA MEMBERS  =================== */
 
     bool _is_end = false;
-
+    bool _is_logout = true;
     FeedData _fdata;
     std::shared_ptr<ScriptThread> _program = nullptr;
 

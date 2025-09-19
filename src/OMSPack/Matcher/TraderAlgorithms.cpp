@@ -138,7 +138,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
 
     std::size_t len = _orderMatcher->OrderSizes();
     if (len == 0) {
-        // log::bug("symbole order matcher is empty:", symbol);
+        // elog::bug("symbole order matcher is empty:", symbol);
         return retLots;
     }
 
@@ -214,7 +214,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
             ol.isCancel = false;
         }
         else {
-            log::bug("not match order ticket: ", ol.ticket);
+            elog::bug("not match order ticket: ", ol.ticket);
         }
 
         retLots.push_back(ol);
@@ -279,15 +279,15 @@ e2::Int_e TraderAlgorithms::CheckClose(SeqType ticket,
 {
     OrderItem* oi = _orderMatcher->find(symbol, ticket);
     if (oi == nullptr) {
-        log::bug(" null found, tick:", ticket, " sym:", symbol);
+        elog::bug(" null found, tick:", ticket, " sym:", symbol);
         return 0;
     }
     if (oi->Pending()->isClosed()) {
-        log::bug("ticket:", ticket, " symbol:", symbol,
-                 " oi ticket:", oi->Pending()->getTicket(),
-                 " oi sym:", oi->getSymbol(),
-                 " open:", oi->Pending()->getOpenQuantity(),
-                 "leaveqty:", oi->Pending()->getLeavesQty());
+        elog::bug("ticket:", ticket, " symbol:", symbol,
+                  " oi ticket:", oi->Pending()->getTicket(),
+                  " oi sym:", oi->getSymbol(),
+                  " open:", oi->Pending()->getOpenQuantity(),
+                  "leaveqty:", oi->Pending()->getLeavesQty());
         return 0;
     }
 

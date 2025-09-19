@@ -131,7 +131,7 @@ Exchange::Exchange(std::string& e2l, std::string& edir)
     Int_e argc = 1;
 
     if (call) {
-        log::bug("call method is error");
+        elog::bug("call method is error");
         return;
     }
 
@@ -215,11 +215,14 @@ void Exchange::RiskFix(int process, func_type<> child_process)
         if (acceptor.isStopped() == false) {
             acceptor.stop();
         }
+        elog::info("oms stop");
     }
     catch (std::exception& e) {
-        log::bug("error:", e.what());
+        elog::bug("error:", e.what());
     }
-
+    if (GlobalMainArguments.log_io.is_open()) {
+        GlobalMainArguments.log_io.close();
+    }
 } /* -----  end of function Exchange::RiskFix  ----- */
 
 /*
@@ -276,7 +279,7 @@ FIX::SessionSettings Exchange::ExSetting(int process)
         "sendercompid,targetcompid,filestorepath,datadictionary,ctime,host,"
         "port from fixsession WHERE id = 1) RETURNING id;";
 
-    std::string usql = log::format(
+    std::string usql = elog::format(
         "SELECT count(*) as number FROM account WHERE verid=%d LIMIT 1; ",
         FinFabr->_QuantVerId);
 
@@ -302,7 +305,7 @@ FIX::SessionSettings Exchange::ExSetting(int process)
         if (insert_id <= 1) {
             continue;
         }
-        usql = log::format(
+        usql = elog::format(
             "UPDATE fixsession SET targetcompid = 'CLIENT%d', login=0 WHERE id "
             "= %d ",
             insert_id, insert_id);
@@ -314,14 +317,14 @@ FIX::SessionSettings Exchange::ExSetting(int process)
     }
 
     if (need <= 0) {
-        sql = log::format(
+        sql = elog::format(
             "SELECT  beginstring, sendercompid,targetcompid, "
             "filestorepath,datadictionary FROM fixsession  WHERE id in (SELECT "
             "sessionid from account WHERE verid=%d)   ORDER BY id DESC ;",
             FinFabr->_QuantVerId);
     }
     else {
-        sql = log::format(
+        sql = elog::format(
             "SELECT  beginstring, sendercompid,targetcompid, "
             "filestorepath,datadictionary FROM fixsession ORDER BY id DESC "
             "LIMIT "
@@ -329,11 +332,13 @@ FIX::SessionSettings Exchange::ExSetting(int process)
             process);
     }
 
-    //  log::echo(sql);
+    //  elog::echo(sql);
     r = SelectSQL(pg, sql);
 
     FIX::Dictionary dict_session;
     dict_session.setDouble("LogonTimeout", 30);
+    dict_session.setInt("HeartBtInt", 15);
+
     dict_session.setBool("ResetOnLogon", true);
     dict_session.setBool("ResetOnDisconnect", false);
     dict_session.setBool("SendResetSeqNumFlag", true);
@@ -382,7 +387,7 @@ FIX::SessionSettings Exchange::ExSetting(int process)
         }
     }
     else {
-        log::info("no session");
+        elog::info("no session");
     }
 
     GlobalDBPtr->release(gidx);

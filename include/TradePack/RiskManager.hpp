@@ -111,7 +111,7 @@ struct RiskBeam : public FuncBeamClass<FuncSignal> {
     void callback(std::shared_ptr<FuncSignal> beam)
     {
         if (beam == nullptr || beam->id != SigId::_strategy_id) {
-            log::bug("FuncSignal is null");
+            elog::bug("FuncSignal is null");
 
             return;
         }
@@ -120,17 +120,17 @@ struct RiskBeam : public FuncBeamClass<FuncSignal> {
             [](ThreadDisruptorStashSharePtr ptr) {
                 auto thread_fun = [ptr]() {
                     auto call_fun = [ptr](SeqType start, SeqType end) {
-                        log::echo(ptr->data_ptr->name(), " aquire:", start,
+                        elog::echo(ptr->data_ptr->name(), " aquire:", start,
                                   " row:", end);
 
                         std::array<SeqType, 3> data;
                         int ret = ptr->data_ptr->read(&data, 0);
                         if (ret != -1) {
-                            log::echo("row:", 0, " data 0:", data[0],
+                            elog::echo("row:", 0, " data 0:", data[0],
                                       " 1:", data[1], " 2:", data[2]);
                         }
                         else {
-                            log::echo("ret is :", ret);
+                            elog::echo("ret is :", ret);
                         }
                     };  // -----  end lambda  -----
                     ptr->data_ptr->wait_for(call_fun);
@@ -139,7 +139,7 @@ struct RiskBeam : public FuncBeamClass<FuncSignal> {
             };  // -----  end lambda -----
 
         beam->receive(rfun);
-        log::echo("risk end..");
+        elog::echo("risk end..");
     }
     /*
      * ===  FUNCTION  =============================

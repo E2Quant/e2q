@@ -43,12 +43,14 @@
 
 #include <stdlib.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -56,7 +58,10 @@
 #include "Toolkit/DaemonProcess.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/Util.hpp"
+#include "Toolkit/eLog.hpp"
 #include "ast/ParserCtx.hpp"
+using namespace e2q;
 /*
  * ===  FUNCTION  =============================
  *
@@ -89,10 +94,10 @@ void only_run(const char* f)
     if (isgc) {
         context.runCode();
         int ret = context.runFunction(a, a);
-        log::echo("ret:", ret);
+        elog::echo("ret:", ret);
     }
     else {
-        log::bug("generateCode is error");
+        elog::bug("generateCode is error");
     }
 
 } /* -----  end of function only_run  ----- */
@@ -121,7 +126,7 @@ int e2q_action(int argc, char* argv[])
     char* p = nullptr;
     char* f = nullptr;
     char* i = nullptr;
-    std::string log_dir = "./log";
+
     std::string searh_path = "";
     int index;
 
@@ -134,9 +139,9 @@ int e2q_action(int argc, char* argv[])
     std::string oms_el;
     rlimit rlim;
     int h;
-    ssize_t do_daemonize = 0;
+
     e2q::DProcess process;
-    char pid_file[] = "/tmp/e2q.pid";
+    char pid_file[] = "/tmp/e2q_%ld.pid";
     std::string help =
         "%s -e script.e2 \n \
                 Usage: \n \
@@ -173,20 +178,21 @@ int e2q_action(int argc, char* argv[])
             }
             case 'd':
 
-                do_daemonize = 1;
+                e2q::GlobalMainArguments.do_daemonize = 1;
                 break;
 
             case 'l':
                 e2q::llvm_ir = true;
                 break;
             case 'v': {
-                log::echo(version::version_full);
+                elog::echo(version::version_full);
                 exit(0);
             }
             case 'e': {
                 e = optarg;
                 if (e != nullptr) {
                     eas_el.push_back(std::string(e));
+                    e2q::GlobalMainArguments.ea_or_oms = false;
                 }
                 break;
             }
@@ -194,6 +200,7 @@ int e2q_action(int argc, char* argv[])
                 s = optarg;
                 if (s != nullptr) {
                     oms_el = std::string(s);
+                    e2q::GlobalMainArguments.ea_or_oms = true;
                 }
                 break;
             }
@@ -219,8 +226,8 @@ int e2q_action(int argc, char* argv[])
             case 'a': {
                 if (optarg != nullptr) {
                     account_number_idx = (std::size_t)atoi(optarg);
-                    if (account_number_idx <= 0) {
-                        account_number_idx = 3;
+                    if (account_number_idx < 0) {
+                        account_number_idx = 0;
                     }
                 }
                 break;
@@ -235,7 +242,19 @@ int e2q_action(int argc, char* argv[])
             case 'f': {
                 f = optarg;
                 if (f != nullptr) {
-                    log_dir = std::string(f);
+                    struct stat info;
+                    if (stat(optarg, &info) != 0) {
+                        mkdir(optarg, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+                    }
+                    else if (info.st_mode & S_IFDIR) {
+                    }
+                    else {
+                        mkdir(optarg, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+                    }
+                    // char log_file[256] = {0};
+                    // snprintf(log_file, 256, "%s/oms.log", optarg);
+
+                    e2q::GlobalMainArguments.log_dir = std::string(f);
                 }
                 break;
             }
@@ -272,7 +291,7 @@ int e2q_action(int argc, char* argv[])
         exit(-1);
     }
 
-    if (do_daemonize == 1) {
+    if (e2q::GlobalMainArguments.do_daemonize == 1) {
         process.sig();
         process.init(argv[0]);
 
@@ -280,20 +299,42 @@ int e2q_action(int argc, char* argv[])
     }
 
     if (getrlimit(RLIMIT_NOFILE, &rlim) != 0) {
-        log::bug("failed to getrlimit number of files");
+        elog::bug("failed to getrlimit number of files");
         exit(1);
     }
     else {
         rlim.rlim_cur = MAXCONNS;
         rlim.rlim_max = MAXCONNS;
         if (setrlimit(RLIMIT_NOFILE, &rlim) != 0) {
-            log::bug(
+            elog::bug(
                 "failed to set rlimit for open files. Try starting as root "
                 "or "
                 "requesting smaller maxconns value.");
             exit(1);
         }
     }
+
+#ifndef DEBUG
+    char log_file[256] = {0};
+    if (e2q::GlobalMainArguments.ea_or_oms) {
+        snprintf(log_file, 256, "%s/oms.log",
+                 e2q::GlobalMainArguments.log_dir.c_str());
+    }
+    else {
+        int number_log = 0;
+        for (const auto& p :
+             std::filesystem::directory_iterator(GlobalMainArguments.log_dir)) {
+            if (p.is_directory()) {
+                continue;
+            }
+            number_log++;
+        }
+        snprintf(log_file, 256, "%s/ea_%d.log",
+                 e2q::GlobalMainArguments.log_dir.c_str(), number_log);
+    }
+
+    GlobalMainArguments.log_io.open(log_file, std::ios::app);
+#endif
 
     const auto processor_count = std::thread::hardware_concurrency();
 
@@ -306,8 +347,8 @@ int e2q_action(int argc, char* argv[])
     std::vector<pid_t> pids;
     std::size_t m = 0;
     e2q::E2Q _e2q;
-    if (log_dir.length() > 0) {
-        _e2q.log_dir(log_dir);
+    if (e2q::GlobalMainArguments.log_dir.length() > 0) {
+        _e2q.log_dir(e2q::GlobalMainArguments.log_dir);
     }
     if (searh_path.length() > 0) {
         _e2q.search_dir(searh_path);
@@ -318,10 +359,14 @@ int e2q_action(int argc, char* argv[])
         printf("[Child] I'm Child process\n");
         printf("[Child] Child's PID is %d name: %s \n", getpid(),
                eas_el[m].c_str());
+
         _e2q.setCfg(eas_el[m], properties);
 
         _e2q.trader(account_number_idx, now, run);
 
+        if (e2q::GlobalMainArguments.do_daemonize == 1) {
+            process.rm_pid(pid_file);
+        }
         return 0;
     }
 
@@ -379,7 +424,7 @@ int e2q_action(int argc, char* argv[])
         if (proce > account_number_idx) {
             account_number_idx = proce;
         }
-        if (account_number_idx == 0) {
+        if (account_number_idx <= 0) {
             account_number_idx = 3;
         }
         _e2q.exchange(account_number_idx, call_child_fun);
@@ -389,9 +434,9 @@ int e2q_action(int argc, char* argv[])
 
     for (m = 0; m < proce; m++) {
         pid = wait(&exit_status);
-        log::echo("child pid ", pid, " status 0x%x", (long)pid, exit_status);
+        elog::echo("child pid ", pid, " status 0x%x", (long)pid, exit_status);
     }
-    if (do_daemonize == 1) {
+    if (e2q::GlobalMainArguments.do_daemonize == 1) {
         process.rm_pid(pid_file);
     }
     return 0;

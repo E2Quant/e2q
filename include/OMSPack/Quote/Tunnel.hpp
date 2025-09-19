@@ -67,7 +67,7 @@ public:
     Tunnel(std::string& dir) : _dir(dir)
     {
         if (_dir.length() == 0) {
-            log::bug("dir or symbol is empty");
+            elog::bug("dir or symbol is empty");
         }
     };
 

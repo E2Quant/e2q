@@ -78,7 +78,7 @@ bool OrderMatcher::insert(OrderItem* order)
     else {
         _mark = i->second;
         if (_mark == nullptr) {
-            log::bug("fetch bug");
+            elog::bug("fetch bug");
             return false;
         }
 
@@ -209,7 +209,7 @@ int OrderMatcher::AddBotTicket(SeqType ticket, e2::OrdType ordType,
     if (order_price <= 0) {
         UtilTime ut;
         const char fmt[] = "%Y-%m-%d %H:%M:%S";
-        log::echo("sym:", symbol, " order_price:", order_price, " - ",
+        elog::echo("sym:", symbol, " order_price:", order_price, " - ",
                   ut.stamptostr(ctime, fmt));
         return -1;
     }
@@ -290,7 +290,7 @@ void OrderMatcher::TopLevelPrice(const std::string& symbol, SeqType val)
     std::pair<e2::Int_e, e2::Int_e> tlp{0, 0};
 
     if (_markets == nullptr) {
-        log::bug("_market is nullptr!");
+        elog::bug("_market is nullptr!");
         return;
     }
 
@@ -303,7 +303,7 @@ void OrderMatcher::TopLevelPrice(const std::string& symbol, SeqType val)
     MarketType::const_iterator i = _markets->find(symbol);
     if (i == _markets->end()) return;
     tlp = i->second->top_bid_ask_price();
-    // log::echo("sym:", symbol, " size:", _markets->size(), " bid:", tlp.first,
+    // elog::echo("sym:", symbol, " size:", _markets->size(), " bid:", tlp.first,
 
     //           " ask:", tlp.second, " now:", val);
 } /* -----  end of function OrderMatcher::TopLevelPrice  ----- */

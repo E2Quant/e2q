@@ -172,7 +172,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
     void callback(std::shared_ptr<FuncSignal> beam)
     {
         if (beam == nullptr || beam->id != SigId::_feedId) {
-            // log::bug("FuncSignal is null");
+            // elog::bug("FuncSignal is null");
 
             return;
         }
@@ -185,7 +185,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
         ContainerStashSharePtr _cnt_ptr =
             _source_ptr->fetch<ContainerStash>(type);
         if (_cnt_ptr == nullptr) {
-            log::bug("OHLCBeam ContainerStash ptr is nullptr!");
+            elog::bug("OHLCBeam ContainerStash ptr is nullptr!");
             return;
         }
         _cnt_ptr->data_ptr->shareptr(_source_ptr);
@@ -194,7 +194,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
         e2q::bridge::ReceiveType<DisruptorStashSharePtr> tfun =
             [_cnt_ptr, off](DisruptorStashSharePtr ptr) {
                 if (ptr == nullptr) {
-                    log::bug("DisruptorStashSharePtr is nullptr");
+                    elog::bug("DisruptorStashSharePtr is nullptr");
                     return;
                 }
                 auto thread_fun = [_cnt_ptr, ptr, off]() {
@@ -215,7 +215,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
 
                         std::array<e2q::SeqType, trading_protocols> rec_data;
                         if (_cnt_ptr == nullptr) {
-                            log::echo("ohlc_pt is nullptr");
+                            elog::echo("ohlc_pt is nullptr");
                             return;
                         }
 
@@ -227,7 +227,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
                             int ret = ptr->data_ptr->fixed(&rec_data, row);
 
                             if (ret == -1) {
-                                log::bug(ptr->data_ptr->name(),
+                                elog::bug(ptr->data_ptr->name(),
                                          " row error:", row, " m:", m,
                                          " start:", start, " end:", end);
 
@@ -248,7 +248,7 @@ struct OHLCBeam : public e2q::FuncBeamClass<FuncSignal> {
                             // cnt == cfi code == index code
                             cnt = _cnt_ptr->data_ptr->push(rec_data);
                             if (cnt == -1) {
-                                // log::bug("cnt == -1");
+                                // elog::bug("cnt == -1");
                                 continue;
                             }
                             if (cnt == 0) {

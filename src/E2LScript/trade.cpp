@@ -53,9 +53,9 @@
 #include "E2LScript/foreign.hpp"
 #include "E2LScript/util_inline.hpp"
 #include "OMSPack/FixAccount.hpp"
+#include "Toolkit/Norm.hpp"
 #include "TradePack/STLog.hpp"
 #include "assembler/BaseType.hpp"
-#include "utility/Log.hpp"
 namespace e2l {
 
 /*
@@ -84,14 +84,15 @@ e2::Bool OrderClose(
 {
     ticket = NUMBERVAL(ticket);
     lots = NUMBERVAL(lots);
-    if (e2q::GlobalMainArguments.number_for_bin_read > 0) {
-        log::info("history test for order close:");
+    if (e2q::GlobalMainArguments.number_for_bin_read >= 0) {
+        llog::info("history test for order close:");
 
         return e2::Bool::B_FALSE;
     }
+
     std::size_t exit = e2q::FixPtr->_OrderTicket.count(ticket);
     if (exit == 0) {
-        log::bug("ticket not found:", ticket);
+        llog::bug("ticket not found:", ticket);
         return e2::Bool::B_FALSE;
     }
 
@@ -104,7 +105,7 @@ e2::Bool OrderClose(
     }
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0 ||
         e2q::FixPtr->_OrderIds[quantid].count(cl0id) == 0) {
-        log::bug("ticket:", ticket, " quantid ==0");
+        llog::bug("ticket:", ticket, " quantid ==0");
 
         return e2::Bool::B_FALSE;
     }
@@ -113,7 +114,19 @@ e2::Bool OrderClose(
 
     if (oi.closeTck > 0 || stoppx <= 0) {
         // 防止 传入 平仓的 ticket ID
-        // log::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
+        // llog::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
+        return e2::Bool::B_FALSE;
+    }
+
+    if (e2q::FixPtr->_fix_symbols.count(oi.symbol) == 0) {
+        e2q::elog::bug("symobls id error, symbol:", oi.symbol);
+        return e2::Bool::B_FALSE;
+    }
+
+    if (e2q::FixPtr->_fix_symbols.at(oi.symbol).count_down == 0 &&
+        e2q::FixPtr->_fix_symbols.at(oi.symbol).dia ==
+            e2q::DoIAction::DELISTING) {
+        e2q::elog::bug("symbols id is Delistend , symbol:", oi.symbol);
         return e2::Bool::B_FALSE;
     }
 
@@ -130,7 +143,7 @@ e2::Bool OrderClose(
     /* if (oi.ordtype == e2::OrdType::ot_stop || */
     /*     oi.ordtype == e2::OrdType::ot_stop_limit) { */
     /*     // close order can't close again */
-    /*     log::bug("close order can't close again, ticket:", ticket); */
+    /*     llog::bug("close order can't close again, ticket:", ticket); */
     /*     return e2::Bool::B_FALSE; */
     /* } */
 
@@ -155,7 +168,7 @@ e2::Bool OrderClose(
         oi.symbol, side, lots, stoppx, slippage, e2::OrdType::ot_stop, ticket,
         quantid, e2q::ticket_now, number);
 
-    // log::echo("close tick:", ticket, " sym:", oi.symbol);
+    // llog::echo("close tick:", ticket, " sym:", oi.symbol);
 
     return e2::Bool::B_TRUE;
 }
@@ -186,26 +199,26 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
 
 )
 {
-    if (symbol < 0 || price <= 0) {
-        log::bug("symbol == 0");
-        return e2::Bool::B_FALSE;
-    }
-
     symbol = NUMBERVAL(symbol);
     qty = NUMBERVAL(qty);
+
+    if (e2q::GlobalMainArguments.number_for_bin_read >= 0) {
+        e2q::elog::bug(" symbols id is history , id:", symbol);
+        return e2::Bool::B_FALSE;
+    }
+    if (symbol <= 0 || price <= 0 ||
+        e2q::FixPtr->_fix_symbols.count(symbol) == 0) {
+        llog::bug("symbol or price not exist!");
+        return e2::Bool::B_FALSE;
+    }
+
+    if (e2q::FixPtr->_fix_symbols.at(symbol).dia == e2q::DoIAction::DELISTING) {
+        llog::bug("symbol is delisting:", symbol);
+
+        return e2::Bool::B_FALSE;
+    }
+
     std::thread::id _id = std::this_thread::get_id();
-
-    if (e2q::FixPtr->_fix_symbols.count(symbol) == 0) {
-        log::bug("symbol is empty:", symbol);
-
-        return e2::Bool::B_FALSE;
-    }
-
-    if (e2q::GlobalMainArguments.number_for_bin_read > 0) {
-        log::info("history test NewOrder for:", symbol);
-
-        return e2::Bool::B_FALSE;
-    }
     /**
      * 简单计算 一下钱够不够
      */
@@ -218,11 +231,11 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     // 防止一下子下多笔订单，因为 oms 还没有返回确认是不是下单成功，
     // 所以先扣一笔资金
     if (expenditure > free_cash) {
-        std::string cond = log::format(
+        std::string cond = llog::format(
             "expenditure: %.2f total cash:%.2f, freeze:%.2f number:%ld",
             expenditure, e2q::FixPtr->_cash.TotalCash(number),
             e2q::FixPtr->_cash.FreezeCash(number), number);
-        log::bug(cond);
+        llog::bug(cond);
         return e2::Bool::B_FALSE;
     }
 
@@ -232,7 +245,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
         e2q::FixPtr->_freeze_time.insert({symbol, 0});
     }
     // if (e2q::FixPtr->_freeze_time.at(symbol) == e2q::ticket_now) {
-    //     log::bug("has order");
+    //     llog::bug("has order");
     //     return e2::Bool::B_FALSE;
     // }
     e2q::FixPtr->_freeze_time[symbol] = e2q::ticket_now;
@@ -283,14 +296,14 @@ e2::Bool OrderSelect(e2::Int_e index, e2::SelectFlag sel, e2::SelectFlag pool)
         quantid = e2q::FixPtr->_quantId[_id].first;
     }
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
-        log::info("quantid == 0:", quantid);
+        llog::info("quantid == 0:", quantid);
         return e2::Bool::B_FALSE;
     }
 
     if (pool == e2::SelectFlag::P_Trade &&
         e2q::FixPtr->_OrderIds[quantid].size() == 0) {
         // no orders
-        log::info("no orders:", quantid);
+        llog::info("no orders:", quantid);
         return e2::Bool::B_FALSE;
     }
 
@@ -320,7 +333,7 @@ e2::Int_e OrderTicket()
 
     if (e2q::e2_os.check(_id)) {
 #ifdef DEBUG
-        log::bug(" id empty:", _id);
+        llog::bug(" id empty:", _id);
 #endif
         return tick;
     }
@@ -328,7 +341,7 @@ e2::Int_e OrderTicket()
     e2q::OrderStruct os = e2q::e2_os.get(_id);
     if (os.id == -1) {
 #ifdef DEBUG
-        log::bug(" id empty:", _id);
+        llog::bug(" id empty:", _id);
 #endif
         return tick;
     }
@@ -336,7 +349,7 @@ e2::Int_e OrderTicket()
         e2q::e2_os.release(_id);
 
 #ifdef DEBUG
-        log::bug("select error:", os.select);
+        llog::bug("select error:", os.select);
 #endif
         return VALNUMBER(os.id);
     }
@@ -348,7 +361,7 @@ e2::Int_e OrderTicket()
     }
 
     if (e2q::FixPtr->_OrderIds.count(quantId) == 0) {
-        log::bug("quaniId:", quantId);
+        llog::bug("quaniId:", quantId);
         return tick;
     }
 
@@ -357,7 +370,7 @@ e2::Int_e OrderTicket()
         if ((std::size_t)os.id >= e2q::FixPtr->_OrderIds[quantId].size()) {
             e2q::e2_os.release(_id);
 #ifdef DEBUG
-            log::bug(" id > size:", _id);
+            llog::bug(" id > size:", _id);
 #endif
             return tick;
         }
@@ -373,7 +386,7 @@ e2::Int_e OrderTicket()
                 it->second.trading == e2q::TradeStatus::PENDING) {
                 if (m == (std::size_t)os.id) {
                     tick = it->second.ticket;
-                    // log::echo("trading:", it->second.trading,
+                    // llog::echo("trading:", it->second.trading,
                     //           " ticket:", it->second.ticket, " m:", m,
                     //           " os.id:", os.id, " quantid:", quantId);
                     break;
@@ -412,7 +425,7 @@ e2::Int_e OrderLots(e2::Int_e ticket)
         quantId = e2q::FixPtr->_quantId[_id].first;
     }
     if (e2q::FixPtr->_OrderIds.count(quantId) == 0) {
-        log::bug("quaniId:", quantId);
+        llog::bug("quaniId:", quantId);
         return ret;
     }
     for (auto it = e2q::FixPtr->_OrderIds[quantId].begin();
@@ -450,7 +463,7 @@ e2::Int_e OrdersHistoryTotal()
     }
     for (auto it : e2q::FixPtr->_OrderIds[quantid]) {
         if (it.second.trading == e2q::TradeStatus::CANCEL) {
-            log::info("qid:", quantid);
+            llog::info("qid:", quantid);
         }
         if (it.second.trading == e2q::TradeStatus::FILLED ||
             it.second.trading == e2q::TradeStatus::CLOSED ||
@@ -489,7 +502,7 @@ e2::Int_e OrdersTotal()
             it.second.trading == e2q::TradeStatus::PARTIALLY_FILLED ||
             it.second.trading == e2q::TradeStatus::MARKET ||
             it.second.trading == e2q::TradeStatus::CLOSEING) {
-            // log::info("trading:", it.second.trading);
+            // llog::info("trading:", it.second.trading);
             count++;
         }
     }
@@ -543,13 +556,13 @@ e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
     }
 
     if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
-        log::bug("qid: ", quantid, " error");
+        llog::bug("qid: ", quantid, " error");
 
         return 0;
     }
     double px = 0.0;
     // e2::Int_e _ticket = ticket;
-    //  log::echo("_tick:", _ticket);
+    //  llog::echo("_tick:", _ticket);
     e2::Int_e _ticket = NUMBERVAL(ticket);
     for (auto it = e2q::FixPtr->_OrderIds[quantid].begin();
          it != e2q::FixPtr->_OrderIds[quantid].end(); ++it) {
@@ -560,7 +573,7 @@ e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
             else {
                 px = it->second.adjpx;
             }
-            // log::echo("px:", px);
+            // llog::echo("px:", px);
             break;
         }
     }

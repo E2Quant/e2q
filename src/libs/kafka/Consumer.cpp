@@ -66,6 +66,7 @@
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
 #include "Toolkit/UtilTime.hpp"
+#include "Toolkit/eLog.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/DB/pg.hpp"
 #include "libs/kafka/protocol/nbo.hpp"
@@ -74,7 +75,6 @@
 #include "quickfix/FixValues.h"
 #include "quickfix/fix44/Quote.h"
 #include "quickfix/fix44/QuoteStatusReport.h"
-#include "utility/Log.hpp"
 
 namespace e2q {
 
@@ -108,9 +108,9 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     mlen += fldsiz(SystemInitMessage, unix_time);
 
     if (sz != (int)(mlen - 1)) {
-        std::string err = log::format("sz:%d  mlen:%ld \n", sz, (mlen - 1));
+        std::string err = elog::format("sz:%d  mlen:%ld \n", sz, (mlen - 1));
 
-        log::bug(err);
+        elog::bug(err);
         return;
     }
 
@@ -152,8 +152,7 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     GlobalDBPtr->release(gidx);
 
     if (sinit.Aligned == Aligned_t::PULL) {
-        log::info("SymbolInit ok");
-        // log::echo("offer:", sinit.OfferTime);
+        elog::info("SymbolInit ok symbols size:", FinFabr->_fix_symbols.size());
         //  转成豪秒
         FinFabr->_offer_time = NUMBERVAL(sinit.OfferTime) * 1000;
 
@@ -190,10 +189,11 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
     mlen += fldsiz(MarketDelOrIPOMessage, action);
     mlen += fldsiz(MarketDelOrIPOMessage, CfiCode);
     mlen += fldsiz(MarketDelOrIPOMessage, unix_time);
+    mlen += fldsiz(MarketDelOrIPOMessage, count_down);
 
     if (sz != (int)(mlen - 1)) {
-        std::string err = log::format("sz:%d  mlen:%ld \n", sz, (mlen - 1));
-        log::bug(err);
+        std::string err = elog::format("sz:%d  mlen:%ld \n", sz, (mlen - 1));
+        elog::bug(err);
         return;
     }
 
@@ -209,6 +209,8 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
     mdoi.CfiCode += E2QCfiStart;
 
     idx += parse_uint_t(p + idx, mdoi.unix_time);
+
+    idx += parse_uint_t(p + idx, mdoi.count_down);
 
     //  std::uint32_t del_code = 0;
     std::string symbol = std::string(mdoi.Stock);
@@ -236,7 +238,7 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
         else {
             // 已存在不没必要了
             // 可能需要重新激活一下吧
-            log::info("CfiCode exist:", mdoi.CfiCode);
+            elog::info("CfiCode exist:", mdoi.CfiCode);
             return;
         }
     }
@@ -246,7 +248,8 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
 
         if (FinFabr->_fix_symbols.count(mdoi.CfiCode) == 1) {
             FinFabr->_fix_symbols[mdoi.CfiCode].dia = DoIAction::DELISTING;
-            FinFabr->_fix_symbols[mdoi.CfiCode].uinx_time = mdoi.unix_time;
+            FinFabr->_fix_symbols[mdoi.CfiCode].unix_time = mdoi.unix_time;
+            // FinFabr->_fix_symbols[mdoi.CfiCode].count_down = mdoi.count_down;
 
             std::size_t gidx = GlobalDBPtr->getId();
 
@@ -257,8 +260,8 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
 
                 gsql->update_field("dtime", (mdoi.unix_time / 1000));
                 std::string cont =
-                    log::format("symbol=%d and verid=%d", mdoi.CfiCode,
-                                FinFabr->_QuantVerId);
+                    elog::format("symbol=%d and verid=%d", mdoi.CfiCode,
+                                 FinFabr->_QuantVerId);
                 gsql->update_condition(cont);
 
                 UpdateCommit(gsql);
@@ -267,7 +270,7 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
             GlobalDBPtr->release(gidx);
         }
         else {
-            log::bug("bug cficode:", mdoi.CfiCode);
+            elog::bug("bug cficode:", mdoi.CfiCode);
             // 不存在不没必要了
             return;
         }
@@ -292,7 +295,7 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
             if (std::find(std::begin(it->second), std::end(it->second),
                           mdoi.CfiCode) != std::end(it->second)) {
                 // 如果是退市，就只发给当前的一个sessionid
-                log::echo("delisting:", mdoi.CfiCode);
+                // elog::echo("delisting:", mdoi.CfiCode);
                 Quote(it->first, mdoi);
             }
         }
@@ -315,13 +318,13 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
 void KfConsumeCb::Quote(const FIX::SessionID &session,
                         MarketDelOrIPOMessage mdoi)
 {
-    log::info("Quote");
+    // elog::info("Quote");
     std::string cstr = "";
 
     std::string sym = std::string(mdoi.Stock);
 
     FIX::QuoteID id;
-    id.setValue(log::format("%ld", mdoi.unix_time));
+    id.setValue(elog::format("%ld", mdoi.unix_time));
 
     FIX44::Quote quote(id);
 
@@ -337,15 +340,18 @@ void KfConsumeCb::Quote(const FIX::SessionID &session,
 
     quote.setField(qt);
 
-    cstr = log::format("%d", mdoi.CfiCode);
+    cstr = elog::format("%d", mdoi.CfiCode);
     FIX::QuoteReqID rid = FIX::QuoteReqID(cstr);
     quote.setField(rid);
+
+    FIX::OfferSize os = FIX::OfferSize(mdoi.count_down);
+    quote.setField(os);
 
     try {
         FIX::Session::sendToTarget(quote, session);
     }
     catch (FIX::SessionNotFound &e) {
-        log::bug(e.what());
+        elog::bug(e.what());
     }
 } /* -----  end of function KfConsumeCb::Quote  ----- */
 
@@ -378,9 +384,9 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
     mlen += fldsiz(StockAXdxrMessage, uint);
 
     if (sz != (int)mlen) {
-        std::string err = log::format("sz:%d  mlen:%ld \n", sz, mlen);
+        std::string err = elog::format("sz:%d  mlen:%ld \n", sz, mlen);
 
-        log::bug(err);
+        elog::bug(err);
         return;
     }
 
@@ -403,7 +409,7 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
     saxm.Aligned = *(p + idx);
 
     std::string ymd =
-        log::format("%d%02d%02d", saxm.year, saxm.month, saxm.day);
+        elog::format("%d%02d%02d", saxm.year, saxm.month, saxm.day);
 
     ExRD node;
     node._ymd = atoll(ymd.c_str());
@@ -432,7 +438,7 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
 
         if (c_node._ymd > node._ymd) {
 #ifdef DEBUG
-            log::info("exist:", c_node._ymd, " now ymd:", node._ymd);
+            elog::info("exist:", c_node._ymd, " now ymd:", node._ymd);
 #endif
             return;
         }
@@ -440,7 +446,7 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
             // 小于日是线级别的时候，可能会重复传送这个数据
             // 在这儿过滤一下
 #ifdef DEBUG
-            log::bug("exist:", c_node._ymd, " now ymd:", node._ymd);
+            elog::bug("exist:", c_node._ymd, " now ymd:", node._ymd);
 #endif
             return;
         }
@@ -449,7 +455,7 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
 
     std::size_t gidx = GlobalDBPtr->getId();
     Pgsql *gsql = GlobalDBPtr->ptr(gidx);
-    std::string cfi_str = log::format(
+    std::string cfi_str = elog::format(
         "(SELECT id FROM stockinfo WHERE symbol=%d and verid=%d ORDER BY id "
         "DESC LIMIT "
         "1 )",
@@ -485,7 +491,7 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         char *field = nullptr;
         char *val = nullptr;
 
-        std::string sql = log::format(
+        std::string sql = elog::format(
             "SELECT ticket FROM trades WHERE symbol = (SELECT id FROM "
             "stockinfo "
             "WHERE symbol =%d AND verid=%d ORDER BY id DESC LIMIT 1)  AND  "
@@ -614,11 +620,11 @@ void KfConsumeCb::QuoteStatusReport(const FIX::SessionID &session, ExRD node,
         FIX::Session::sendToTarget(qsr, session);
     }
     catch (FIX::FieldNotFound &f) {
-        log::bug(f.what(), " field:", f.field);
-        // log::echo(msg.toXML());
+        elog::bug(f.what(), " field:", f.field);
+        // elog::echo(msg.toXML());
     }
     catch (FIX::SessionNotFound &e) {
-        log::bug(e.what());
+        elog::bug(e.what());
     }
 } /* -----  end of function KfConsumeCb::QuoteStatusReport ----- */
 
@@ -669,8 +675,8 @@ void KfConsumeCb::TicketMsg(const char *ptr, int sz, int64_t moffset)
     //     }
     // }
     if (_lastTime > mtm.unix_time) {
-        log::bug("bug tick: lastTime:", _lastTime,
-                 " _unix_time:", mtm.unix_time);
+        elog::bug("bug tick: lastTime:", _lastTime,
+                  " _unix_time:", mtm.unix_time);
 #ifdef DEBUG
         logs(_call_data, moffset);
 #endif
@@ -747,11 +753,11 @@ void KfConsumeCb::logs(std::array<SeqType, trading_protocols> trad_data,
 void KafkaFeed::handle(TradType tradcall)
 {
     if (tradcall == nullptr) {
-        log::bug("TradType is nullptr");
+        elog::bug("TradType is nullptr");
         return;
     }
     if (_bokers.length() == 0 || _topic.length() == 0) {
-        log::bug("bokers or topic is empty");
+        elog::bug("bokers or topic is empty");
         return;
     }
 
@@ -772,13 +778,13 @@ void KafkaFeed::handle(TradType tradcall)
      */
     RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
     if (!conf) {
-        log::bug("conf is null");
+        elog::bug("conf is null");
         return;
     }
     RdKafka::Conf *tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
     if (!tconf) {
         delete conf;
-        log::bug("tconf");
+        elog::bug("tconf");
         return;
     }
     /*
@@ -805,13 +811,11 @@ void KafkaFeed::handle(TradType tradcall)
      */
     RdKafka::Consumer *consumer = RdKafka::Consumer::create(conf, errstr);
     if (!consumer) {
-        log::bug("Failed to create consumer: ", errstr);
+        elog::bug("Failed to create consumer: ", errstr);
         delete conf;
         delete tconf;
         exit(1);
     }
-
-    log::echo(consumer->name(), " Created consumer ");
 
     /*
      * Create topic handle.
@@ -819,7 +823,7 @@ void KafkaFeed::handle(TradType tradcall)
     RdKafka::Topic *topic =
         RdKafka::Topic::create(consumer, _topic, tconf, errstr);
     if (!topic) {
-        log::bug("Failed to create topic: ", errstr);
+        elog::bug("Failed to create topic: ", errstr);
 
         delete consumer;
         delete tconf;
@@ -833,7 +837,7 @@ void KafkaFeed::handle(TradType tradcall)
      */
     RdKafka::ErrorCode resp = consumer->start(topic, partition, start_offset);
     if (resp != RdKafka::ERR_NO_ERROR) {
-        log::bug("Failed to start consumer: ", RdKafka::err2str(resp));
+        elog::bug("Failed to start consumer: ", RdKafka::err2str(resp));
         delete topic;
         delete consumer;
         delete tconf;
@@ -845,6 +849,8 @@ void KafkaFeed::handle(TradType tradcall)
 
     KfConsumeCb ex_consume_cb;
     ex_consume_cb.handle(tradcall);
+
+    elog::echo(consumer->name(), " Created consumer ");
 
     /*
      * Consume messages

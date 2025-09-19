@@ -62,13 +62,15 @@
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
+#include "Toolkit/eLog.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/kafka/protocol/proto.hpp"
 #include "quickfix/FixFields.h"
 #include "quickfix/FixValues.h"
+#include "quickfix/Session.h"
 #include "quickfix/fix44/BidResponse.h"
 #include "quickfix/fix44/MessageCracker.h"
-#include "utility/Log.hpp"
+#include "quickfix/fix44/QuoteStatusReport.h"
 
 namespace e2q {
 
@@ -100,7 +102,7 @@ FixAccount::FixAccount() {
 void FixAccount::onMessage(const FIX44::Heartbeat& message,
                            const FIX::SessionID&)
 {
-    log::echo("2");
+    elog::echo("2");
 
 } /* -----  end of function FixAccount::onMessage  ----- */
 
@@ -132,16 +134,28 @@ void FixAccount::onMessage(const FIX44::QuoteCancel&, const FIX::SessionID& sid)
  *
  * ============================================
  */
-void FixAccount::QuoteRequest(std::vector<std::size_t>& symbols)
+void FixAccount::QuoteRequest(std::vector<std::size_t>& symbols, int isRet)
 {
+#ifdef DEBUG
+    elog::info("QuoteRequest");
+#endif
+
     FIX44::QuoteRequest quoteReq =
         FIX44::QuoteRequest(FIX::QuoteReqID(UUidGen()));
     quoteReq.setField(genClOrdID());
     FIX44::QuoteRequest::NoRelatedSym relateGroup;
     std::size_t size_sym = symbols.size();
-#ifdef DEBUG
-    log::info("QuoteRequest");
-#endif
+
+    FIX::PutOrCall pc;
+    if (isRet) {
+        // 需要 MassQuote
+        pc.setValue(FIX::PutOrCall_CALL);
+    }
+    else {
+        // 不需要了
+        pc.setValue(FIX::PutOrCall_PUT);
+    }
+
     // size_sym == 0
     // OnlyEA::LOCKFOREA 一般是这个情况的
     // size_sym > 0
@@ -153,9 +167,13 @@ void FixAccount::QuoteRequest(std::vector<std::size_t>& symbols)
         if (FixPtr->_cash.isApplyOk == false) {
             FIX::CashOrderQty coq;
             coq.setValue(FixPtr->_cash.total_cash);
-            quoteReq.setField(coq);
-        }
 
+            relateGroup.setField(coq);
+        }
+        relateGroup.setField(pc);
+        quoteReq.addGroup(relateGroup);
+
+        relateGroup.clear();
         for (auto _sym : symbols) {
             FIX::Symbol sym(std::to_string(_sym));
             relateGroup.setField(sym);
@@ -167,15 +185,19 @@ void FixAccount::QuoteRequest(std::vector<std::size_t>& symbols)
         FIX::CashOrderQty coq;
         coq.setValue(0);
         relateGroup.setField(coq);
+
+        relateGroup.setField(pc);
+
         quoteReq.addGroup(relateGroup);
     }
+
     defHeader(quoteReq.getHeader());
 
     try {
         FIX::Session::sendToTarget(quoteReq);
     }
     catch (FIX::SessionNotFound& s) {
-        log::bug(s.what());
+        elog::bug(s.what());
     }
 
 } /* -----  end of function FixAccount::QuoteRequest  ----- */
@@ -193,9 +215,9 @@ void FixAccount::QuoteRequest(std::vector<std::size_t>& symbols)
 void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
 {
     FIX_PTR_IS_NULL();
-    // log::echo(msg.toXML());
+    // elog::echo(msg.toXML());
 #ifdef DEBUG
-    log::info("MassQuote");
+    elog::info("MassQuote");
 #endif
 
     FIX44::MassQuote::NoQuoteSets nqs;
@@ -229,10 +251,10 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
     // 如果程序没有特定的股票选择，那么就会自动选择所有的股票
     std::size_t number_symbols = FixPtr->_symbols.size();
 
-    // log::echo("number_symbols:", number_symbols, " group count:", count);
+    // elog::echo("number_symbols:", number_symbols, " group count:", count);
     std::size_t cfi_code = 0;
     if (count == 0) {
-        log::bug("group count == 0!");
+        elog::bug("group count == 0!");
     }
     for (int m = 1; m <= count; m++) {
         msg.getGroup(m, nqs);
@@ -245,22 +267,26 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
             continue;
         }
         pids = nqs.groupCount(pid.field());
-
+        if (pids == 0) {
+            return;
+        }
         for (int n = 1; n <= pids; n++) {
             nqs.getGroup(n, pid);
             pid.getFieldIfSet(symbol);
             pid.getFieldIfSet(qeid);
 
             cfi_code = atoll(qeid.getValue().c_str());
+            if (cfi_code >= 0) {
+                FixSymbolType info{symbol, DoIAction::LIST, OnlyEA::FORANLYONE};
+                FixPtr->_fix_symbols.insert({cfi_code, info});
 
-            FixSymbolType info{symbol, DoIAction::LIST, OnlyEA::FORANLYONE};
-            FixPtr->_fix_symbols.insert({cfi_code, info});
-
-            if (number_symbols == 0 && cfi_code > 0) {
-                if (std::find(FixPtr->_symbols.begin(), FixPtr->_symbols.end(),
-                              cfi_code) == FixPtr->_symbols.end()) {
-                    log::echo("cfi:", cfi_code);
-                    FixPtr->_symbols.push_back(cfi_code);
+                if (number_symbols == 0 && cfi_code > 0) {
+                    if (std::find(FixPtr->_symbols.begin(),
+                                  FixPtr->_symbols.end(),
+                                  cfi_code) == FixPtr->_symbols.end()) {
+                        elog::echo("cfi:", cfi_code);
+                        FixPtr->_symbols.push_back(cfi_code);
+                    }
                 }
             }
 
@@ -273,7 +299,7 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
                 dates = edate.getValue();
                 for (std::size_t l = 0; l < dates.length(); l += 2) {
                     int ll = atoi(dates.substr(l, 2).c_str());
-                    //    log::echo(ll);
+                    //    elog::echo(ll);
                     if (l == 0) {
                         tt.open_hour = ll;
                     }
@@ -295,24 +321,25 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
 
     if (number_symbols == 0) {
         // 动态才需要再处理一次
-        QuoteRequest(FixPtr->_symbols);
+        QuoteRequest(FixPtr->_symbols, 0);
     }
     // else {
     //  > 0 的时候，不再验证了，反正在 BeamObj
     //  这儿可以验证的
     // }
 
-    ContainerStashSharePtr _cnt_ptr = nullptr;
-    if (_source_ptr != nullptr) {
-        size_t type = typeid(ContainerStash).hash_code();
-
-        _cnt_ptr = _source_ptr->fetch<ContainerStash>(type);
-    }
-    if (_cnt_ptr == nullptr) {
-        log::bug("OHLCBeam ContainerStash ptr is nullptr!");
+    if (_source_ptr == nullptr) {
+        elog::bug("_source_ptr is nullptr!");
         return;
     }
+    size_t ctype = typeid(ContainerStash).hash_code();
+    ContainerStashSharePtr _cnt_ptr = _source_ptr->fetch<ContainerStash>(ctype);
 
+    if (_cnt_ptr == nullptr) {
+        elog::bug("OHLCBeam ContainerStash ptr is nullptr! ctype:", ctype);
+        return;
+    }
+    elog::echo("init ...");
     _cnt_ptr->data_ptr->InitCell();
 
 } /* -----  end of function FixAccount::onMessage  ----- */
@@ -331,43 +358,42 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
 void FixAccount::onMessage(const FIX44::Quote& message,
                            const FIX::SessionID& sid)
 {
-    // log::echo(message.toXML());
-    log::info("Quote");
+    // elog::echo(message.toXML());
+    elog::info("Quote");
     FIX::Symbol symbol;
     FIX::QuoteID funix_time;
     FIX::QuoteType qt;
     FIX::QuoteReqID cfi_code;
+    FIX::OfferSize os;
 
     message.getFieldIfSet(symbol);
     message.getFieldIfSet(qt);
     message.getFieldIfSet(cfi_code);
     message.getFieldIfSet(funix_time);
+    message.getFieldIfSet(os);
 
     std::uint32_t cfiCode = atol(cfi_code.getValue().c_str());
-    std::uint64_t uinx_time = atoll(funix_time.getValue().c_str());
+    std::uint64_t unix_time = atoll(funix_time.getValue().c_str());
 
-    // if (FixPtr->_symbols.size() > 1) {
-    //     log::info("node has mutile code:", FixPtr->_symbols.size());
-    //     for (auto code : FixPtr->_symbols) {
-    //         log::echo("code:", code);
-    //     }
-    // }
+    std::uint16_t count_down = (std::uint16_t)os.getValue();
 
     if (qt == FIX::QuoteType_TRADEABLE) {
         // DoIAction::LIST
         if (FixPtr->_fix_symbols.count(cfiCode) == 0) {
-            FixSymbolType info{symbol, DoIAction::LIST, OnlyEA::FORANLYONE, 0};
+            FixSymbolType info{symbol, DoIAction::LIST, OnlyEA::FORANLYONE, 0,
+                               1};
             FixPtr->_fix_symbols.insert({cfiCode, info});
         }
     }
     else {
         if (FixPtr->_fix_symbols.count(cfiCode) == 1) {
-            log::info("cfi:", cfiCode);
             FixPtr->_fix_symbols[cfiCode].dia = DoIAction::DELISTING;
-            FixPtr->_fix_symbols[cfiCode].uinx_time = uinx_time;
+            FixPtr->_fix_symbols[cfiCode].unix_time = unix_time;
+            FixPtr->_fix_symbols[cfiCode].count_down = count_down;
+            elog::echo("cficode:", cfiCode);
         }
         else {
-            return;
+            elog::bug("cficode:", cfiCode);
         }
     }
 
@@ -388,13 +414,14 @@ void FixAccount::onMessage(const FIX44::QuoteResponse& message,
                            const FIX::SessionID&)
 {
 #ifdef DEBUG
-    log::info("QuoteResponse");
+    elog::info("QuoteResponse");
 #endif
 
     FIX::MidPx px;
     message.getFieldIfSet(px);
 
     double cash = px.getValue();
+
     FixPtr->_cash.total_cash = cash;
 
     double sub_cash = 0;
@@ -408,7 +435,7 @@ void FixAccount::onMessage(const FIX44::QuoteResponse& message,
 
     History();
 
-    log::info("ea init ok");
+    elog::info("ea init ok");
 } /* -----  end of function FixAccount::onMessage  ----- */
 
 /*
@@ -430,53 +457,112 @@ void FixAccount::History()
 
         std::size_t cfi = FixPtr->_symbols.at(0);
 
-        std::string history_file = log::format(
+        std::string history_file = elog::format(
             "%s/%s_%ld.e2b", GlobalMainArguments.bin_dir.c_str(),
             FixPtr->_fix_symbols[cfi].symbol.c_str(), (cfi - E2QCfiStart));
 
-        // history_file = "/mnt/e2b/300274_3.e2b";
         FILE* file_bin = fopen(history_file.c_str(), "rb");
-        if (file_bin == NULL) {
-            log::bug("bug history bin file:", history_file);
-            return;
-        }
-        char buffer[33] = {0};
-        std::size_t bytes_read = 0;
-        std::array<SeqType, trading_protocols> _call_data{0};
-        MarketTickMessage mtm;
-        while (true) {
-            bytes_read = fread(buffer, 1, sizeof(buffer), file_bin);
+        if (file_bin != NULL) {
+            //            elog::echo("history:", history_file);
+            char buffer[33] = {0};
+            std::size_t bytes_read = 0;
+            std::array<SeqType, trading_protocols> _call_data{0};
+            MarketTickMessage mtm;
+            while (true) {
+                bytes_read = fread(buffer, 1, sizeof(buffer), file_bin);
 
-            if (bytes_read < sizeof(buffer) || feof(file_bin)) {
-                break;
+                if (bytes_read < sizeof(buffer) || feof(file_bin)) {
+                    break;
+                }
+
+                mtm.mtm(buffer + 1, 32);
+
+                _call_data[Trading::t_time] = mtm.unix_time;
+                _call_data[Trading::t_frame] = mtm.frame;
+                _call_data[Trading::t_side] = e2::Side::os_Buy;
+                if (mtm.side != 'B') {
+                    _call_data[Trading::t_side] = e2::Side::os_Sell;
+                }
+
+                _call_data[Trading::t_qty] = mtm.qty;
+                _call_data[Trading::t_price] = mtm.price;
+                _call_data[Trading::t_adjprice] = mtm.price;
+                _call_data[Trading::t_msg] = mtm.number;
+                _call_data[Trading::t_stock] = mtm.CfiCode;
+
+                _fq.handle(_call_data);
+
+                TSleep(FixPtr->_offer_time);
             }
-
-            mtm.mtm(buffer + 1, 32);
-
-            _call_data[Trading::t_time] = mtm.unix_time;
-            _call_data[Trading::t_frame] = mtm.frame;
-            _call_data[Trading::t_side] = e2::Side::os_Buy;
-            if (mtm.side != 'B') {
-                _call_data[Trading::t_side] = e2::Side::os_Sell;
-            }
-
-            _call_data[Trading::t_qty] = mtm.qty;
-            _call_data[Trading::t_price] = mtm.price;
-            _call_data[Trading::t_adjprice] = mtm.price;
-            _call_data[Trading::t_msg] = mtm.number;
-            _call_data[Trading::t_stock] = mtm.CfiCode + 1;
-
-            _fq.handle(_call_data);
-
-            TSleep(FixPtr->_offer_time);
+            fclose(file_bin);
         }
-        fclose(file_bin);
-
-        // log::echo("history:", history_file);
+        else {
+            elog::echo("not found history:", history_file);
+        }
     }
 
+    QuoteStatusReport(1);
     GlobalMainArguments.number_for_bin_read = -1;
 } /* -----  end of function FixAccount::History  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixAccount::TestRequest
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void FixAccount::TestRequest()
+{
+    FIX44::TestRequest tr(FIX::TestReqID("2"));
+
+    defHeader(tr.getHeader());
+    try {
+        FIX::Session::sendToTarget(tr);
+    }
+    catch (FIX::SessionNotFound& s) {
+        elog::bug(s.what());
+    }
+    catch (std::exception& e) {
+        elog::bug(e.what());
+    }
+} /* -----  end of function FixAccount::TestRequest  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixAccount::QuoteStatusReport
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  1 ,准备好了
+ *  0 ,账号退出
+ * ============================================
+ */
+void FixAccount::QuoteStatusReport(int status)
+{
+    FIX44::QuoteStatusReport qsr(FIX::QuoteID("1"));
+
+    FIX::QuoteStatus stat;
+    stat.setValue(status);
+    qsr.setField(stat);
+    defHeader(qsr.getHeader());
+
+    try {
+        FIX::Session::sendToTarget(qsr);
+    }
+    catch (FIX::SessionNotFound& s) {
+        elog::bug(s.what());
+    }
+    catch (std::exception& e) {
+        elog::bug(e.what());
+    }
+} /* -----  end of function FixAccount::QuoteStatusReport  ----- */
 /*
  * ===  FUNCTION  =============================
  *
@@ -492,7 +578,7 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
                            const FIX::SessionID& sid)
 {
     if (FixPtr->_symbols.size() == 0) {
-        // log::echo("Maret refresh size: ", FixPtr->_symbols.size());
+        // elog::echo("Maret refresh size: ", FixPtr->_symbols.size());
         return;
     }
     FIX::MDEntryPx px;
@@ -507,7 +593,7 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
     std::array<SeqType, trading_protocols> data;
     FIX44::MarketDataSnapshotFullRefresh::NoMDEntries md;
     if (!message.hasGroup(md)) {
-        log::bug("not found ticket!");
+        elog::bug("not found ticket!");
         return;
     }
     try {
@@ -548,10 +634,10 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
         }
     }
     catch (FIX::FieldNotFound& f) {
-        log::bug(f.what(), " field:", f.field);
+        elog::bug(f.what(), " field:", f.field);
     }
     catch (std::exception& e) {
-        log::bug(e.what());
+        elog::bug(e.what());
     }
 
 } /* -----  end of function FixAccount::onMessage  ----- */
@@ -570,32 +656,41 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
 void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
                            const FIX::SessionID& sid)
 {
-    if (FixPtr->_fix_symbols.count(cfiCode) == 1 &&
-        FixPtr->_fix_symbols[cfiCode].dia == DoIAction::DELISTING) {
-        if (FixPtr->_fix_symbols[cfiCode].uinx_time > 0 &&
-            FixPtr->_fix_symbols[cfiCode].uinx_time < dtime) {
-            // 在这儿就需要准备退市了
+    if (FixPtr->_fix_symbols.count(cfiCode) > 1 ||
+        FixPtr->_fix_symbols[cfiCode].dia != DoIAction::DELISTING) {
+        return;
+    }
+    std::uint16_t count = FixPtr->_fix_symbols[cfiCode].count_down;
 
-            FixPtr->_symbols.erase(std::remove(FixPtr->_symbols.begin(),
-                                               FixPtr->_symbols.end(), cfiCode),
-                                   FixPtr->_symbols.end());
+    if (FixPtr->_fix_symbols[cfiCode].unix_time == 0 || count > 0) {
+        FixPtr->_fix_symbols[cfiCode].count_down--;
+        return;
+    }
 
-            bool exit_s = true;
-            for (auto code : FixPtr->_symbols) {
-                if (code == 0) {
-                    continue;
-                }
-                if (code != cfiCode) {
-                    exit_s = false;
-                }
-            }
+    // 在这儿就需要准备退市了
 
-            if (exit_s) {
-                log::info("delisting:", cfiCode);
-                quit(sid);
-            }
+    FixPtr->_symbols.erase(
+        std::remove(FixPtr->_symbols.begin(), FixPtr->_symbols.end(), cfiCode),
+        FixPtr->_symbols.end());
+
+    bool exit_s = true;
+    for (auto code : FixPtr->_symbols) {
+        if (code == 0) {
+            continue;
+        }
+        if (code != cfiCode) {
+            exit_s = false;
         }
     }
+
+    if (exit_s) {
+        elog::info("delisting:", cfiCode);
+        _fq.quit();
+    }
+    else {
+        elog::bug("bug delisting:", cfiCode);
+    }
+
 } /* -----  end of function FixAccount::delisting  ----- */
 
 /*
@@ -612,7 +707,7 @@ void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
 void FixAccount::onMessage(const FIX44::MarketDataRequestReject& message,
                            const FIX::SessionID&)
 {
-    log::echo("11");
+    elog::echo("11");
 
 } /* -----  end of function FixAccount::onMessage  ----- */
 /*
@@ -629,7 +724,7 @@ void FixAccount::onMessage(const FIX44::MarketDataRequestReject& message,
 void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
                            const FIX::SessionID&)
 {
-    // log::echo(message.toXML());
+    // elog::echo(message.toXML());
     FIX::Symbol symobl;
     FIX::MaturityDate ymd;
     FIX::StrikePrice cash;
@@ -692,8 +787,8 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
                         thread_number = FixPtr->_cash.cl_thread.at(cl0id);
                     }
                     else {
-                        log::bug("error cl0id:", cl0id,
-                                 " ticket:", oi.second.ticket);
+                        elog::bug("error cl0id:", cl0id,
+                                  " ticket:", oi.second.ticket);
                     }
                 }
                 FixPtr->_cash.append(thread_number, all_cash);
@@ -723,8 +818,8 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
 void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                            const FIX::SessionID&)
 {
-    // log::echo("ExecutionReport");
-    //  log::echo(message.toXML());
+    // elog::echo("ExecutionReport");
+    //  elog::echo(message.toXML());
 
     FIX::OrderID ticket;
     FIX::ExecType exec;
@@ -769,7 +864,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     e2::OrdStatus ord_status = convert(stat);
 
     if (FixPtr->_OrderIds.count(quantId) == 0) {
-        log::echo("canceled :", quantId, " status:", ord_status);
+        elog::echo("canceled :", quantId, " status:", ord_status);
         return;
     }
 
@@ -777,7 +872,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
         // reject
         message.getFieldIfSet(rejtxt);
         FixPtr->_OrderIds.erase(quantId);
-        log::echo("reject and earse:", quantId);
+        elog::echo("reject and earse:", quantId);
 
         return;
     }
@@ -804,12 +899,12 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     double leave = leaveqty.getValue();
     long ctime = atol(tradeDate.getValue().c_str());
     if (oid_m != 1) {
-        log::bug("not found cl0id:", key, " quantId:", quantId, " ticket",
-                 ticket);
+        elog::bug("not found cl0id:", key, " quantId:", quantId, " ticket",
+                  ticket);
         return;
     }
     if (tk == 0) {
-        log::bug("ticket == 0: ", ticket.getValue());
+        elog::bug("ticket == 0: ", ticket.getValue());
         return;
     }
 
@@ -828,7 +923,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                     FixPtr->_cash.order_cash.insert({tk, dtt});
                 }
                 else {
-                    log::bug("ticket error:", tk);
+                    elog::bug("ticket error:", tk);
                 }
 
                 e2::Int_e price = FixPtr->_OrderIds[quantId].at(key).price;
@@ -844,25 +939,25 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                 if (closetck > 0) {
                     // close order
                     FixPtr->_cash.append(thread_number, margin);
-                    // std::string balan = log::format(
+                    // std::string balan = elog::format(
                     //     "total cash:%.3f, clostck:%ld, margin:%.3f",
                     //     e2q::FixPtr->_cash.total_cash, closetck, margin);
-                    // log::info(balan);
+                    // elog::info(balan);
                     if (FixPtr->_cash.order_cash.count(closetck) == 1) {
                         FixPtr->_cash.order_cash.erase(closetck);
                     }
                     else {
-                        log::bug("closetck is error:", closetck);
+                        elog::bug("closetck is error:", closetck);
                     }
                 }
                 else {
                     // fille open order
 
                     if (FixPtr->_cash.order_cash.count(tk) == 0) {
-                        std::string equity = log::format("%.2f", margin);
-                        log::bug("filled ticket:", tk, " margin:", equity,
-                                 " stats:", stat.getValue(),
-                                 " close:", closetck);
+                        std::string equity = elog::format("%.2f", margin);
+                        elog::bug("filled ticket:", tk, " margin:", equity,
+                                  " stats:", stat.getValue(),
+                                  " close:", closetck);
                     }
                     else {
                         double zemargin =
@@ -881,8 +976,8 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                 break;
             }
             default:
-                log::bug("default ticket:", tk, " stats:", stat.getValue(),
-                         " close:", closetck);
+                elog::bug("default ticket:", tk, " stats:", stat.getValue(),
+                          " close:", closetck);
 
                 break;
         }
@@ -1002,16 +1097,16 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
         // 1,3
         // tk > 0 这儿是 4, buy match出现的
         RejectOrCancelNewOrder(quantId, key, tk, 0, thread_number, true);
-        log::bug("quantid:", quantId, "ticket == 0: ", tk,
-                 " text:", rejtext.getValue());
+        elog::bug("quantid:", quantId, " ticket == 0: ", tk,
+                  " text:", rejtext.getValue());
     }
     else {
         // 平仓
         // 2, 4(sell)
 
         RejectOrCancelNewOrder(quantId, key, 0, tk, thread_number, true);
-        log::bug("quantid:", quantId, "ticket == 0: ", tk,
-                 " text:", rejtext.getValue());
+        elog::bug("quantid:", quantId, "ticket == 0: ", tk,
+                  " text:", rejtext.getValue());
     }
 
 } /* -----  end of function FixAccount::onMessage  ----- */
@@ -1030,7 +1125,7 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
 void FixAccount::onMessage(const FIX44::BidResponse& message,
                            const FIX::SessionID& sid)
 {
-    //  log::info(message.toXML());
+    //  elog::info(message.toXML());
 
     FIX44::BidResponse::NoBidComponents nbc;
 
@@ -1053,7 +1148,7 @@ void FixAccount::onMessage(const FIX44::BidResponse& message,
         const char* ptr = custem.c_str();
         sz = price.getValue();
         if (sz != custem.size()) {
-            log::info("sz:", sz, " base64 len:", custem.size());
+            elog::info("sz:", sz, " base64 len:", custem.size());
         }
         PushGCM(ptr, sz);
     }
@@ -1072,7 +1167,7 @@ void FixAccount::onMessage(const FIX44::BidResponse& message,
 void FixAccount::onMessage(const FIX44::OrderStatusRequest& message,
                            const FIX::SessionID&)
 {
-    log::echo("11");
+    elog::echo("11");
 
 } /* -----  end of function FixAccount::onMessage  ----- */
 
@@ -1097,15 +1192,6 @@ std::size_t FixAccount::NewOrderSingle(Int_e id, Int_e side, Int_e qty,
     FIX::ClOrdID cl0id = genClOrdID();
     FIX44::NewOrderSingle newOrderSingle(cl0id, convert((e2::Side)side),
                                          FIX::TransactTime(), ordType);
-    if (FixPtr->_fix_symbols.count(id) == 0) {
-        log::bug(" symbols id error , id:", id);
-        return -1;
-    }
-
-    if (FixPtr->_fix_symbols.at(id).dia == DoIAction::DELISTING) {
-        log::bug(" symbols id is Delisting , id:", id);
-        return -1;
-    }
 
     FIX::TradeDate tradeDate;
     tradeDate.setValue(std::to_string(order_time));
@@ -1162,7 +1248,7 @@ std::size_t FixAccount::NewOrderSingle(Int_e id, Int_e side, Int_e qty,
         FIX::Session::sendToTarget(newOrderSingle);
     }
     catch (FIX::SessionNotFound& s) {
-        log::bug(s.what());
+        elog::bug(s.what());
     }
 
     return 0;
@@ -1191,14 +1277,7 @@ void FixAccount::OrderReplaceRequest(Int_e id, Int_e side, Int_e qty,
     FIX::OrigClOrdID ocid = genOrigClOrdID();
     FIX44::OrderCancelReplaceRequest ocrr(ocid, cl0id, convert((e2::Side)side),
                                           FIX::TransactTime(), ordType);
-    if (FixPtr->_fix_symbols.count(id) == 0) {
-        log::bug("symobls id error, id:", id);
-        return;
-    }
-    if (FixPtr->_fix_symbols.at(id).dia == DoIAction::DELISTING) {
-        log::bug(" symbols id is Delisting , id:", id);
-        return;
-    }
+
     std::string symbol = e2q::FixPtr->_fix_symbols.at(id).symbol;
     //    FIX::HandlInstCodeSet
     ocrr.set(FIX::HandlInst('3'));
@@ -1255,7 +1334,7 @@ void FixAccount::OrderReplaceRequest(Int_e id, Int_e side, Int_e qty,
         FIX::Session::sendToTarget(ocrr);
     }
     catch (FIX::SessionNotFound& s) {
-        log::bug(s.what());
+        elog::bug(s.what());
     }
 
     return;
@@ -1393,7 +1472,7 @@ void FixAccount::Init(_Resource_ptr ptr, std::shared_ptr<BeamData> beam_data,
                       std::shared_ptr<Shuttle> shu_ptr)
 {
     if (ptr == nullptr || beam_data == nullptr) {
-        log::bug("sourece ptr is nullptr!!!");
+        elog::bug("sourece ptr is nullptr!!!");
     }
     else {
         _beam_data = std::move(beam_data);
@@ -1433,8 +1512,16 @@ void FixAccount::CallBack(fixType call)
  */
 void FixAccount::wait()
 {
+    int sleep_time = 2;
+    int test_time = sleep_time * 5;
+    int idx_number = 0;
     while (_is_end == false) {
-        FIX::process_sleep(2);
+        FIX::process_sleep(sleep_time);
+        if (idx_number == test_time) {
+            TestRequest();
+            idx_number = 0;
+        }
+        idx_number++;
     }
 } /* -----  end of function FixAccount::wait  ----- */
 
@@ -1451,22 +1538,6 @@ void FixAccount::wait()
  */
 void FixAccount::quit(const FIX::SessionID& sid)
 {
-    std::string compid = sid.getSenderCompID().getValue();
-
-    std::string sql =
-        log::format("UPDATE fixsession SET login=0 WHERE targetcompid = '%s' ;",
-                    compid.c_str());
-
-    std::size_t idx = GlobalDBPtr->getId();
-    Pgsql* gsql = GlobalDBPtr->ptr(idx);
-
-    if (gsql != nullptr) {
-        gsql->update_sql(sql);
-        UpdateCommit(gsql);
-    }
-
-    GlobalDBPtr->release(idx);
-
     UpdateQuantProfit();
 
     _is_end = true;
@@ -1488,7 +1559,7 @@ void FixAccount::RejectOrCancelNewOrder(e2::Int_e quantId, std::string key,
                                         std::size_t thread_number, bool rc)
 {
     if (key.length() == 0 || FixPtr->_OrderIds[quantId].count(key) == 0) {
-        log::bug("quantId:", quantId, " ticket:", ticket);
+        elog::bug("quantId:", quantId, " ticket:", ticket);
     }
     else {
         TradeStatus tstat = TradeStatus::CANCEL;
@@ -1502,7 +1573,7 @@ void FixAccount::RejectOrCancelNewOrder(e2::Int_e quantId, std::string key,
     if (closetck > 0) {
         std::string bkey = FixPtr->_OrderTicket[closetck];
         if (FixPtr->_OrderIds[quantId].count(bkey) == 0) {
-            log::bug("key is error:", bkey, " quantId:", quantId);
+            elog::bug("key is error:", bkey, " quantId:", quantId);
 
             return;
         }
@@ -1527,14 +1598,14 @@ void FixAccount::RejectOrCancelNewOrder(e2::Int_e quantId, std::string key,
     //  insert 订单出错
     for (auto it : e2q::FixPtr->_cash.order_cash) {
         if (ticket == it.first) {
-            // log::bug("margin:", it.second.margin);
+            // elog::bug("margin:", it.second.margin);
             e2q::FixPtr->_cash.append(thread_number, it.second.margin);
             FixPtr->_cash.order_cash.erase(it.first);
 
             break;
         }
     }
-    // log::info("quantId:", quantId, " ticket:", ticket, " closetck:",
+    // elog::info("quantId:", quantId, " ticket:", ticket, " closetck:",
     // closetck,
     //           " soid:", key);
 } /* -----  end of function FixAccount::RejectOrCancelNewOrder  ----- */
@@ -1618,6 +1689,7 @@ void FixAccount::UpdateQuantProfit()
             gsql->update_table("analse");
             gsql->update_field("profit", total_cash, 3);
             gsql->update_condition("quantid", it.second.first);
+
             UpdateCommit(gsql);
         }
     }

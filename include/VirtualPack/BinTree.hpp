@@ -175,7 +175,7 @@ public:
         const bintype<N> b{id};
         BTree<T, N>* ptr = _btree_ptr.get();
         if (ptr == nullptr) {
-            log::echo("ptr == nullptr");
+            elog::echo("ptr == nullptr");
             return -1;
         }
         int m = b.size();
@@ -218,7 +218,7 @@ public:
             }
             m--;
         }
-        log::echo("empty");
+        elog::echo("empty");
 
         return -1;
     } /* -----  end of function fetch  ----- */

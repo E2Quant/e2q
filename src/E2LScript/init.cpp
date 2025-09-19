@@ -58,7 +58,6 @@
 #include "E2LScript/foreign.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "assembler/BaseType.hpp"
-#include "utility/Log.hpp"
 namespace e2l {
 
 /*
@@ -110,7 +109,7 @@ e2::Int_e isInit()
 void fix(const char *cfg)
 {
     if (cfg == nullptr) {
-        log::bug("cfg is null");
+        llog::bug("cfg is null");
         return;
     }
     int ret = access(cfg, R_OK);
@@ -125,7 +124,7 @@ void fix(const char *cfg)
         e2q::FinFabr->_fix_cfg = std::string(cfg);
     }
     else {
-        log::bug("FixPtr or FinFabr is nullptr!");
+        llog::bug("FixPtr or FinFabr is nullptr!");
     }
 
 } /* -----  end of function fix  ----- */
@@ -143,7 +142,7 @@ void fix(const char *cfg)
 void mkkf(const char *source)
 {
     if (source == nullptr) {
-        log::bug("source or topic not  nullptr");
+        llog::bug("source or topic not  nullptr");
         return;
     }
 
@@ -172,7 +171,7 @@ void mkkf(const char *source)
 void topic_tick(const char *topic)
 {
     if (topic == nullptr || e2q::FinFabr == nullptr) {
-        log::bug("source or topic not  nullptr");
+        llog::bug("source or topic not  nullptr");
         return;
     }
     e2q::FinFabr->_topic = std::string(topic);
@@ -192,7 +191,7 @@ void topic_tick(const char *topic)
 void topic_log(const char *topic)
 {
     if (topic == nullptr) {
-        log::bug("source or topic not  nullptr");
+        llog::bug("source or topic not  nullptr");
         return;
     }
 #ifdef KAFKALOG
@@ -205,13 +204,13 @@ void topic_log(const char *topic)
         host = e2q::FixPtr->_source;
     }
     if (host.length() == 0) {
-        log::bug("source or topic not  nullptr");
+        llog::bug("source or topic not  nullptr");
         return;
     }
 
     std::string str_topic = std::string(topic);
     auto log_fun = [](std::string host, std::string topic) {
-        e2q::elog.init(host, topic);
+        e2q::log.init(host, topic);
     };  // -----  end lambda  -----
 
     std::thread log_thread(log_fun, host, str_topic);
@@ -233,7 +232,7 @@ void topic_log(const char *topic)
 void mkcsv(const char *source, const char *symbol)
 {
     if (source == nullptr || symbol == nullptr) {
-        log::bug("path , symbol, code not  nullptr");
+        llog::bug("path , symbol, code not  nullptr");
         return;
     }
 
@@ -540,7 +539,7 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
 
     const char *fmt =
         "SELECT id  FROM trade_info WHERE version = '%s' LIMIT 1;";
-    std::string sql = log::format(fmt, v);
+    std::string sql = llog::format(fmt, v);
 
     std::size_t idx = e2q::GlobalDBPtr->getId();
     e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);

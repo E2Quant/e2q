@@ -54,7 +54,6 @@
 #include "E2LScript/util_inline.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/kafka/protocol/proto.hpp"
-#include "utility/Log.hpp"
 
 namespace e2l {
 
@@ -72,7 +71,7 @@ namespace e2l {
 void isDebug(e2::Bool b)
 {
     std::thread::id tid = std::this_thread::get_id();
-    e2q::elog.Debug(tid, b);
+    e2q::log.Debug(tid, b);
 } /* -----  end of function isDebug  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -90,11 +89,11 @@ void log(e2::Int_e s, const char *_vname, e2::Int_e loc, const char *_path)
     std::thread::id tid = std::this_thread::get_id();
 
     char *p = nullptr;
-    e2::Bool ret = e2q::elog.isDebug(tid);
+    e2::Bool ret = e2q::log.isDebug(tid);
     if (ret == e2::Bool::B_FALSE) {
         return;
     }
-    e2q::elog.log(tid, &p);
+    e2q::log.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);
@@ -143,13 +142,13 @@ void PrintLine(e2::Int_e s, const char *_vname, e2::Int_e loc,
     //         break;
     // }
     std::thread::id tid = std::this_thread::get_id();
-    e2::Bool ret = e2q::elog.isDebug(tid);
+    e2::Bool ret = e2q::log.isDebug(tid);
 
     if (ret == e2::Bool::B_FALSE) {
         return;
     }
     char *p = nullptr;
-    e2q::elog.log(tid, &p);
+    e2q::log.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);
@@ -184,7 +183,7 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
     int dec = NUMBERVAL(deci);
 
     std::thread::id tid = std::this_thread::get_id();
-    e2::Bool ret = e2q::elog.isDebug(tid);
+    e2::Bool ret = e2q::log.isDebug(tid);
 
     if (ret == e2::Bool::B_FALSE) {
         return;
@@ -192,7 +191,7 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
 
     char *p = nullptr;
 
-    e2q::elog.log(tid, &p);
+    e2q::log.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);
@@ -230,22 +229,22 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
         return;
     }
     if (_vname == nullptr) {
-        log::bug("%d vname is null ", loc);
+        llog::bug("%d vname is null ", loc);
         return;
     }
 
     if (_path == nullptr) {
-        log::bug("%d path is null ", loc);
+        llog::bug("%d path is null ", loc);
         return;
     }
 
     std::thread::id tid = std::this_thread::get_id();
-    e2::Bool ret = e2q::elog.isDebug(tid);
+    e2::Bool ret = e2q::log.isDebug(tid);
     if (ret == e2::Bool::B_FALSE) {
         return;
     }
     char *p = nullptr;
-    e2q::elog.log(tid, &p);
+    e2q::log.log(tid, &p);
 
     e2q::LogProto_t lp;
     lp.data(p);
@@ -282,7 +281,7 @@ e2::Int_e StoreId(e2::Int_e loc, const char *_path)
 
     e2::Int_e id = e2q::e2l_thread_map.StoreId(_id);
 
-    // log::info("id:", id, " codeline:", loc, " path:", std::string(_path));
+    // llog::info("id:", id, " codeline:", loc, " path:", std::string(_path));
     return VALNUMBER(id);
 } /* -----  end of function StoreId  ----- */
 

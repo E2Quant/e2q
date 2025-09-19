@@ -97,7 +97,7 @@ extern std::size_t e2l_thread_num;
     ({                                                                 \
         do {                                                           \
             if (FixPtr == nullptr || FixPtr->_fix_cfg.length() == 0) { \
-                log::bug("FixPtr is null!");                           \
+                elog::bug("FixPtr is null!");                           \
                 return;                                                \
             }                                                          \
         } while (0);                                                   \
@@ -107,7 +107,7 @@ extern std::size_t e2l_thread_num;
     ({                                                                   \
         do {                                                             \
             if (FinFabr == nullptr || FinFabr->_fix_cfg.length() == 0) { \
-                log::bug("FinFabr is null!");                            \
+                elog::bug("FinFabr is null!");                            \
                 return;                                                  \
             }                                                            \
         } while (0);                                                     \

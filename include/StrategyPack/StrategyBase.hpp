@@ -120,18 +120,18 @@ struct StrategyBeam : public ConnectBeamClass<ConnectSignal> {
             _master->data_ptr->full();
         }
         else {
-            log::bug("ThreadDisruptorStash is nullptr");
+            elog::bug("ThreadDisruptorStash is nullptr");
         }
     };
     void callback(std::shared_ptr<ConnectSignal> beam)
     {
         if (beam == nullptr || beam->id != SigId::_strategy_id) {
-            // log::bug("ConnectSignal is null");
+            // elog::bug("ConnectSignal is null");
 
             return;
         }
         if (_master == nullptr) {
-            log::bug("master is null");
+            elog::bug("master is null");
             return;
         }
         size_t inc = 1;

@@ -42,18 +42,26 @@
  * =====================================================================================
  */
 
-#ifndef LOG_INC
-#define LOG_INC
+#ifndef ELOG_INC
+#define ELOG_INC
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <cstdarg>
+#include <cstddef>
+#include <cstdio>
+#include <ctime>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
 
 #include "Colors.hpp"
+#include "Util.hpp"
 namespace e2q {
-namespace log {
+
+namespace elog {
+
 template <class T>
 T base_name(T const &path, T const &delims = "/\\")
 {
@@ -85,12 +93,36 @@ void log_cout(const char *file, const char *functionName, long lineNumber,
               std::string color, Args &&...args)
 {
     std::time_t t = std::time(nullptr);
+
+#ifdef DEBUG
     std::cout << KCYN
               << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S %Z")
               << ":" << getpid() << "=>[" << base_name(std::string(file))
               << "::" << functionName << " line." << lineNumber << "] " << RST
               << color;
     (std::cout << ... << args) << RST << std::endl;
+#else
+    //  const char *log_file = GlobalMainArguments.log_dir.c_str();
+    // 到时候再优化吧
+    // const char fmt[] = "%s/%s";
+    // std::size_t len =
+    //     snprintf(NULL, 0, fmt, GlobalMainArguments.log_dir.c_str(),
+    //              std::put_time(std::localtime(&t), "%Y-%m-%d_%H_%M")) +
+    //     1;
+
+    // snprintf(_dir, len, fmt, GlobalMainArguments.log_dir.c_str(),
+    //          std::put_time(std::localtime(&t), "%Y-%m-%d_%H_%M"));
+
+    //   std::ofstream cout(log_file, std::ios::app);
+    if (GlobalMainArguments.log_io.is_open()) {
+        GlobalMainArguments.log_io
+            << KCYN << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S %Z")
+            << ":" << getpid() << "=>[" << base_name(std::string(file))
+            << "::" << functionName << " line." << lineNumber << "] " << RST
+            << color;
+        (GlobalMainArguments.log_io << ... << args) << RST << std::endl;
+    }
+#endif
 }
 
 #define echo(...) log_cout(__FILE__, __FUNCTION__, __LINE__, KBLU, __VA_ARGS__);
@@ -101,6 +133,6 @@ void log_cout(const char *file, const char *functionName, long lineNumber,
 
 std::string format(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
-}  // namespace log
+}  // namespace elog
 }  // namespace e2q
-#endif /* ----- #ifndef LOG_INC  ----- */
+#endif /* ----- #ifndef ELOG_INC  ----- */

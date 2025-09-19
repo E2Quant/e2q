@@ -85,10 +85,10 @@ public:
             while (it.first == false && num < 5) {
                 sleep(1);
                 num++;
-                log::bug("pg is runing...");
+                elog::bug("pg is runing...");
 #ifdef DEBUG
                 for (auto uil : _used_idx_log) {
-                    log::bug("not release:", uil.second.first,
+                    elog::bug("not release:", uil.second.first,
                              " code line:", uil.second.second);
                 }
 #endif

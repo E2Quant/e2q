@@ -45,6 +45,7 @@
 #ifndef UTIL_INC
 #define UTIL_INC
 
+#include <fstream>
 #include <thread>
 #include <tuple>
 #include <utility>
@@ -186,6 +187,24 @@ struct test_base_template<BaseTemplate, Derived,
                 std::chrono::milliseconds(sleep_time)); \
         } while (0);                                    \
     })
+
+/**
+ * global properties
+ */
+// inline std::string GlobalProperties;
+
+struct __main_arguments {
+    std::string log_dir = "./log/";  // process log dir
+    ssize_t do_daemonize = 0;        // process deamon
+    std::string bin_dir = "";        // e2b log dir
+    int number_for_bin_read = 0;     // is e2b log reading
+    bool ea_or_oms = false;          //
+    std::ofstream log_io;
+}; /* ----------  end of struct __main_arguments  ---------- */
+
+typedef struct __main_arguments main_arguments;
+
+inline main_arguments GlobalMainArguments;
 
 }  // namespace e2q
 #endif /* ----- #ifndef UTIL_INC  ----- */

@@ -71,7 +71,7 @@ namespace e2q {
  */
 Fusion::Fusion()
 {
-    log::echo("version:", version::version_full);
+    elog::echo("version:", version::version_full);
 
 } /* -----  end of function Fusion::Fusion  ----- */
 
@@ -135,11 +135,11 @@ void Fusion::properties(std::string &path)
 {
     std::ifstream stream(path.c_str());
     if (path.length() == 0) {
-        log::bug("db properties not exits!");
+        elog::bug("db properties not exits!");
         return;
     }
     if (!stream.good()) {
-        log::bug("open error:", path);
+        elog::bug("open error:", path);
         return;
     }
 
@@ -148,7 +148,7 @@ void Fusion::properties(std::string &path)
     stream.exceptions(exceptionMask);
 
     if (!stream.is_open()) {
-        log::bug("open error:", path);
+        elog::bug("open error:", path);
         return;
     }
     std::getline(stream, _Properties);
@@ -169,11 +169,11 @@ void Fusion::properties(std::string &path)
 void Fusion::enter(const char *e2l_script)
 {
     if (e2l_script == nullptr) {
-        log::bug("path is not found");
+        elog::bug("path is not found");
         return;
     }
     if (_resource == nullptr) {
-        log::bug("_resource is null");
+        elog::bug("_resource is null");
         return;
     }
 
@@ -184,11 +184,11 @@ void Fusion::enter(const char *e2l_script)
             // 等待子程序的結束狀態
             wait(&retval);
 
-            log::info("CATCH SIGNAL PID=", getpid());
+            elog::info("CATCH SIGNAL PID=", getpid());
         }
     };  // -----  end lambda  -----
 
-    log::echo("start fork");
+    elog::echo("start fork");
     int exit_status;
 
     signal(SIGCHLD, handler);

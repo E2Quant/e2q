@@ -46,7 +46,7 @@
 #include <string>
 #include <utility>
 
-#include "utility/Log.hpp"
+#include "Toolkit/eLog.hpp"
 namespace e2q {
 
 /*
@@ -128,7 +128,7 @@ void PGConnectPool::e2lThread(std::size_t num)
 Pgsql* PGConnectPool::ptr(std::size_t idx)
 {
     if (idx >= _pool.size()) {
-        log::bug("error idx:", idx, " pool size:", _pool.size());
+        elog::bug("error idx:", idx, " pool size:", _pool.size());
         return nullptr;
     }
     return _pool.at(idx).second;
@@ -149,7 +149,7 @@ void PGConnectPool::release(std::size_t idx)
 {
     BasicLock _lock(_PoolMutex);
     if (idx >= _pool.size()) {
-        log::bug("error idx:", idx, " pool size:", _pool.size());
+        elog::bug("error idx:", idx, " pool size:", _pool.size());
         return;
     }
     _pool.at(idx).first = true;

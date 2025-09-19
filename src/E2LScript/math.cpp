@@ -73,15 +73,15 @@ void Array(e2::Int_e id, e2::Int_e asize, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
     if (id <= 0) {
-        log::bug("bad id:", id);
+        llog::bug("bad id:", id);
         return;
     }
     std::size_t len = (std::size_t)NUMBERVAL(asize);
 
     bool ret = e2q::e2_share_array.init(id, len);
     if (ret == false) {
-        log::bug("id:", std::string(_vname), " codeline:", loc,
-                 " path:", std::string(_path));
+        llog::bug("id:", std::string(_vname), " codeline:", loc,
+                  " path:", std::string(_path));
     }
 } /* -----  end of function Array  ----- */
 
@@ -121,8 +121,8 @@ void ArrayFill(e2::Int_e id, e2::Int_e value, const char *_vname, e2::Int_e loc,
 {
     id = NUMBERVAL(id);
     if (id == 0) {
-        log::bug("error id:", id, " vname:", std::string(_vname),
-                 " path:", std::string(_path), " code line:", loc);
+        llog::bug("error id:", id, " vname:", std::string(_vname),
+                  " path:", std::string(_path), " code line:", loc);
     }
     std::size_t max_size = e2q::e2_share_array.size(id);
     for (std::size_t m = 0; m < max_size; m++) {
@@ -148,7 +148,7 @@ e2::Bool ArrayAdd(e2::Int_e id, e2::Int_e val, const char *_vname,
 
     e2::Bool ret = e2q::e2_share_array.add(id, val);
     if (ret == e2::Bool::B_FALSE) {
-        log::bug("id:", id);
+        llog::bug("id:", id);
     }
     return ret;
 } /* -----  end of function AddArray  ----- */
@@ -168,8 +168,8 @@ e2::Bool ArrayUpdate(e2::Int_e id, e2::Int_e index, e2::Int_e x,
 {
     id = NUMBERVAL(id);
     if (id == 0) {
-        log::bug("error id:", id, " vname:", std::string(_vname),
-                 " path:", std::string(_path), " code line:", loc);
+        llog::bug("error id:", id, " vname:", std::string(_vname),
+                  " path:", std::string(_path), " code line:", loc);
     }
     std::size_t idx = (std::size_t)NUMBERVAL(index);
     e2::Bool ret = e2::Bool::B_TRUE;
@@ -242,8 +242,8 @@ e2::Int_e ArraySize(e2::Int_e id, const char *_vname, e2::Int_e loc,
 
     e2::Int_e len = e2q::e2_share_array.size(id);
     if (id == 0) {
-        log::bug("error id:", id, " vname:", std::string(_vname),
-                 " path:", std::string(_path), " code line:", loc);
+        llog::bug("error id:", id, " vname:", std::string(_vname),
+                  " path:", std::string(_path), " code line:", loc);
     }
     return VALNUMBER(len);
 } /* -----  end of function ArraySize  ----- */
@@ -265,8 +265,8 @@ e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char *_vname,
     id = NUMBERVAL(id);
 
     if (id == 0) {
-        log::bug("error id:", id, " vname:", std::string(_vname),
-                 " path:", std::string(_path), " code line:", loc);
+        llog::bug("error id:", id, " vname:", std::string(_vname),
+                  " path:", std::string(_path), " code line:", loc);
     }
     std::size_t idx = (std::size_t)NUMBERVAL(index);
     std::size_t len = e2q::e2_share_array.size(id);
@@ -358,7 +358,7 @@ e2::Int_e Sum(e2::Int_e id, e2::Int_e p, const char *_vname, e2::Int_e loc,
 
     e2::Int_e val = 0;
     if (p <= 0) {
-        log::echo("p:", p);
+        llog::echo("p:", p);
         return 0;
     }
     std::size_t next = (std::size_t)NUMBERVAL(p);
@@ -566,3 +566,4 @@ e2::Int_e Floor(e2::Int_e v)
 
 } /* -----  end of function Floor  ----- */
 }  // namespace e2l
+

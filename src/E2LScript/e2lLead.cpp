@@ -44,12 +44,14 @@
 #include "E2LScript/e2lLead.hpp"
 
 #include "E2L/account.hpp"
+#include "E2L/analyzer.hpp"
 #include "E2L/bot.hpp"
 #include "E2L/broker.hpp"
 #include "E2L/date_time.hpp"
 #include "E2L/general.hpp"
 #include "E2L/init.hpp"
 #include "E2L/marketinfo.hpp"
+#include "E2L/math.hpp"
 #include "E2L/system.hpp"
 #include "E2L/trade.hpp"
 #include "E2LScript/ExternClazz.hpp"
@@ -448,3 +450,4 @@ e2::Analy EnumAnaly(e2::Int_e v)
 } /* -----  end of function EnumAnaly  ----- */
 
 }  // namespace e2q
+

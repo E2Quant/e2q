@@ -87,7 +87,7 @@
 #include <cstddef>
 #include <string>
 
-#include "Toolkit/Log.hpp"
+#include "Toolkit/eLog.hpp"
 namespace e2q {
 
 #define TypeIdName(t) *typeid(t).name()
@@ -179,7 +179,7 @@ public:
 
     {
         if (val.length() == 0) {
-            log::bug(" field: ", field);
+            elog::bug(" field: ", field);
 
             return;
         }
@@ -251,7 +251,7 @@ public:
     {
         std::string val = fmt(t, deci);
         if (val.length() == 0) {
-            log::bug(" field: ", field);
+            elog::bug(" field: ", field);
 
             return;
         }
@@ -267,7 +267,7 @@ public:
     {
         std::string val = fmt(t, deci);
         if (val.length() == 0) {
-            log::bug(" field: ", field);
+            elog::bug(" field: ", field);
             return;
         }
         std::string muti = "";
@@ -280,7 +280,7 @@ public:
     void update_condition(std::string field, std::string rhs)
     {
         if (rhs.length() == 0) {
-            log::bug(" field: ", field);
+            elog::bug(" field: ", field);
             return;
         }
         std::string muti = "";
@@ -293,7 +293,7 @@ public:
     void update_condition(std::string rhs)
     {
         if (rhs.length() == 0) {
-            log::bug(" field: ", rhs);
+            elog::bug(" field: ", rhs);
             return;
         }
         std::string muti = "";
@@ -355,67 +355,67 @@ private:
 
         std::string fmt_val = "";
         if (Ttype == TIN::_signed) {
-            fmt_val += log::format(TIN::_signed_fmt, t);
+            fmt_val += elog::format(TIN::_signed_fmt, t);
         }
         else if (Ttype == TIN::_uint16_t) {
-            fmt_val += log::format(TIN::_uint16_fmt, t);
+            fmt_val += elog::format(TIN::_uint16_fmt, t);
         }
         else if (Ttype == TIN::_uint32_t) {
-            fmt_val += log::format(TIN::_uint32_fmt, t);
+            fmt_val += elog::format(TIN::_uint32_fmt, t);
         }
         else if (Ttype == TIN::_uint64_t) {
-            fmt_val += log::format(TIN::_uint64_fmt, t);
+            fmt_val += elog::format(TIN::_uint64_fmt, t);
         }
         else if (Ttype == TIN::_short) {
-            fmt_val += log::format(TIN::_short_fmt, t);
+            fmt_val += elog::format(TIN::_short_fmt, t);
         }
         else if (Ttype == TIN::_int) {
-            fmt_val += log::format(TIN::_int_fmt, t);
+            fmt_val += elog::format(TIN::_int_fmt, t);
         }
 
         else if (Ttype == TIN::_size_t) {
-            fmt_val += log::format(TIN::_size_fmt, t);
+            fmt_val += elog::format(TIN::_size_fmt, t);
         }
 
         else if (Ttype == TIN::_long) {
-            fmt_val += log::format(TIN::_long_fmt, t);
+            fmt_val += elog::format(TIN::_long_fmt, t);
         }
         else if (Ttype == TIN::_long_long) {
-            fmt_val += log::format(TIN::_longl_fmt, t);
+            fmt_val += elog::format(TIN::_longl_fmt, t);
         }
 
         else if (Ttype == TIN::_double) {
             if (deci == 0) {
-                fmt_val += log::format(TIN::_double_fmt, t);
+                fmt_val += elog::format(TIN::_double_fmt, t);
             }
             else {
-                fmt_val += log::format(TIN::_double_fmts, t, deci);
+                fmt_val += elog::format(TIN::_double_fmts, t, deci);
             }
         }
 
         else if (Ttype == TIN::_doublel) {
             if (deci == 0) {
-                fmt_val += log::format(TIN::_doublel_fmt, t);
+                fmt_val += elog::format(TIN::_doublel_fmt, t);
             }
             else {
-                fmt_val += log::format(TIN::_doublel_fmts, t, deci);
+                fmt_val += elog::format(TIN::_doublel_fmts, t, deci);
             }
         }
         else if (Ttype == TIN::_float) {
             if (deci == 0) {
-                fmt_val += log::format(TIN::_float_fmt, t);
+                fmt_val += elog::format(TIN::_float_fmt, t);
             }
             else {
-                fmt_val += log::format(TIN::_float_fmts, t, deci);
+                fmt_val += elog::format(TIN::_float_fmts, t, deci);
             }
         }
         else if (Ttype == TIN::_char_ptr) {
-            fmt_val += log::format(TIN::_char_fmt, t);
+            fmt_val += elog::format(TIN::_char_fmt, t);
         }
 
         else {
             fmt_val += t;
-            // log::bug("not type, val:", t, "  Ttype:", Ttype);
+            // elog::bug("not type, val:", t, "  Ttype:", Ttype);
         }
         return fmt_val;
     }

@@ -46,7 +46,6 @@
 #define MACHINEOS_INC
 
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -112,7 +111,6 @@ private:
     std::shared_ptr<BeamData> _beam_data = nullptr;
     _Resource_ptr _resource = nullptr;
     std::shared_ptr<Shuttle> _shu_ptr = nullptr;
-
 }; /* -----  end of class MachineOS  ----- */
 
 }  // namespace e2q

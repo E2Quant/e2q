@@ -66,7 +66,7 @@ int Producer::init(std::string brokers, std::string topic_str)
 {
     if (brokers.length() == 0 || topic_str.length() == 0) {
         _active = false;
-        log::bug("brokers:", brokers, " topic:", topic_str);
+        elog::bug("brokers:", brokers, " topic:", topic_str);
         return -1;
     }
 
@@ -192,12 +192,12 @@ void Producer::data(const char *line, std::size_t size, std::string topic_str,
     int32_t partition = RdKafka::Topic::PARTITION_UA;
 
     if (producer == nullptr || topic_str.length() == 0 || line == nullptr) {
-        log::bug(" topic:", topic_str);
+        elog::bug(" topic:", topic_str);
         return;
     }
 
     BasicLock _lock(_kMute);
-    //    log::info(line + "  " + topic_str);
+    //    elog::info(line + "  " + topic_str);
     RdKafka::ErrorCode resp = producer->produce(
         topic_str, partition, RdKafka::Producer::RK_MSG_COPY /* Copy payload
                                                               */
@@ -220,7 +220,7 @@ void Producer::data(const char *line, std::size_t size, std::string topic_str,
 
     producer->flush(100);
     if (resp != RdKafka::ERR_NO_ERROR) {
-        log::bug(" Produce failed: ", RdKafka::err2str(resp));
+        elog::bug(" Produce failed: ", RdKafka::err2str(resp));
         delete headers;
     }
 

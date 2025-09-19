@@ -92,16 +92,16 @@ void Container::InitCell()
     std::vector<size_t> symId = FixPtr->_symbols;
 
     if (_time_frames.size() == 0 || symId.size() == 0) {
-        log::bug("_time_frames.size() == 0");
+        elog::bug("_time_frames.size() == 0");
         return;
     }
 
     if (_source_ptr == nullptr) {
-        log::bug("source ptr is nullptr");
+        elog::bug("source ptr is nullptr");
         return;
     }
     // if (_cells.size() > 0) {
-    //     log::echo("cells size:", _cells.size());
+    //     elog::echo("cells size:", _cells.size());
     //     return;
     // }
 
@@ -133,7 +133,7 @@ void Container::InitCell()
     }
 
 #ifdef DEBUG
-    log::info("init cell and symId size:", symId.size());
+    elog::info("init cell and symId size:", symId.size());
 #endif
 } /* -----  end of function Container::InitCell  ----- */
 
@@ -183,15 +183,13 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
     // 毫秒 和秒的问题
     std::size_t timestamp = trad_time / 1000;
 
-    // double Decimal = (millisecond - (double)timestamp) * 1000.0;
-    // log::echo("start day", ut.toDate(timestamp));
     _now = trad_time;
     std::size_t intervalTime = 0;
     std::size_t startTime = 0;
     if (search == _cells.end()) {
-        log::bug("not found stock:", stock, " cell size:", _cells.size());
+        elog::bug("not found stock:", stock, " cell size:", _cells.size());
         for (auto it : _cells) {
-            log::info("code:", it.first);
+            elog::info("code:", it.first);
         }
         return -1;
     }
@@ -243,7 +241,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
                     std::size_t deviation_time =
                         deviation(timestamp, time_flag);
                     startTime = time_day_flag + (deviation_time * minute);
-                    // log::echo("start:", ut.toDate(startTime),
+                    // elog::echo("start:", ut.toDate(startTime),
                     //           " time:", ut.toDate(timestamp),
                     //           " day_flag:", ut.toDate(time_day_flag),
                     //           " devia:", deviation_time,
@@ -417,7 +415,7 @@ std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
     std::vector<TradeTime> trade_time = FixPtr->_tradetime;
     std::size_t ret = 0;
     if (trade_time.size() == 0) {
-        log::bug(" trade time is empty!");
+        elog::bug(" trade time is empty!");
         return ret;
     }
     UtilTime ut;
@@ -430,7 +428,7 @@ std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
 
     std::size_t now_total_time = hour * 60 + min;
 
-    //  log::echo("tick hour:", hour, " min:", min, " now_total:",
+    //  elog::echo("tick hour:", hour, " min:", min, " now_total:",
     //  now_total_time);
 
     size_t closeTimeflag = 0, openTimeflag = 0;
@@ -444,7 +442,7 @@ std::size_t Container::deviation(std::size_t timestamp, size_t timeFlag)
         openTimeflag = it.open_hour * 60 + it.open_min;
 
         if (now_total_time >= openTimeflag && now_total_time <= closeTimeflag) {
-            // log::echo("n:", n, " now_total_time:", now_total_time,
+            // elog::echo("n:", n, " now_total_time:", now_total_time,
             //           " open:", openTimeflag, " close:", closeTimeflag);
             if (n > 0) {
                 start = (now_total_time / timeFlag) * timeFlag;
@@ -542,7 +540,7 @@ void Container::quit()
     while (n > 0) {
         _trigger->turn(E2Q_EXIST);
         _trigger->emit();
-        // log::bug("sleep 1 ");
+        // elog::bug("sleep 1 ");
 
         sleep(1);
 
@@ -611,7 +609,7 @@ int Container::writed(std::size_t id, std::size_t timeframe)
     int ret = -1;
 
     if (_cells.count(id) == 0) {
-        log::info("code not found:", id);
+        elog::info("code not found:", id);
         return ret;
     }
 
@@ -640,9 +638,9 @@ int Container::writed(std::size_t id, std::size_t timeframe)
 std::size_t Container::idx(std::size_t stock, std::size_t timeframe)
 {
     if (_cells.count(stock) == 0) {
-        log::bug("but stock:", stock);
+        elog::bug("but stock:", stock);
         for (auto it : _cells) {
-            log::info("cells system cfi code:", it.first);
+            elog::info("cells system cfi code:", it.first);
         }
         return 0;
     }
@@ -673,7 +671,7 @@ int Container::read(std::array<SeqType, ohlc_column>& ohlc, std::size_t stock,
     std::size_t m = 0;
 
     if (_cells.count(stock) == 0) {
-        log::bug("but stock:", stock);
+        elog::bug("but stock:", stock);
         return ret;
     }
     int rows = 0;
@@ -735,10 +733,10 @@ void Container::dump()
 
     for (auto it : _cells) {
         stock = it.first;
-        log::echo("cfi:", stock);
+        elog::echo("cfi:", stock);
 
         for (auto cs : it.second) {
-            log::info("idx:", cs.idx, " frame:", cs.frame);
+            elog::info("idx:", cs.idx, " frame:", cs.frame);
             cs.data->read(&bar);
             logs(bar);
         }

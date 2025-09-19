@@ -61,33 +61,16 @@
 #include <utility>
 #include <vector>
 
-#include "E2L/E2LType.hpp"
-#include "E2L/account.hpp"
-#include "E2L/analyzer.hpp"
-#include "E2L/bot.hpp"
-#include "E2L/broker.hpp"
-#include "E2L/date_time.hpp"
-#include "E2L/general.hpp"
-#include "E2L/indicator.hpp"
-#include "E2L/init.hpp"
-#include "E2L/marketinfo.hpp"
-#include "E2L/math.hpp"
-#include "E2L/predefined.hpp"
-#include "E2L/system.hpp"
-#include "E2L/timeseries.hpp"
-#include "E2L/trade.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "FeedPack/Container.hpp"
 #include "MessagePack/RingLoop.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
-#include "assembler/BaseNode.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/DB/pg.hpp"
 #include "libs/kafka/producer.hpp"
 #include "libs/kafka/protocol/nbo.hpp"
 #include "libs/kafka/protocol/proto.hpp"
-#include "utility/Log.hpp"
 
 namespace e2q {
 
@@ -111,7 +94,7 @@ struct __AutoInc_t {
             _autoinc.at(_id)->_number = num;
         }
         else {
-            log::info("bad thread id:", _id);
+            elog::info("bad thread id:", _id);
         }
     }
     void runs(std::thread::id _id) { _autoinc.at(_id)->_run_number += 1; }
@@ -120,7 +103,8 @@ struct __AutoInc_t {
         if (_autoinc.count(_id) == 1) {
             return _autoinc.at(_id)->Id();
         }
-        log::info("bad thread id:", _id);
+
+        elog::info("bad thread id:", _id);
         return 0;
     }
     e2::Int_e StoreId(std::thread::id _id)
@@ -128,7 +112,7 @@ struct __AutoInc_t {
         if (_autoinc.count(_id) == 1) {
             return _autoinc.at(_id)->StoreId();
         }
-        log::info("bad thread id:", _id);
+        elog::info("bad thread id:", _id);
         return 0;
     }
 
@@ -137,13 +121,13 @@ struct __AutoInc_t {
         if (_autoinc.count(_id) == 1) {
             return _autoinc.at(_id)->_number;
         }
-        log::info("bad thread id:", _id);
+        elog::info("bad thread id:", _id);
         return 0;
     }
     void dump()
     {
         for (auto it : _autoinc) {
-            log::echo(it.first, " it:", it.second->_number);
+            elog::echo(it.first, " it:", it.second->_number);
         }
     }
 
@@ -236,7 +220,7 @@ struct __BarOHLC_t {
     std::size_t size(std::thread::id _id)
     {
         if (_bar_ohlc.count(_id) == 0) {
-            log::bug("bad thread id");
+            elog::bug("bad thread id");
             return 0;
         }
         return _bar_ohlc.at(_id).ohlc.size();
@@ -258,7 +242,7 @@ struct __BarOHLC_t {
         e2::Bool _bool = e2::Bool::B_FALSE;
 
         if (_bar_ohlc.count(_id) == 0 || e2q::e2l_cnt == nullptr) {
-            log::bug("e2l_cnt is null");
+            elog::bug("e2l_cnt is null");
             return _bool;
         }
         std::size_t idx = e2q::e2l_cnt->data_ptr->idx(stock, timeframe);
@@ -347,7 +331,7 @@ struct __Select_t {
     void release(std::thread::id _id)
     {
         if (_os.count(_id) == 0) {
-            log::bug("bad thread id");
+            elog::bug("bad thread id");
             return;
         }
         BasicLock _lock(_EMute);
@@ -382,8 +366,8 @@ struct __e2lAnalse {
          */
         const char *fmt = "02%d,%d,%d,%s,%s,%s,%d";
 
-        std::string ret = log::format(fmt, id, etime, quantId, name.c_str(),
-                                      argv.c_str(), values.c_str(), getpid());
+        std::string ret = elog::format(fmt, id, etime, quantId, name.c_str(),
+                                       argv.c_str(), values.c_str(), getpid());
         return ret;
     }
 }; /* ----------  end of struct __e2lAnalse  ---------- */
@@ -428,7 +412,7 @@ struct __Analse_t {
         BasicLock _lock(_EMute);
         e2lAnalse ana;
         if (_analse.count(_id) == 0 || _analse[_id].count(id) == 0) {
-            log::bug(" e2_analse is empty:");
+            elog::bug(" e2_analse is empty:");
         }
         else {
             if (_analse.at(_id).at(id).init == e2q::ticket_now) {
@@ -446,7 +430,7 @@ struct __Analse_t {
         BasicLock _lock(_EMute);
         e2lAnalse ana;
         if (_analse.count(_id) == 0 || _analse[_id].count(id) == 0) {
-            log::bug(" e2_analse is empty:");
+            elog::bug(" e2_analse is empty:");
         }
         else {
             if (_analse.at(_id).at(id).etime == e2q::ticket_now) {
@@ -467,7 +451,7 @@ struct __Analse_t {
     {
         e2q::UtilTime ut;
         if (_analse.count(_id) == 0) {
-            log::bug("bad thread id");
+            elog::bug("bad thread id");
             return;
         }
         std::size_t now = ut.time();
@@ -488,13 +472,14 @@ struct __Analse_t {
         std::size_t idx = e2q::GlobalDBPtr->getId();
         e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
         if (gsql == nullptr) {
-            log::bug("analse not enough pg idx!");
+            elog::bug("analse not enough pg idx!");
             e2q::GlobalDBPtr->release(idx);
             return;
         }
         if (_analse.at(_id).size() == 0) {
-            log::info("analse is empty");
+            elog::info("analse is empty");
         }
+
         for (auto ana : _analse.at(_id)) {
             auto it = ana.second;
             gsql->insert_table("analse");
@@ -513,7 +498,7 @@ struct __Analse_t {
             InsertCommit(gsql);
             int count = gsql->command_count();
             if (count <= 0) {
-                log::bug("analse insert command count == 0!!!");
+                elog::bug("analse insert command count == 0!!!");
             }
         }
         e2q::GlobalDBPtr->release(idx);
@@ -732,7 +717,7 @@ struct LogProto_t {
     {
         int n = snprintf(NULL, 0, "%s", vname);
         if (n < 1) {
-            log::bug(log::format("error vname:%s\n", vname));
+            elog::bug(elog::format("error vname:%s\n", vname));
             return;
         }
         std::uint16_t vname_size = (std::uint16_t)n;
@@ -820,10 +805,10 @@ struct LogProtoBin_t {
 
         std::string lpath = "";
         if (e2q::FixPtr != nullptr) {
-            lpath = _dir + log::format("%d_%ld_.log", getpid(), idh);
+            lpath = _dir + elog::format("%d_%ld_.log", getpid(), idh);
         }
         else {
-            lpath = _dir + log::format("oms_%d_%ld_.log", getpid(), idh);
+            lpath = _dir + elog::format("oms_%d_%ld_.log", getpid(), idh);
         }
 
         pFile = fopen(lpath.c_str(), "wb");
@@ -839,7 +824,7 @@ struct LogProtoBin_t {
     void data(const char *p, std::size_t len, std::thread::id tid)
     {
         if (p == nullptr || len <= 0 || _ldata.count(tid) == 0) {
-            log::bug("data tid");
+            elog::bug("data tid");
             return;
         }
 
@@ -847,7 +832,7 @@ struct LogProtoBin_t {
         FILE *pFile = _ldata.at(tid);
         std::size_t size_l = fwrite(p, sizeof(char), len, pFile);
         if (size_l != (len)) {
-            log::echo("size_l:", size_l, " len:", len);
+            elog::echo("size_l:", size_l, " len:", len);
         }
         fputc('\0', pFile);
 
@@ -935,7 +920,7 @@ struct LogProtoPtr_t : public LogProtoBin_t {
         //     //     free(it.second.ldata);
         //     //    it.second.ldata = nullptr;
 
-        //     log::info("use size:", it.second.count);
+        //     elog::info("use size:", it.second.count);
         // }
 #ifdef KAFKALOG
         Producer::exist();
@@ -970,36 +955,36 @@ private:
 
 typedef struct LogProtoPtr_t LogProtoPtr_t;
 
-inline LogProtoPtr_t elog;
+inline LogProtoPtr_t log;
 
 #ifdef KAFKALOG
 
-#define E2LOG(dptr, dsize, tid)                              \
-    ({                                                       \
-        do {                                                 \
-            if (e2q::FinFabr != nullptr &&                   \
-                e2q::FinFabr->_source.length() > 0) {        \
-                e2q::elog.data(dptr, dsize, lp.header(tid)); \
-            }                                                \
-            else if (e2q::FixPtr != nullptr &&               \
-                     e2q::FixPtr->_source.length() > 0) {    \
-                e2q::elog.data(dptr, dsize, lp.header(tid)); \
-            }                                                \
-            else {                                           \
-                std::hash<std::thread::id> hasher;           \
-                std::size_t idh = hasher(tid);               \
-                fprintf(stderr, "%s, %ld\n", dptr, idh);     \
-            }                                                \
-        } while (0);                                         \
+#define E2LOG(dptr, dsize, tid)                             \
+    ({                                                      \
+        do {                                                \
+            if (e2q::FinFabr != nullptr &&                  \
+                e2q::FinFabr->_source.length() > 0) {       \
+                e2q::log.data(dptr, dsize, lp.header(tid)); \
+            }                                               \
+            else if (e2q::FixPtr != nullptr &&              \
+                     e2q::FixPtr->_source.length() > 0) {   \
+                e2q::log.data(dptr, dsize, lp.header(tid)); \
+            }                                               \
+            else {                                          \
+                std::hash<std::thread::id> hasher;          \
+                std::size_t idh = hasher(tid);              \
+                fprintf(stderr, "%s, %ld\n", dptr, idh);    \
+            }                                               \
+        } while (0);                                        \
     })
 
 #else
 
-#define E2LOG(dptr, dsize, tid)               \
-    ({                                        \
-        do {                                  \
-            e2q::elog.data(dptr, dsize, tid); \
-        } while (0);                          \
+#define E2LOG(dptr, dsize, tid)              \
+    ({                                       \
+        do {                                 \
+            e2q::log.data(dptr, dsize, tid); \
+        } while (0);                         \
     })
 #endif
 }  // namespace e2q

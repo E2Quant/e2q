@@ -141,7 +141,7 @@ private:
     void run(std::size_t idx)
     {
         if (_job_fun == nullptr || _job_init == nullptr) {
-            log::bug("job_fun or job_init is nullptr");
+            elog::bug("job_fun or job_init is nullptr");
             return;
         }
 
@@ -167,7 +167,7 @@ private:
             thread_local std::packaged_task<void()> job;
             {
                 if (!_active && _arg_jobs[_id].empty()) {
-                    log::echo("exit");
+                    elog::echo("exit");
                     break;
                 }
                 /**
@@ -183,7 +183,7 @@ private:
                     break;
                 }
                 if (_arg_jobs.count(_id) == 0) {
-                    log::bug("exit bug");
+                    elog::bug("exit bug");
                     break;
                 }
                 std::pair<T, T> arg = _arg_jobs[_id].front();

@@ -113,7 +113,7 @@ struct AnalyBeam : public FuncBeamClass<FuncSignal> {
     void callback(std::shared_ptr<FuncSignal> beam)
     {
         if (beam == nullptr || beam->id != SigId::_feedId) {
-            // log::bug("FuncSignal is null");
+            // elog::bug("FuncSignal is null");
 
             return;
         }
@@ -122,7 +122,7 @@ struct AnalyBeam : public FuncBeamClass<FuncSignal> {
         e2q::bridge::ReceiveType<DisruptorStashSharePtr> fun =
             [](DisruptorStashSharePtr ptr) {
                 if (ptr == nullptr) {
-                    log::bug("DisruptorStashSharePtr is nullptr");
+                    elog::bug("DisruptorStashSharePtr is nullptr");
                     return;
                 }
                 auto thread_fun = [ptr]() {
@@ -142,7 +142,7 @@ struct AnalyBeam : public FuncBeamClass<FuncSignal> {
                         if (filled && (FixPtr->_OrderIds.size() > 0)) {
                             for (auto it = FixPtr->_OrderIds.begin();
                                  it != FixPtr->_OrderIds.end(); ++it) {
-                                // log::bug(it->first, " , ",
+                                // elog::bug(it->first, " , ",
                                 // it->second.symbol);
                                 quantId = it->first;
                                 for (auto k =
@@ -170,14 +170,14 @@ struct AnalyBeam : public FuncBeamClass<FuncSignal> {
                             int ret = ptr->data_ptr->fixed(&rec_data, row);
 
                             if (ret == -1) {
-                                log::bug(ptr->data_ptr->name(),
+                                elog::bug(ptr->data_ptr->name(),
                                          " row error:", row, " total:", rows,
                                          "start:", start, " end:", end);
 
                                 continue;
                             }
                             if (oinfo.symbol == rec_data[Trading::t_stock]) {
-                                /* log::info("stock:",
+                                /* elog::info("stock:",
                                  * rec_data[Trading::t_stock], */
                                 /*           " price:", */
                                 /*           NUMBERVAL(rec_data[Trading::t_price]),

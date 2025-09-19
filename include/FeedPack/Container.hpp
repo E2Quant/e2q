@@ -145,7 +145,7 @@ public:
         std::size_t m = 0;
 
         if (_cells.count(stock) == 0) {
-            log::bug("but stock:", stock);
+            elog::bug("but stock:", stock);
             return ret;
         }
         for (auto cell : _cells.at(stock)) {

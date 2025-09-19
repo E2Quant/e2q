@@ -55,6 +55,7 @@
 
 #include "ControlPack/pack.hpp"
 #include "E2L/E2LType.hpp"
+#include "E2LScript/ExternClazz.hpp"
 #include "FeedPack/FixQuote.hpp"
 #include "FixGuard.hpp"
 #include "OMSPack/FixGuard.hpp"
@@ -95,7 +96,7 @@
 #include <quickfix/fix44/QuoteCancel.h>
 #include <quickfix/fix44/QuoteRequest.h>
 #include <quickfix/fix44/QuoteStatusReport.h>
-
+#include <quickfix/fix44/TestRequest.h>
 #undef throw /* reset */
 #endif
 
@@ -126,21 +127,22 @@ public:
     }
     void onLogon(const FIX::SessionID& sid) override
     {
-        log::echo("onLogon:", sid.getSenderCompID().getValue());
+        elog::echo("onLogon:", sid.getSenderCompID().getValue(),
+                   " size:", FixPtr->_fix_symbols.size());
     };
 
     // Notification of a session logging off or disconnecting
     void onLogout(const FIX::SessionID& sid) override {
-        //  log::echo("onLogout:", sid.getSenderCompID().getValue());
+        //  elog::echo("onLogout:", sid.getSenderCompID().getValue());
     };
     // Notification of admin message being sent to target
     void toAdmin(FIX::Message& msg, const FIX::SessionID& sid) override {
-        //          log::echo(msg.toXML());
+        //          elog::echo(msg.toXML());
     };
     // Notification of app message being sent to target
     void toApp(FIX::Message& msg, const FIX::SessionID& sid) override
     {
-//        log::echo(msg.toString());
+//        elog::echo(msg.toString());
 #ifdef DEBUG
         try {
             FIX::PossDupFlag possDupFlag;
@@ -150,41 +152,41 @@ public:
             }
         }
         catch (FIX::FieldNotFound& f) {
-            log::bug(f.what(), " field:", f.field);
-            // log::echo(msg.toXML());
+            elog::bug(f.what(), " field:", f.field);
+            // elog::echo(msg.toXML());
         }
 
 #endif
     };
     // Notification of admin message being received from target
     void fromAdmin(const FIX::Message& msg, const FIX::SessionID&) override {
-        //  log::info("fromadmin come in ", msg.toString());
+        //  elog::info("fromadmin come in ", msg.toString());
     };
     // Notification of app message being received from target
     void fromApp(const FIX::Message& msg, const FIX::SessionID& sid)
 
         override
     {
-        // log::info(msg.toXML());
-        // log::info("fromapp come in ........");
+        // elog::info(msg.toXML());
+        // elog::info("fromapp come in ........");
         try {
             crack(msg, sid);
         }
         catch (FIX::FieldNotFound& f) {
-            log::bug(f.what());
+            elog::bug(f.what());
         }
         catch (FIX::IncorrectDataFormat& i) {
-            log::bug(i.what());
+            elog::bug(i.what());
         }
         catch (FIX::IncorrectTagValue& v) {
-            log::bug(v.what());
+            elog::bug(v.what());
         }
         catch (FIX::UnsupportedMessageType& t) {
-            log::bug(t.what());
+            elog::bug(t.what());
         }
         catch (std::exception& e) {
-            log::bug(e.what());
-            log::echo(msg.toXML());
+            elog::bug(e.what());
+            elog::echo(msg.toXML());
         }
 
         //    _event.signal();
@@ -254,7 +256,7 @@ public:
     /**
      *  ===  PreTrade ===
      */
-    void QuoteRequest(std::vector<std::size_t>&);
+    void QuoteRequest(std::vector<std::size_t>&, int isRet);
 
     /**
      * === Trade ===
@@ -283,9 +285,10 @@ public:
 
     void Init(_Resource_ptr ptr, std::shared_ptr<BeamData> beam_data,
               std::shared_ptr<Shuttle>);
+
     void CallBack(fixType);
     void wait();
-
+    void QuoteStatusReport(int);
     void quit(const FIX::SessionID&);
     /* =============  OPERATORS     =================== */
 
@@ -308,6 +311,8 @@ private:
                    const FIX::SessionID&);
 
     void History();
+
+    void TestRequest();
     /* =============  DATA MEMBERS  =================== */
     FIX::SenderCompID _sender;
     FIX::TargetCompID _target;

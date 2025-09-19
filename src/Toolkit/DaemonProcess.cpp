@@ -43,7 +43,11 @@
 #include "Toolkit/DaemonProcess.hpp"
 
 #include <csignal>
+#include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+
+#include "Toolkit/eLog.hpp"
 namespace e2q {
 
 /*
@@ -66,7 +70,7 @@ int DProcess::init(const char *pname)
     if (pid < 0)
         return (-1);
     else if (pid) {
-        //       log::bug("daemon pid error");
+        //       elog::bug("daemon pid error");
         _exit(0);
     }
 
@@ -78,7 +82,7 @@ int DProcess::init(const char *pname)
     if (pid < 0)
         return (-1);
     else if (pid) {
-        //        log::bug("daemon pid ");
+        //        elog::bug("daemon pid ");
         _exit(0);
     }
     umask(0);
@@ -86,7 +90,7 @@ int DProcess::init(const char *pname)
     // chdir("/");
 
     for (i = 0; i < MAXFD; i++) close(i);
-    sprintf(id, "%d\n", getpid());
+    snprintf(id, 10, "%d\n", getpid());
     open("/dev/null", O_RDONLY);
     open("/dev/null", O_RDWR);
     open("/dev/null", O_RDWR);
@@ -110,14 +114,22 @@ void DProcess::save_pid(const pid_t pid, const char *pfile)
     FILE *fp;
     if (pfile == NULL) return;
 
-    if ((fp = fopen(pfile, "w")) == NULL) {
-        log::bug("Could not open the pid file  for writing");
+    char kfile[255] = {0};
+    std::size_t klen = snprintf(NULL, 0, pfile, (long)pid) + 1;
+
+    if (klen > 254) {
+        klen = 254;
+    }
+    snprintf(kfile, klen, pfile, (long)pid);
+
+    if ((fp = fopen(kfile, "w")) == NULL) {
+        elog::bug("Could not open the pid file  for writing");
         return;
     }
-
+    _pid = pid;
     fprintf(fp, "%ld\n", (long)pid);
     if (fclose(fp) == -1) {
-        log::bug("Could not close the pid file ");
+        elog::bug("Could not close the pid file ");
         return;
     }
 
@@ -137,9 +149,15 @@ void DProcess::save_pid(const pid_t pid, const char *pfile)
 void DProcess::rm_pid(const char *pfile)
 {
     if (pfile == NULL) return;
+    char kfile[255] = {0};
+    std::size_t klen = snprintf(NULL, 0, pfile, (long)_pid) + 1;
+    if (klen > 254) {
+        klen = 254;
+    }
+    snprintf(kfile, klen, pfile, (long)_pid);
 
-    if (unlink(pfile) != 0) {
-        log::bug("Could not remove the pid file ");
+    if (unlink(kfile) != 0) {
+        elog::bug("Could not remove the pid file ");
     }
 
 } /* -----  end of function DProcess::rm_pid  ----- */

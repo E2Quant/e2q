@@ -94,23 +94,23 @@ public:
                 if (event.fatal()) {
                     _kafka_run = 0;
                 }
-                log::bug("FATAL ERROR (", RdKafka::err2str(event.err()),
+                elog::bug("FATAL ERROR (", RdKafka::err2str(event.err()),
                          "): ", event.str(), " bokers:", _bokers,
                          " topic:", _topic);
                 break;
 
             case RdKafka::Event::EVENT_STATS:
-                log::bug("\"STATS\": ", event.str());
+                elog::bug("\"STATS\": ", event.str());
                 break;
 
             case RdKafka::Event::EVENT_LOG:
-                log::bug("LOG-", event.severity(), "-", event.fac().c_str(),
+                elog::bug("LOG-", event.severity(), "-", event.fac().c_str(),
                          "-", event.str().c_str(), " bokers:", _bokers,
                          " topic:", _topic);
                 break;
 
             default:
-                log::bug("EVENT ", event.type(), " (",
+                elog::bug("EVENT ", event.type(), " (",
                          RdKafka::err2str(event.err()), "): ", event.str());
                 break;
         }
@@ -140,7 +140,7 @@ public:
     {
         const RdKafka::Headers *headers;
         int64_t now_offset = 0;
-        // log::info("Read msg at offset ", message->offset());
+        // elog::info("Read msg at offset ", message->offset());
 
         switch (message->err()) {
             case RdKafka::ERR__TIMED_OUT:
@@ -150,7 +150,7 @@ public:
                 /* Real message */
 
                 if (message->key()) {
-                    log::info("Key: ", *message->key());
+                    elog::info("Key: ", *message->key());
                 }
                 headers = message->headers();
                 if (headers) {
@@ -160,19 +160,19 @@ public:
                         const RdKafka::Headers::Header hdr = hdrs[i];
 
                         if (hdr.value() != NULL) {
-                            log::bug(" Header: %s ", hdr.key().c_str(), "=",
+                            elog::bug(" Header: %s ", hdr.key().c_str(), "=",
                                      (int)hdr.value_size(), ".",
                                      (const char *)hdr.value());
                         }
                         else {
-                            log::bug(" Header:  ", hdr.key().c_str(), "= NULL");
+                            elog::bug(" Header:  ", hdr.key().c_str(), "= NULL");
                         }
                     }
                 }
 
                 now_offset = message->offset();
                 if (_lastoffset >= now_offset) {
-                    log::bug("repeat offset:", now_offset);
+                    elog::bug("repeat offset:", now_offset);
                 }
                 _lastoffset = now_offset;
 
@@ -204,7 +204,7 @@ public:
                         break;
                     default:
                         printf("%s\n", p);
-                        log::bug("bad data! ");
+                        elog::bug("bad data! ");
                         break;
                 }
 
@@ -220,13 +220,13 @@ public:
 
             case RdKafka::ERR__UNKNOWN_TOPIC:
             case RdKafka::ERR__UNKNOWN_PARTITION:
-                log::bug("Consume failed: ", message->errstr());
+                elog::bug("Consume failed: ", message->errstr());
                 ExitOrder();
                 break;
 
             default:
                 /* Errors */
-                log::bug("Consume failed: ", message->errstr());
+                elog::bug("Consume failed: ", message->errstr());
                 ExitOrder();
         }
     }

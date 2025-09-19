@@ -64,7 +64,7 @@ namespace e2q {
 bool Market::insert(OrderItem* order)
 {
     if (order->Pending() == nullptr) {
-        log::bug("order pending is nullptr!");
+        elog::bug("order pending is nullptr!");
         return false;
     }
     if (order->getSide() == e2::Side::os_Buy) {
@@ -122,7 +122,7 @@ OrderItem* Market::find(std::size_t ticket)
 {
     auto item = MapOrder.find(ticket);
     if (item == MapOrder.end()) {
-        log::bug("not found ticket:", ticket);
+        elog::bug("not found ticket:", ticket);
         return nullptr;
     }
 
@@ -153,12 +153,12 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
                    e2::Int_e adj_price, std::size_t order_start_time)
 {
     /*
-    log::info("--- === ----");
+    elog::info("--- === ----");
     _bidOrders.dump();
-    log::bug("---  ----");
+    elog::bug("---  ----");
 
     _askOrders.dump();
-    log::info("-------");
+    elog::info("-------");
 */
     e2q::OrderPending* spread_bid = nullptr;
     e2q::OrderPending* spread_ask = nullptr;
@@ -176,7 +176,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
         bempty = _bidOrders.empty();
         aempty = _askOrders.empty();
         if (bempty && aempty) {
-            // log::echo("bid ask is empty");
+            // elog::echo("bid ask is empty");
             break;
         }
 
@@ -188,7 +188,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
             if (spread_ask != nullptr) {
                 // if (FinFabr->_settlement == 0 ||
                 //     order_start_time > spread_ask->market_time()) {
-                log::info(spread_ask->isBot(),
+                elog::info(spread_ask->isBot(),
                           " ask opqty:", spread_ask->getOpenQuantity(),
                           " leaveqty:", spread_ask->getLeavesQty(),
                           " tick:", spread_ask->getTicket(),
@@ -209,7 +209,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
             if (spread_bid != nullptr) {
                 // if (FinFabr->_settlement == 0 ||
                 //     order_start_time > spread_bid->market_time()) {
-                log::info(spread_bid->isBot(),
+                elog::info(spread_bid->isBot(),
                           " bid opqty:", spread_bid->getOpenQuantity(),
                           " leaveqty:", spread_bid->getLeavesQty(),
                           " tick:", spread_bid->getTicket(),
@@ -229,12 +229,12 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
         spread_ask = _askOrders.spread();
 
         if (spread_ask == nullptr || spread_bid == nullptr) {
-            // log::bug("ask or bid level  empty ");
+            // elog::bug("ask or bid level  empty ");
             continue;
         }
         /*
         if (spread_ask->isBot()) {
-            log::info(" ask opqty:", spread_ask->getOpenQuantity(),
+            elog::info(" ask opqty:", spread_ask->getOpenQuantity(),
                       "  price:", spread_ask->getAvgExecutedPrice(),
                       " leaveqty:", spread_ask->getLeavesQty(),
                       " exeqty:", spread_ask->getExecutedQuantity(),
@@ -242,7 +242,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
                       " bid tick:", spread_bid->getTicket());
         }
         if (spread_bid->isBot()) {
-            log::info(" bid opqty:", spread_bid->getOpenQuantity(),
+            elog::info(" bid opqty:", spread_bid->getOpenQuantity(),
                       "  price:", spread_bid->getAvgExecutedPrice(),
                       " leaveqty:", spread_bid->getLeavesQty(),
                       " exeqty:", spread_bid->getExecutedQuantity(),
@@ -272,7 +272,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
         }
         if (ordtype == e2::OrdType::ot_limit) {
             if (spread_bid->getPrice() < price) {
-                log::bug("price null eq, tick:", spread_bid->getTicket(),
+                elog::bug("price null eq, tick:", spread_bid->getTicket(),
                          " , bid:", spread_bid->getPrice(),
                          ", tick:", spread_ask->getTicket(),
                          " ask:", spread_ask->getPrice());
@@ -302,7 +302,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
         if (!spread_bid->isBot()) {
             Lots.push(make(spread_bid->getTicket()));
         }
-        // log::echo("bid qty:", bid_qty, " ask_qty:", ask_qty);
+        // elog::echo("bid qty:", bid_qty, " ask_qty:", ask_qty);
 
         /**
          * 平仓的时候扣掉 qty
@@ -316,7 +316,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
         }
         /*
         if (spread_ask->isBot()) {
-            log::info("end ask opqty:", spread_ask->getOpenQuantity(),
+            elog::info("end ask opqty:", spread_ask->getOpenQuantity(),
                       "  price:", spread_ask->getAvgExecutedPrice(),
                       " leaveqty:", spread_ask->getLeavesQty(),
                       " exeqty:", spread_ask->getExecutedQuantity(),
@@ -326,7 +326,7 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
                       " bid openqty:", spread_bid->getOpenQuantity());
         }
         if (spread_bid->isBot()) {
-            log::info("end bid opqty:", spread_bid->getOpenQuantity(),
+            elog::info("end bid opqty:", spread_bid->getOpenQuantity(),
                       "  price:", spread_bid->getAvgExecutedPrice(),
                       " leaveqty:", spread_bid->getLeavesQty(),
                       " exeqty:", spread_bid->getExecutedQuantity(),
@@ -412,7 +412,7 @@ std::pair<e2::Int_e, e2::Int_e> Market::top_bid_ask_price()
  */
 void Market::MDebug(std::string& desz, const OrderPending* op)
 {
-    log::info(desz, " open qty:", op->getOpenQuantity(),
+    elog::info(desz, " open qty:", op->getOpenQuantity(),
               " avg price:", op->getAvgExecutedPrice(),
               " tick:", op->getTicket(), " price:", op->getPrice());
 

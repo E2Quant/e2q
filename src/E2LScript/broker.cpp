@@ -165,7 +165,7 @@ void MatchEventInit(e2::MatchEvent me)
  */
 void EnableExdividend(e2::Bool e)
 {
-    //log::info("e:", e);
+    // llog::info("e:", e);
 
     e2q::FinFabr->_enable_exrd = e;
 } /* -----  end of function EnableExdividend  ----- */
@@ -294,7 +294,7 @@ e2::Int_e ExDividendShare(e2::Int_e cfi, e2::Int_e idx)
 void BrokerBook(e2::BookType bt)
 {
     e2q::FinFabr->_BookType = (e2::BookType)NUMBERVAL(bt);
-    log::echo("book Type:", e2q::FinFabr->_BookType);
+    llog::echo("book Type:", e2q::FinFabr->_BookType);
 } /* -----  end of function BrokerBook  ----- */
 
 }  // namespace e2l

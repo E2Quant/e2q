@@ -169,7 +169,7 @@ void Analse(e2::Int_e id, const char *name)
     e2q::e2lAnalse ana;
     ana.id = id;
     if (e2q::FixPtr->_quantId.count(_id) == 0) {
-        log::bug("quantId");
+        llog::bug("quantId");
         ana.quantId = 0;
     }
     else {
@@ -286,3 +286,4 @@ void AnalseLog(e2::Int_e key, e2::Int_e val, e2::Int_e type, e2::Int_e time)
 
 } /* -----  end of function AnalseLog  ----- */
 }  // namespace e2l
+

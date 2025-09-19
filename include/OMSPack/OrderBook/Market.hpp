@@ -86,7 +86,7 @@ public:
     Market() {}; /* constructor */
     ~Market()
     {
-        // log::echo("release Market!");
+        // elog::echo("release Market!");
         for (auto it = MapOrder.begin(); it != MapOrder.end(); ++it) {
             RELEASE(it->second);
         }

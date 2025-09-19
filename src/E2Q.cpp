@@ -74,9 +74,9 @@ E2Q::E2Q() {} /* -----  end of function E2Q:E2Q  ----- */
  */
 void E2Q::exchange(int pros, func_type<> child_process)
 {
-    log::echo("server is run!");
+    elog::echo("server is run!");
     if (db_path.length() == 0) {
-        log::echo("properties is empty");
+        elog::echo("properties is empty");
     }
     e2q::Fusion fusion;
     fusion.properties(db_path);
@@ -97,9 +97,10 @@ void E2Q::exchange(int pros, func_type<> child_process)
  */
 void E2Q::trader(size_t n, std::size_t quant_start, int run)
 {
-    log::echo("node is run, quant_start:", quant_start, " run:", run);
+    elog::echo("node is run idx:", n, " quant_start:", quant_start,
+               " run:", run);
     if (db_path.length() == 0) {
-        log::echo("properties is empty");
+        elog::echo("properties is empty");
     }
     e2q::Fusion fusion;
     fusion.properties(db_path);
@@ -138,7 +139,7 @@ void E2Q::setCfg(std::string &e2l, std::string &db)
 void E2Q::log_dir(std::string &dir)
 {
 #ifndef KAFKALOG
-    elog.dir(dir);
+    log.dir(dir);
 #endif
 
 } /* -----  end of function E2Q::log_dir  ----- */

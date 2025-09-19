@@ -90,7 +90,7 @@ struct LinkEntry {
     LinkEntry(std::size_t i = 0) : _level(i) {}
     ~LinkEntry()
     {
-        // log::echo("LinkEntry level:", _level, " abndons:", _abandons);
+        // elog::echo("LinkEntry level:", _level, " abndons:", _abandons);
     }
     std::size_t level() { return _level; }
     bool abandon()
@@ -165,7 +165,7 @@ struct PointLinkList {
 
     ~PointLinkList()
     {
-        // log::echo("release PointLinkList!");
+        // elog::echo("release PointLinkList!");
         struct LinkEntry<T> *_del = _head;
         struct LinkEntry<T> *_tmp = nullptr;
         while (_del != nullptr) {
@@ -234,7 +234,7 @@ struct PointLinkList {
     {
         LinkEntry<T> *_add = MALLOC(LinkEntry<T>, _size);
         if (_add == nullptr) {
-            log::bug("LinkEntry new is nullptr!");
+            elog::bug("LinkEntry new is nullptr!");
             return false;
         }
         _tail->next->pre = _add;
@@ -262,7 +262,7 @@ struct PointLinkList {
         LinkEntry<T> *p = *pf;
         LinkEntry<T> *_add = MALLOC(LinkEntry<T>, _size);
         if (_add == nullptr) {
-            log::bug("LinkEntry new is nullptr!");
+            elog::bug("LinkEntry new is nullptr!");
             return false;
         }
         if (_size == 1) {
@@ -330,7 +330,7 @@ public:
     void roll()
     {
         if (*_worker == nullptr) {
-            log::info("worker is nullptr");
+            elog::info("worker is nullptr");
 
             return;
         }
@@ -340,7 +340,7 @@ public:
     T *spread()
     {
         if (*_worker == nullptr) {
-            log::info("worker is nullptr");
+            elog::info("worker is nullptr");
             return nullptr;
         }
         T *tmp = (*_worker)->leave();
@@ -534,7 +534,7 @@ void const Engine<T, compare, Lock>::dump() const
 {
     LinkEntry<T> *_dump = _node->root_const();
     if (_dump == nullptr) {
-        log::info("node is nullptr");
+        elog::info("node is nullptr");
         return;
     }
     std::size_t level = 0;

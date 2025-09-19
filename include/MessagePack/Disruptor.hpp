@@ -250,10 +250,10 @@ public:
 
         _mulberry.overlap = false;
         /* if (_mulberry.rw == _ENUM::rw) { */
-        /*     log::echo("disruptor is rw"); */
+        /*     elog::echo("disruptor is rw"); */
         /* } */
         /* else { */
-        /*     log::echo("disruptor is r"); */
+        /*     elog::echo("disruptor is r"); */
         /* } */
     }
 
@@ -269,10 +269,10 @@ public:
 
         _mulberry.overlap = false;
         if (_mulberry.rw == _ENUM::rw) {
-            log::echo("disruptor twins is rw");
+            elog::echo("disruptor twins is rw");
         }
         else {
-            log::echo("disruptor is r");
+            elog::echo("disruptor is r");
         }
     }
 
@@ -433,7 +433,7 @@ public:
     void show()
     {
         for (auto b : _thread_row) {
-            log::echo("id:", b.first, " row:", b.second);
+            elog::echo("id:", b.first, " row:", b.second);
         }
     };
 

@@ -57,7 +57,7 @@ namespace e2q {
 void Investors::addScript(std::string& path)
 {
     if (path.length() == 0) {
-        log::bug("error path");
+        elog::bug("error path");
         return;
     }
     _scripts.push_back(path);

@@ -63,7 +63,7 @@ namespace e2q {
 void FeedData::resource(_Resource_ptr ptr)
 {
     if (ptr == nullptr) {
-        log::bug("resource is null");
+        elog::bug("resource is null");
         return;
     }
     _resource = std::move(ptr);
@@ -88,7 +88,7 @@ void FeedData::resource(_Resource_ptr ptr)
 void FeedData::callback(std::shared_ptr<ConnectSignal> beam)
 {
     if (beam == nullptr || beam->id != SigId::_strategy_id) {
-        log::bug("callback error");
+        elog::bug("callback error");
         return;
     }
     size_t inc = 1;
@@ -111,7 +111,7 @@ void FeedData::ctrl(
     func_type_ret<SeqType, SeqType, SeqType, SeqType, SeqType> fix_call)
 {
     if (_master == nullptr) {
-        log::bug("_master is nullptr");
+        elog::bug("_master is nullptr");
         return;
     }
 
@@ -157,7 +157,7 @@ void FeedData::ctrl(
         kf.handle(ctrl_fun);
     }
     else {
-        log::bug("csv_kafka error");
+        elog::bug("csv_kafka error");
     }
 
     this->_master->data_ptr->quit();

@@ -123,7 +123,7 @@ void ethread(e2::Int_e num)
     const auto processor_count = std::thread::hardware_concurrency();
 
     if (_num > processor_count) {
-        log::info("arg > thread size:", processor_count);
+        llog::info("arg > thread size:", processor_count);
         _num = processor_count;
     }
     e2q::e2l_thread_num = _num;

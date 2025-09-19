@@ -101,11 +101,11 @@ void Tunnel::handle(TradType tt)
         stream.open(_path.c_str());
     }
     catch (std::ios_base::failure& e) {
-        log::bug(e.what());
+        elog::bug(e.what());
     }
 
     if (!stream.is_open()) {
-        log::bug("open error:", _path);
+        elog::bug("open error:", _path);
         return;
     }
     // first line for title
@@ -113,7 +113,7 @@ void Tunnel::handle(TradType tt)
 
     while (getline(stream, _line)) {
         if (stream.peek() == EOF) {
-            log::echo("eof:");
+            elog::echo("eof:");
 
             break;
         }
@@ -159,7 +159,7 @@ void Tunnel::handle(TradType tt)
     stream.close();
 #ifdef DEBUG
 
-    log::info("tunnel is end..  test:", test);
+    elog::info("tunnel is end..  test:", test);
 #endif
 } /* -----  end of function Tunnel::handle  ----- */
 

@@ -60,7 +60,7 @@ void OHLCThread::push(const std::array<_ohlc_t, ohlc_column> &data)
 
 {
     ohlc_m++;
-    log::echo("push count:", ohlc_m);
+    elog::echo("push count:", ohlc_m);
     insert(data);
 
 } /* -----  end of function OHLC::push  ----- */
