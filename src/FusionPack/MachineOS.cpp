@@ -120,6 +120,9 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
 
     try {
         FIX::SessionSettings settings = EaSetting();
+        if (settings.getSessions().size() == 0) {
+            settings = EaSetting(true);
+        }
 
         /**
          * 动态设置 SenderCompID
@@ -268,7 +271,7 @@ void MachineOS::machine()
  *
  * ============================================
  */
-FIX::SessionSettings MachineOS::EaSetting()
+FIX::SessionSettings MachineOS::EaSetting(bool offset)
 {
     FIX::SessionSettings settings(FixPtr->_fix_cfg);
 
@@ -321,15 +324,19 @@ FIX::SessionSettings MachineOS::EaSetting()
     }
 
     if (sessionid == 0) {
+        int _offset = _node;
+        if (offset) {
+            _offset = 0;
+        }
         sql = elog::format(
             "SELECT beginstring, targetcompid, sendercompid,"
             "filestorepath,datadictionary,host as SocketConnectHost,port as "
             " SocketConnectPort FROM fixsession WHERE id not IN (SELECT "
             "sessionid "
             " FROM  account WHERE verid= %d) AND id > 1 AND login=0  ORDER BY "
-            "id DESC OFFSET %ld"
+            "id DESC OFFSET %d"
             " LIMIT 1",
-            FixPtr->_QuantVerId, _node);
+            FixPtr->_QuantVerId, _offset);
     }
     else {
         sql = elog::format(

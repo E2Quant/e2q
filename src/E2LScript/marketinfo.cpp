@@ -51,6 +51,7 @@
 #include "E2LScript/util_inline.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/Util.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2l {
 
@@ -213,6 +214,26 @@ e2::Int_e Delisting(e2::Int_e cficode)
 
     return ret;
 } /* -----  end of function Delisting  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  IsSuspended
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Bool IsSuspended()
+{
+    e2::Bool ret = e2::Bool::B_FALSE;
+    if (e2q::GlobalMainArguments.is_suspend) {
+        ret = e2::Bool::B_TRUE;
+    }
+    return ret;
+} /* -----  end of function IsSuspended  ----- */
 
 /*
  * ===  FUNCTION  =============================

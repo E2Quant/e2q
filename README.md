@@ -16,6 +16,9 @@
 ![Logo](./e2q_512.png)
 ---
 
+## 思维图如下:
+![E2Q mind map](https://e2q-doc.readthedocs.io/images/eq_1_21.drawio.png "E2Q")
+
 ## 功能特性
 
 - 🚀 事务机制，按单笔 ticket 报价

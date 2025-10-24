@@ -364,7 +364,7 @@ struct __e2lAnalse {
         /**
          *  id,etime,name,argv,values
          */
-        const char *fmt = "02%d,%d,%d,%s,%s,%s,%d";
+        const char* fmt = "02%d,%d,%d,%s,%s,%s,%d";
 
         std::string ret = elog::format(fmt, id, etime, quantId, name.c_str(),
                                        argv.c_str(), values.c_str(), getpid());
@@ -470,7 +470,7 @@ struct __Analse_t {
         }
 
         std::size_t idx = e2q::GlobalDBPtr->getId();
-        e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
+        e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
         if (gsql == nullptr) {
             elog::bug("analse not enough pg idx!");
             e2q::GlobalDBPtr->release(idx);
@@ -682,7 +682,7 @@ inline ExdiType ExdiSymList;
 // 二进制记录日是志
 
 struct LogProto_t {
-    void data(char *ptr)
+    void data(char* ptr)
     {
         idx = 0;
         _ptr = ptr;
@@ -713,7 +713,7 @@ struct LogProto_t {
         std::uint32_t pid = (std::uint32_t)getpid();
         idx += serialize_uint_t((_ptr + idx), pid);
     }
-    void vname(const char *vname)
+    void vname(const char* vname)
     {
         int n = snprintf(NULL, 0, "%s", vname);
         if (n < 1) {
@@ -728,11 +728,11 @@ struct LogProto_t {
         memcpy((_ptr + idx), vname, vname_size);
         idx += (std::size_t)vname_size;
     }
-    void path(const char *p)
+    void path(const char* p)
     {
         int n = snprintf(NULL, 0, "%s", p);
         if (n <= 1) {
-            printf("error path:%s\n", p);
+            elog::bug(elog::format("error path:%s\n", p));
 
             return;
         }
@@ -740,17 +740,16 @@ struct LogProto_t {
         if (path_size > max_path) {
             path_size = max_path;
         }
-        // std::cout << "path size:" << path_size << std::endl;
         idx += serialize_uint_t((_ptr + idx), path_size);
         memcpy((_ptr + idx), p, path_size);
         idx += (std::size_t)path_size;
     }
     std::size_t size() { return idx; }
 
-    RdKafka::Headers *header(std::thread::id _id)
+    RdKafka::Headers* header(std::thread::id _id)
     {
         std::stringstream ssId;
-        RdKafka::Headers *headers = RdKafka::Headers::create();
+        RdKafka::Headers* headers = RdKafka::Headers::create();
         /*
          * Produce message
          */
@@ -767,7 +766,7 @@ struct LogProto_t {
 
 private:
     std::size_t idx = 0;
-    char *_ptr;
+    char* _ptr;
     std::uint16_t max_vname = 50;
     std::uint16_t max_path = 205;
 }; /* ----------  end of struct LogProto_t  ---------- */
@@ -782,22 +781,11 @@ struct LogProtoBin_t {
         }
         BasicLock _lock(_EMute);
 
-        struct stat info;
-
-        if (stat(_dir.c_str(), &info) != 0) {
-            mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        }
-        else if (info.st_mode & S_IFDIR) {
-        }
-        else {
-            mkdir(_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        }
-
-        FILE *pFile;
+        FILE* pFile;
         std::size_t idh = _idx++;
         auto dirIter = std::filesystem::directory_iterator(_dir);
 
-        for (auto &entry : dirIter) {
+        for (auto& entry : dirIter) {
             if (entry.is_regular_file()) {
                 ++idh;
             }
@@ -821,7 +809,7 @@ struct LogProtoBin_t {
             fclose(it.second);
         }
     }
-    void data(const char *p, std::size_t len, std::thread::id tid)
+    void data(const char* p, std::size_t len, std::thread::id tid)
     {
         if (p == nullptr || len <= 0 || _ldata.count(tid) == 0) {
             elog::bug("data tid");
@@ -829,14 +817,14 @@ struct LogProtoBin_t {
         }
 
         BasicLock _lock(_EMute);
-        FILE *pFile = _ldata.at(tid);
+        FILE* pFile = _ldata.at(tid);
         std::size_t size_l = fwrite(p, sizeof(char), len, pFile);
         if (size_l != (len)) {
             elog::echo("size_l:", size_l, " len:", len);
         }
         fputc('\0', pFile);
 
-        auto fun = [this](std::thread::id tid, FILE *pFile) {
+        auto fun = [this](std::thread::id tid, FILE* pFile) {
             if (_isFlush == 0) {
                 _isFlush = ticket_now;
                 return;
@@ -850,10 +838,10 @@ struct LogProtoBin_t {
 
         THREAD_FUN(fun, tid, pFile);
     }
-    void dir(std::string &dir) { _dir = "./" + dir + "/"; }
+    void dir(std::string& dir) { _dir = "./" + dir + "/"; }
 
 private:
-    std::map<std::thread::id, FILE *> _ldata;
+    std::map<std::thread::id, FILE*> _ldata;
 
     std::size_t _idx = 0;
     std::size_t _isFlush = 0;
@@ -861,7 +849,7 @@ private:
     mutable EMute _EMute;
 
     // 以后再自定义吧
-    std::string _dir = "./log/";
+    std::string _dir = GlobalMainArguments.log_dir;
 }; /* ----------  end of struct LogProtoBin_t  ---------- */
 
 typedef struct LogProtoBin_t LogProtoBin_t;
@@ -871,7 +859,7 @@ struct LogProtoPtr_t : public Producer {
 #else
 struct LogProtoPtr_t : public LogProtoBin_t {
 #endif
-    void log(std::thread::id tid, char **ptr)
+    void log(std::thread::id tid, char** ptr)
     {
         BasicLock _lock(_EMute);
         std::hash<std::thread::id> hasher;
@@ -879,7 +867,7 @@ struct LogProtoPtr_t : public LogProtoBin_t {
 
         if (_data.count(idh) == 0) {
             log_struct aval;
-            aval.ldata = (char *)calloc(elm_size, sizeof(char *));
+            aval.ldata = (char*)calloc(elm_size, sizeof(char*));
             aval.count = 0;
             aval.debug = e2::Bool::B_TRUE;
             _data.insert({idh, aval});
@@ -896,7 +884,7 @@ struct LogProtoPtr_t : public LogProtoBin_t {
         std::size_t idh = hasher(tid);
         if (_data.count(idh) == 0) {
             log_struct aval;
-            aval.ldata = (char *)calloc(elm_size, sizeof(char *));
+            aval.ldata = (char*)calloc(elm_size, sizeof(char*));
             aval.count = 0;
             aval.debug = b;
             _data.insert({idh, aval});
@@ -941,7 +929,7 @@ private:
                            fldsiz(E2LScriptLogMessage, alpha);
 
     struct __log_struct {
-        char *ldata;
+        char* ldata;
         std::size_t count;
         e2::Bool debug;
     }; /* ----------  end of struct __log_struct  ---------- */

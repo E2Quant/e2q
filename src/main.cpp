@@ -105,6 +105,31 @@ void only_run(const char* f)
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  check_log_dir
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void check_log_dir()
+{
+    struct stat info;
+    const char* optarg = e2q::GlobalMainArguments.log_dir.c_str();
+    if (stat(optarg, &info) != 0) {
+        mkdir(optarg, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    }
+    else if (info.st_mode & S_IFDIR) {
+    }
+    else {
+        mkdir(optarg, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    }
+} /* -----  end of function check_log_dir  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  e2q_action
  *  ->  void *
  *  Parameters:
@@ -242,18 +267,6 @@ int e2q_action(int argc, char* argv[])
             case 'f': {
                 f = optarg;
                 if (f != nullptr) {
-                    struct stat info;
-                    if (stat(optarg, &info) != 0) {
-                        mkdir(optarg, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-                    }
-                    else if (info.st_mode & S_IFDIR) {
-                    }
-                    else {
-                        mkdir(optarg, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-                    }
-                    // char log_file[256] = {0};
-                    // snprintf(log_file, 256, "%s/oms.log", optarg);
-
                     e2q::GlobalMainArguments.log_dir = std::string(f);
                 }
                 break;
@@ -314,6 +327,7 @@ int e2q_action(int argc, char* argv[])
         }
     }
 
+    check_log_dir();
 #ifndef DEBUG
     char log_file[256] = {0};
     if (e2q::GlobalMainArguments.ea_or_oms) {

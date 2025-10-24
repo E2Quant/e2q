@@ -101,7 +101,7 @@ private:
      */
     void ctrl();
 
-    FIX::SessionSettings EaSetting();
+    FIX::SessionSettings EaSetting(bool offset = false);
 
     /* =============  DATA MEMBERS  =================== */
     std::string _script;

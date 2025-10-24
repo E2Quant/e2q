@@ -442,12 +442,20 @@ ALTER FUNCTION public.quant_bands(_verid integer) OWNER TO dbuser;
 -- Name: quant_order_day(integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
-CREATE FUNCTION public.quant_order_day(_verid integer) RETURNS TABLE(rquantid bigint, order_stock text, order_day integer)
+CREATE FUNCTION public.quant_order_day(_verid integer) RETURNS TABLE(rquantid bigint, order_stock text, long_amount double precision, stop_amount double precision, order_day integer)
     LANGUAGE plpgsql
     AS $$
 BEGIN
     RETURN QUERY 
-    SELECT  "quantid","stock"::text as order_stock, EXTRACT( DAY FROM   ("stop_time" - "buy_time") )::INTEGER as order_day
+    SELECT
+        "quantid",
+        "stock"::text as order_stock,
+        (qty * "buy_price") as long_amount,
+        (qty * "stop_price") as stop_amount,
+        EXTRACT(
+            DAY
+            FROM ("stop_time" - "buy_time")
+        )::INTEGER as order_day
     FROM "e2q_history"
     WHERE
         "verid" = _verid;
@@ -514,7 +522,7 @@ CREATE FUNCTION public.quant_profit(_qid bigint) RETURNS TABLE(qid bigint, margi
 BEGIN
     RETURN QUERY 
 SELECT
-    _qid AS qid,
+    profitx.qid,
     profitx.margin,
     profitx.ticket,
     profitx.profit,
@@ -525,7 +533,7 @@ SELECT
         order by profitx.id
     ) as "profit_sum"
 FROM (
-        SELECT ntrade_report.id,ntrade_report.margin, ntrade_report.profit,ntrade_report.ticket,ntrade_report.side, ntrade_report.ctime
+        SELECT _qid AS qid,ntrade_report.id,ntrade_report.margin, ntrade_report.profit,ntrade_report.ticket,ntrade_report.side, ntrade_report.ctime
 , (
                  CASE WHEN ntrade_report.side != 3 THEN  
                     ntrade_report.profit - coalesce(
@@ -983,6 +991,176 @@ END; $$;
 
 
 ALTER FUNCTION public.quant_take_loss(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: risk_credit_for_day(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_credit_for_day(_verid integer) RETURNS TABLE(tday text, credits double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+   
+    SELECT pdays AS tday, sum(filled_credit) credits FROM (
+    (
+        SELECT *
+        FROM risk_credit_for_total (_verid, 0)
+    )
+    UNION
+    (
+        SELECT *
+        FROM risk_credit_for_total (_verid, 1)
+    )
+    UNION
+    (
+        SELECT *
+        FROM risk_credit_for_total (_verid, 2)
+    ) ) tdata GROUP BY tdata.pdays ORDER BY  tdata.pdays;
+END; $$;
+
+
+ALTER FUNCTION public.risk_credit_for_day(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: risk_credit_for_total(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_credit_for_total(_verid integer, _offset integer) RETURNS TABLE(pdays text, filled_targetcompid text, filled_credit double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    WITH
+        data_with_groups AS (
+            SELECT ptime.pday, pdata.targetcompid, pdata.credit, COUNT(pdata.credit) OVER (
+                    order by pday
+                ) AS idx_credit
+            FROM (
+                    SELECT DISTINCT
+                        to_timestamp(
+                            ((ctime / 1000))::double precision
+                        )::text AS pday
+                    from trade_report
+                ) ptime
+                LEFT JOIN (
+                    SELECT fix.targetcompid, tr."credit", to_timestamp(
+                            ((tr.ctime / 1000))::double precision
+                        )::text AS pday
+                    FROM
+                        "trade_report" tr, "fixsession" fix
+                    WHERE
+                        fix.id = tr."sessionid"
+                        AND "fix".id IN (
+                            SELECT "sessionid"
+                            FROM "account"
+                            WHERE
+                                "verid" = _verid
+                        )
+                        AND "fix".id = (SELECT id from "public"."fixsession" WHERE id>1 OFFSET _offset LIMIT 1)
+                    ORDER BY tr.ctime
+                ) pdata USING (pday)
+        )
+    SELECT
+        pday as pdays,
+        -- targetcompid,
+        -- credit,
+        -- idx_credit,
+        -- Fill NULLs within each group with the first non-NULL value
+       COALESCE( max(targetcompid) OVER (
+            PARTITION BY
+                idx_credit
+            ORDER BY idx_credit
+        ) , '' || _offset || '')AS filled_targetcompid,
+        COALESCE(
+            max(credit) OVER (
+                PARTITION BY
+                    idx_credit
+                ORDER BY idx_credit
+            ),
+            1000000
+        ) AS filled_credit
+    FROM data_with_groups;
+END; $$;
+
+
+ALTER FUNCTION public.risk_credit_for_total(_verid integer, _offset integer) OWNER TO dbuser;
+
+--
+-- Name: risk_returns_for_day(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_returns_for_day(_verid integer) RETURNS TABLE(tdays text, credits double precision, returns_day double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT rdata.tday as tdays, rdata.credits, (
+            (
+                rdata.credits - first_value(rdata.credits) OVER (
+                    ORDER BY rdata.tday
+                )
+            ) / first_value(rdata.credits) OVER (
+                ORDER BY rdata.tday
+            ) * 100.0
+        ) AS returns_day
+    FROM (
+            SELECT * FROM risk_credit_for_day(_verid)
+        ) rdata;
+
+END; $$;
+
+
+ALTER FUNCTION public.risk_returns_for_day(_verid integer) OWNER TO dbuser;
+
+--
+-- Name: risk_returns_for_month(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_returns_for_month(_verid integer) RETURNS TABLE(tdays text, credits double precision, returns_month double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT
+    rdata.pdays,
+    rdata.credits,
+    (
+        (
+        rdata.credits - first_value(rdata.credits) OVER (
+            ORDER BY
+            rdata.pdays
+        )
+        ) / first_value(rdata.credits) OVER (
+        ORDER BY
+            rdata.pdays
+        ) * 100.0
+    ) AS returns_month
+    FROM
+    (
+        SELECT DISTINCT
+        ON (mdatas.pdays) pdays,
+        mdatas.credits
+        FROM
+        (
+            SELECT
+            substring(
+                mdata.tdays
+                FROM
+                0 FOR 8
+            ) AS pdays,
+            mdata.credits
+            FROM
+            (
+                SELECT * FROM risk_returns_for_day(_verid)
+            ) mdata
+        ) mdatas
+    ) rdata;
+
+END; $$;
+
+
+ALTER FUNCTION public.risk_returns_for_month(_verid integer) OWNER TO dbuser;
 
 SET default_tablespace = '';
 
@@ -1446,7 +1624,8 @@ CREATE TABLE public.fixsession (
     datadictionary character varying(255) NOT NULL,
     ctime integer,
     host character varying(255),
-    port integer
+    port integer,
+    login smallint DEFAULT 0 NOT NULL
 );
 
 
@@ -1516,6 +1695,13 @@ COMMENT ON COLUMN public.fixsession.port IS 'SocketConnectPort';
 
 
 --
+-- Name: COLUMN fixsession.login; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.fixsession.login IS '0,未登录。1，已登录';
+
+
+--
 -- Name: stockinfo; Type: TABLE; Schema: public; Owner: dbuser
 --
 
@@ -1523,7 +1709,9 @@ CREATE TABLE public.stockinfo (
     id integer NOT NULL,
     symbol integer DEFAULT 0,
     stock character varying(255),
-    verid integer
+    verid integer,
+    ctime integer DEFAULT 0,
+    dtime integer DEFAULT 0
 );
 
 
@@ -1555,6 +1743,20 @@ COMMENT ON COLUMN public.stockinfo.stock IS 'stock name';
 --
 
 COMMENT ON COLUMN public.stockinfo.verid IS '版本 id';
+
+
+--
+-- Name: COLUMN stockinfo.ctime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.stockinfo.ctime IS '上市时间';
+
+
+--
+-- Name: COLUMN stockinfo.dtime; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.stockinfo.dtime IS '退市时间';
 
 
 --
@@ -1870,14 +2072,14 @@ CREATE VIEW public.e2q_cash AS
                             t_1_1.symbol
                            FROM public.trades t_1_1,
                             public.trade_report r_1_1
-                          WHERE ((t_1_1.symbol = s.id) AND (r_1_1.sessionid = r.sessionid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
+                          WHERE ((r_1_1.sessionid = r.sessionid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
                                    FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
     max(trade_report.id) AS rid
    FROM public.trade_report
   GROUP BY trade_report.sessionid) trp)))
                           GROUP BY t_1_1.symbol, t_1_1.quantid) t_1,
                     public.trade_report r_1
-                  WHERE ((t_1.symbol = s.id) AND (r_1.ticket = t_1.tid))
+                  WHERE (r_1.ticket = t_1.tid)
                  LIMIT 1) AS end_credit,
             ( SELECT to_timestamp(((r_1.ctime / 1000))::double precision) AS day
                    FROM ( SELECT t_1_1.quantid,
@@ -1885,14 +2087,14 @@ CREATE VIEW public.e2q_cash AS
                             t_1_1.symbol
                            FROM public.trades t_1_1,
                             public.trade_report r_1_1
-                          WHERE ((t_1_1.symbol = s.id) AND (r_1_1.sessionid = r.sessionid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
+                          WHERE ((r_1_1.sessionid = r.sessionid) AND (r_1_1.ticket = t_1_1.id) AND (r_1_1.id IN ( SELECT trp.rid
                                    FROM ( SELECT DISTINCT ON (trade_report.sessionid) trade_report.sessionid,
     max(trade_report.id) AS rid
    FROM public.trade_report
   GROUP BY trade_report.sessionid) trp)))
                           GROUP BY t_1_1.symbol, t_1_1.quantid) t_1,
                     public.trade_report r_1
-                  WHERE ((t_1.symbol = s.id) AND (r_1.ticket = t_1.tid))
+                  WHERE (r_1.ticket = t_1.tid)
                  LIMIT 1) AS end_day
            FROM public.trades t,
             public.stockinfo s,
@@ -2061,7 +2263,7 @@ CREATE VIEW public.e2q_history AS
     sell.ticket AS sticket,
     ( SELECT analselog."values"
            FROM public.analselog
-          WHERE (analselog.key = buy.ticket)
+          WHERE ((analselog.key = buy.ticket) AND (analselog.type = 2))
          LIMIT 1) AS "position",
     (sell.amount - buy.amount) AS amount,
     sell.qty

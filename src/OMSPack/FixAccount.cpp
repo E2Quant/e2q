@@ -339,7 +339,7 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
         elog::bug("OHLCBeam ContainerStash ptr is nullptr! ctype:", ctype);
         return;
     }
-    elog::echo("init ...");
+    // elog::echo("init ...");
     _cnt_ptr->data_ptr->InitCell();
 
 } /* -----  end of function FixAccount::onMessage  ----- */
@@ -383,6 +383,9 @@ void FixAccount::onMessage(const FIX44::Quote& message,
             FixSymbolType info{symbol, DoIAction::LIST, OnlyEA::FORANLYONE, 0,
                                1};
             FixPtr->_fix_symbols.insert({cfiCode, info});
+        }
+        else {
+            elog::bug("bad fix_symbole: ", cfiCode);
         }
     }
     else {
@@ -463,7 +466,9 @@ void FixAccount::History()
 
         FILE* file_bin = fopen(history_file.c_str(), "rb");
         if (file_bin != NULL) {
-            //            elog::echo("history:", history_file);
+#ifdef DEBUG
+            int number_size = 0;
+#endif
             char buffer[33] = {0};
             std::size_t bytes_read = 0;
             std::array<SeqType, trading_protocols> _call_data{0};
@@ -493,9 +498,18 @@ void FixAccount::History()
                 _fq.handle(_call_data);
 
                 TSleep(FixPtr->_offer_time);
+#ifdef DEBUG
+
+                number_size++;
+#endif
             }
             fclose(file_bin);
+#ifdef DEBUG
+
+            elog::echo("history:", history_file, " number_size:", number_size);
+#endif
         }
+
         else {
             elog::echo("not found history:", history_file);
         }
@@ -628,9 +642,7 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
 
             std::size_t cfiCode = data[Trading::t_stock];
 
-            if (cfiCode > 0) {
-                delisting(cfiCode, data[Trading::t_time], sid);
-            }
+            delisting(cfiCode, data[Trading::t_time], sid);
         }
     }
     catch (FIX::FieldNotFound& f) {
@@ -650,40 +662,76 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  是不是要退市了
  * ============================================
  */
 void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
                            const FIX::SessionID& sid)
 {
-    if (FixPtr->_fix_symbols.count(cfiCode) > 1 ||
+    if (cfiCode == 0 || FixPtr->_fix_symbols.count(cfiCode) > 1 ||
         FixPtr->_fix_symbols[cfiCode].dia != DoIAction::DELISTING) {
         return;
     }
-    std::uint16_t count = FixPtr->_fix_symbols[cfiCode].count_down;
 
-    if (FixPtr->_fix_symbols[cfiCode].unix_time == 0 || count > 0) {
-        FixPtr->_fix_symbols[cfiCode].count_down--;
-        return;
-    }
+    // std::uint16_t count = FixPtr->_fix_symbols[cfiCode].count_down;
+
+    // elog::echo("count:", count);
+    // if (count > 0) {
+    //     FixPtr->_fix_symbols[cfiCode].count_down--;
+    //     return;
+    // }
 
     // 在这儿就需要准备退市了
 
-    FixPtr->_symbols.erase(
-        std::remove(FixPtr->_symbols.begin(), FixPtr->_symbols.end(), cfiCode),
-        FixPtr->_symbols.end());
+    // FixPtr->_symbols.erase(
+    //     std::remove(FixPtr->_symbols.begin(), FixPtr->_symbols.end(),
+    //     cfiCode), FixPtr->_symbols.end());
 
-    bool exit_s = true;
-    for (auto code : FixPtr->_symbols) {
-        if (code == 0) {
-            continue;
-        }
-        if (code != cfiCode) {
-            exit_s = false;
+    // bool exit_s = true;
+    // for (auto code : FixPtr->_symbols) {
+    //     if (code == 0) {
+    //         continue;
+    //     }
+    //     if (code != cfiCode) {
+    //         exit_s = false;
+    //     }
+    // }
+
+    // 在没有订单就直接退出来了
+    std::size_t count = 0;
+    for (auto order : FixPtr->_OrderIds) {
+        for (auto it : order.second) {
+            if (it.second.trading == e2q::TradeStatus::PENDING ||
+                it.second.trading == e2q::TradeStatus::PARTIALLY_FILLED ||
+                it.second.trading == e2q::TradeStatus::MARKET ||
+                it.second.trading == e2q::TradeStatus::CLOSEING) {
+                count++;
+            }
         }
     }
+    if (count == 0 && FixPtr->_fix_symbols[cfiCode].count_down > 0) {
+        std::size_t gidx = GlobalDBPtr->getId();
 
-    if (exit_s) {
+        Pgsql* gsql = GlobalDBPtr->ptr(gidx);
+        std::string table = "public.";
+        if (gsql != nullptr) {
+            gsql->update_table("stockinfo");
+
+            gsql->update_field(
+                "dtime", (FixPtr->_fix_symbols[cfiCode].unix_time / 1000));
+            std::string cont = elog::format("symbol=%d and verid=%d",
+                                            (int)cfiCode, FixPtr->_QuantVerId);
+            gsql->update_condition(cont);
+
+            UpdateCommit(gsql);
+        }
+        else {
+            elog::echo("bug gsql");
+        }
+
+        GlobalDBPtr->release(gidx);
+
+        FixPtr->_fix_symbols[cfiCode].count_down = 0;
         elog::info("delisting:", cfiCode);
         _fq.quit();
     }
@@ -1065,6 +1113,8 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
     FIX::OrderID ticket;
     FIX::OrigClOrdID aOrigClOrdID;
     FIX::CxlRejResponseTo aCxlRejResponseTo;
+    FIX::OrdStatus ordstat;
+
     // 如果是平仓的话， 这个是平仓的值
     FIX::ClOrdID cl0id;
     std::size_t quantId = 0;
@@ -1073,6 +1123,7 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
     message.getIfSet(aOrigClOrdID);
     message.getIfSet(cl0id);
     message.getIfSet(aCxlRejResponseTo);
+    message.getIfSet(ordstat);
 
     e2::Side _side = e2::Side::os_Buy;
 
@@ -1097,8 +1148,8 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
         // 1,3
         // tk > 0 这儿是 4, buy match出现的
         RejectOrCancelNewOrder(quantId, key, tk, 0, thread_number, true);
-        elog::bug("quantid:", quantId, " ticket == 0: ", tk,
-                  " text:", rejtext.getValue());
+        // elog::bug("quantid:", quantId, " ticket == 0: ", tk,
+        //           " text:", rejtext.getValue());
     }
     else {
         // 平仓
@@ -1153,6 +1204,7 @@ void FixAccount::onMessage(const FIX44::BidResponse& message,
         PushGCM(ptr, sz);
     }
 } /* -----  end of function FixAccount::onMessage  ----- */
+
 /*
  * ===  FUNCTION  =============================
  *
@@ -1161,14 +1213,14 @@ void FixAccount::onMessage(const FIX44::BidResponse& message,
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  暂停交易了
  * ============================================
  */
 void FixAccount::onMessage(const FIX44::OrderStatusRequest& message,
                            const FIX::SessionID&)
 {
-    elog::echo("11");
-
+    // elog::echo("suspended ");
+    GlobalMainArguments.is_suspend = true;
 } /* -----  end of function FixAccount::onMessage  ----- */
 
 /*

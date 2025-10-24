@@ -229,10 +229,6 @@ FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon)*/
                      const std::string& message, e2::Int_e, e2::Int_e,
                      e2::Int_e, e2::Int_e);
 
-    /* void rejectOrder(const OrderLots& order) */
-    /* { */
-    /*     updateOrder(order, FIX::OrdStatus_REJECTED); */
-    /* } */
     void acceptOrder(const OrderLots& order)
     {
         double equity = GlobalMatcher->Equity(order.owner, order.ticket,

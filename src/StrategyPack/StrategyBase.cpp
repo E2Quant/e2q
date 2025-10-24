@@ -104,7 +104,7 @@ StrategyBase::StrategyBase(_Resource_ptr ptr,
  *
  * ============================================
  */
-void StrategyBase::ProgramInit(std::string &file, std::string &edir)
+void StrategyBase::ProgramInit(std::string& file, std::string& edir)
 {
     Int_e argc = 0;
 
@@ -192,7 +192,7 @@ void StrategyBase::runScript()
             e2l_thread_map.runs(_id);
 #ifndef DEBUG
         }
-        catch (std::exception &e) {
+        catch (std::exception& e) {
             elog::bug(e.what(), " num:", num);
         }
 #endif
@@ -205,7 +205,7 @@ void StrategyBase::runScript()
 
     do {
         next_row = e2l_cnt->data_ptr->aquire();
-        //  elog::echo(next_row);
+        // elog::echo(next_row);
         for (; e2l_count < next_row; e2l_count++) {
             pool.emit(e2l_count);
 

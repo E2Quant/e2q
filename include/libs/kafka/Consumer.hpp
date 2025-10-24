@@ -69,6 +69,7 @@
 #include <quickfix/FixFields.h>
 #include <quickfix/Session.h>
 #include <quickfix/fix44/MassQuote.h>
+#include <quickfix/fix44/OrderStatusRequest.h>
 #include <quickfix/fix44/Quote.h>
 #include <quickfix/fix44/QuoteStatusReport.h>
 
@@ -87,7 +88,7 @@ inline void sigterm(int sig) { _kafka_run = 0; }
 
 class KfEventCb : public RdKafka::EventCb {
 public:
-    void event_cb(RdKafka::Event &event)
+    void event_cb(RdKafka::Event& event)
     {
         switch (event.type()) {
             case RdKafka::Event::EVENT_ERROR:
@@ -95,8 +96,8 @@ public:
                     _kafka_run = 0;
                 }
                 elog::bug("FATAL ERROR (", RdKafka::err2str(event.err()),
-                         "): ", event.str(), " bokers:", _bokers,
-                         " topic:", _topic);
+                          "): ", event.str(), " bokers:", _bokers,
+                          " topic:", _topic);
                 break;
 
             case RdKafka::Event::EVENT_STATS:
@@ -105,13 +106,13 @@ public:
 
             case RdKafka::Event::EVENT_LOG:
                 elog::bug("LOG-", event.severity(), "-", event.fac().c_str(),
-                         "-", event.str().c_str(), " bokers:", _bokers,
-                         " topic:", _topic);
+                          "-", event.str().c_str(), " bokers:", _bokers,
+                          " topic:", _topic);
                 break;
 
             default:
                 elog::bug("EVENT ", event.type(), " (",
-                         RdKafka::err2str(event.err()), "): ", event.str());
+                          RdKafka::err2str(event.err()), "): ", event.str());
                 break;
         }
     }
@@ -132,13 +133,12 @@ public:
     KfConsumeCb() {}; /* constructor */
 
     /* =============  ACCESSORS     =================== */
-    void consume_cb(RdKafka::Message &msg, void *opaque)
+    void consume_cb(RdKafka::Message& msg, void* opaque)
     {
         msg_consume(&msg, opaque);
     }
-    void msg_consume(RdKafka::Message *message, void *opaque)
+    void msg_consume(RdKafka::Message* message, void* opaque)
     {
-        const RdKafka::Headers *headers;
         int64_t now_offset = 0;
         // elog::info("Read msg at offset ", message->offset());
 
@@ -152,23 +152,7 @@ public:
                 if (message->key()) {
                     elog::info("Key: ", *message->key());
                 }
-                headers = message->headers();
-                if (headers) {
-                    std::vector<RdKafka::Headers::Header> hdrs =
-                        headers->get_all();
-                    for (size_t i = 0; i < hdrs.size(); i++) {
-                        const RdKafka::Headers::Header hdr = hdrs[i];
-
-                        if (hdr.value() != NULL) {
-                            elog::bug(" Header: %s ", hdr.key().c_str(), "=",
-                                     (int)hdr.value_size(), ".",
-                                     (const char *)hdr.value());
-                        }
-                        else {
-                            elog::bug(" Header:  ", hdr.key().c_str(), "= NULL");
-                        }
-                    }
-                }
+                Header(message->headers());
 
                 now_offset = message->offset();
                 if (_lastoffset >= now_offset) {
@@ -178,36 +162,9 @@ public:
 
                 int sz = static_cast<int>(message->len()) - 1;
 
-                const char *p = static_cast<const char *>(message->payload());
+                const char* p = static_cast<const char*>(message->payload());
 
-                switch (*p) {
-                    case e2l_pro_t::INIT:
-                        SymbolInit(p + 1, sz);
-                        break;
-                    case e2l_pro_t::XDXR:
-                        SymbolExrd(p + 1, sz);
-                        break;
-                    case e2l_pro_t::TICK:
-                        TicketMsg(p + 1, sz, _lastoffset);
-                        break;
-                    case e2l_pro_t::SUSPEND:
-                        StopOrder();
-                        break;
-                    case e2l_pro_t::MARKETING:
-                        MarketIng(p + 1, sz);
-                        break;
-                    case e2l_pro_t::CUSTOM:
-                        CustomMsg(p + 1, sz, _lastoffset);
-                        break;
-                    case e2l_pro_t::EXIT:
-                        ExitOrder();
-                        break;
-                    default:
-                        printf("%s\n", p);
-                        elog::bug("bad data! ");
-                        break;
-                }
-
+                Events(p, sz, now_offset);
                 break;
             }
 
@@ -242,19 +199,23 @@ protected:
 private:
     /* =============  METHODS       =================== */
 
-    void SymbolInit(const char *p, int sz);
-    void SymbolExrd(const char *p, int sz);
-    void MarketIng(const char *p, int sz);
-    void CustomMsg(const char *p, int sz, int64_t);
+    void SymbolInit(const char* p, int sz);
+    void SymbolExrd(const char* p, int sz);
+    void MarketIng(const char* p, int sz);
+    void CustomMsg(const char* p, int sz, int64_t);
     void StopOrder();
     void ExitOrder();
 
-    void Quote(const FIX::SessionID &, MarketDelOrIPOMessage mdoi);
-    void QuoteStatusReport(const FIX::SessionID &, ExRD, std::size_t,
+    void Header(const RdKafka::Headers* headers);
+
+    void Events(const char* p, int sz, int64_t now_offset);
+
+    void Quote(const FIX::SessionID&, MarketDelOrIPOMessage mdoi);
+    void QuoteStatusReport(const FIX::SessionID&, ExRD, std::size_t,
                            std::vector<long>);
     void logs(std::array<SeqType, trading_protocols>, int64_t);
 
-    void TicketMsg(const char *ptr, int sz, int64_t);
+    void TicketMsg(const char* ptr, int sz, int64_t);
 
     /* =============  DATA MEMBERS  =================== */
     TradType _TunCall = nullptr;
@@ -276,7 +237,7 @@ private:
 class KafkaFeed {
 public:
     /* =============  LIFECYCLE     =================== */
-    KafkaFeed(std::string &bokers, std::string &topic)
+    KafkaFeed(std::string& bokers, std::string& topic)
         : _bokers(bokers), _topic(topic) {
 
           }; /* constructor */

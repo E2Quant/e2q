@@ -245,6 +245,7 @@ public:
 
     void onMessage(const FIX44::BidResponse& message,
                    const FIX::SessionID&) override;
+
     /**
      * === PostTrade ===
      *

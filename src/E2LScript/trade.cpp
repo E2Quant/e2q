@@ -86,7 +86,6 @@ e2::Bool OrderClose(
     lots = NUMBERVAL(lots);
     if (e2q::GlobalMainArguments.number_for_bin_read >= 0) {
         llog::info("history test for order close:");
-
         return e2::Bool::B_FALSE;
     }
 
@@ -203,7 +202,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     qty = NUMBERVAL(qty);
 
     if (e2q::GlobalMainArguments.number_for_bin_read >= 0) {
-        e2q::elog::bug(" symbols id is history , id:", symbol);
+        // e2q::elog::bug(" symbols id is history , id:", symbol);
         return e2::Bool::B_FALSE;
     }
     if (symbol <= 0 || price <= 0 ||
@@ -502,7 +501,6 @@ e2::Int_e OrdersTotal()
             it.second.trading == e2q::TradeStatus::PARTIALLY_FILLED ||
             it.second.trading == e2q::TradeStatus::MARKET ||
             it.second.trading == e2q::TradeStatus::CLOSEING) {
-            // llog::info("trading:", it.second.trading);
             count++;
         }
     }

@@ -61,14 +61,14 @@ namespace e2q {
 template <std::size_t I = 0, class Fn, class Tuple, class... Tuples>
 constexpr
     typename std::enable_if<I == std::tuple_size<Tuple>::value, void>::type
-    for_each_in_tuple(Fn &&, Tuple &, Tuples &&...)
+    for_each_in_tuple(Fn&&, Tuple&, Tuples&&...)
 {
 }
 
 template <std::size_t I = 0, class Fn, class Tuple, class... Tuples>
 constexpr
     typename std::enable_if<I != std::tuple_size<Tuple>::value, void>::type
-    for_each_in_tuple(Fn &&fn, Tuple &tup, Tuples &&...tuples)
+    for_each_in_tuple(Fn&& fn, Tuple& tup, Tuples&&... tuples)
 {
     using ttype = std::tuple_element_t<I, Tuple>;
     fn.template operator()<ttype, I>(
@@ -133,17 +133,17 @@ struct test_base_template<BaseTemplate, Derived,
                           std::enable_if_t<std::is_class_v<Derived>>>
     : Derived {
     template <typename... T>
-    static constexpr std::true_type test(BaseTemplate<T...> *);
+    static constexpr std::true_type test(BaseTemplate<T...>*);
     static constexpr std::false_type test(...);
-    using is_base = decltype(test((Derived *)nullptr));
+    using is_base = decltype(test((Derived*)nullptr));
 };
 
 // From Google C++ Standard, modified to use C++11 deleted functions.
 // A macro to disallow the copy constructor and operator= functions.
 #define DISALLOW_COPY_MOVE_AND_ASSIGN(TypeName) \
-    TypeName(const TypeName &) = delete;        \
-    TypeName(const TypeName &&) = delete;       \
-    void operator=(const TypeName &) = delete
+    TypeName(const TypeName&) = delete;         \
+    TypeName(const TypeName&&) = delete;        \
+    void operator=(const TypeName&) = delete
 
 /**
  * example
@@ -198,7 +198,8 @@ struct __main_arguments {
     ssize_t do_daemonize = 0;        // process deamon
     std::string bin_dir = "";        // e2b log dir
     int number_for_bin_read = 0;     // is e2b log reading
-    bool ea_or_oms = false;          //
+    bool is_suspend = false;
+    bool ea_or_oms = false;  //
     std::ofstream log_io;
 }; /* ----------  end of struct __main_arguments  ---------- */
 

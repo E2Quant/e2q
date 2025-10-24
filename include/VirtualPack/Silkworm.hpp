@@ -78,7 +78,7 @@ struct Silk {
     /**
      * a jagged 2D dynamic array with variable column sizes
      */
-    T *data;
+    T* data;
 }; /* ----------  end of struct __Silkworm  ---------- */
 
 /**
@@ -107,7 +107,7 @@ struct Mulberry {
     bool overlap = false;  // overlap data, 当满之后，是否可以对数据 进行覆盖
     _ENUM::_MAJOR major;   // row-major  col-major
     _ENUM::_RW rw;         // ctrl _data
-    T *data;               // data ptr
+    T* data;               // data ptr
     std::function<void(size_t, size_t, size_t)> callback;  // release data
 }; /* ----------  end of struct __Mulberry  ---------- */
 
@@ -208,8 +208,8 @@ typedef struct __Coordinate Coordinate;
             bool two = (0 <= val && val < p1);                 \
             __ret = (one || two);                              \
             if (__ret == false) {                              \
-                elog::bug("_tailIndex:", p0, " val:", val,      \
-                         " _writingIndex:", p1);               \
+                elog::bug("_tailIndex:", p0, " val:", val,     \
+                          " _writingIndex:", p1);              \
             }                                                  \
         } while (0);                                           \
         __ret;                                                 \
@@ -270,7 +270,7 @@ public:
         _writedIndex = std::make_shared<size_t>(0);
     }; /* constructor */
     // SilkPermit() = default; /* constructor */
-    SilkPermit(const SilkPermit &_bn) { *this = _bn; };
+    SilkPermit(const SilkPermit& _bn) { *this = _bn; };
 
     /*
      * ===  FUNCTION
@@ -290,6 +290,7 @@ public:
     int writed()
     {
         if (_writedIndex == nullptr) {
+            elog::bug("writedIndex is nullptr");
             return -1;
         }
         std::size_t m = ATOMICSIZT_T(_writingIndex);
@@ -306,7 +307,7 @@ public:
      *  Description:  push add to row,column
      * =====================================================================================
      */
-    int push(size_t row, size_t column, const T &data)
+    int push(size_t row, size_t column, const T& data)
     {
         Lock _lock(SilkPMutex);
         if (isnull()) {
@@ -348,7 +349,7 @@ public:
         return 0;
     }
     template <typename std::size_t Nc>
-    int push(size_t row, const std::array<T, Nc> &data)
+    int push(size_t row, const std::array<T, Nc>& data)
     {
         Lock _lock(SilkPMutex);
         if (isnull()) {
@@ -402,7 +403,7 @@ public:
      * ============================================
      */
     template <typename std::size_t Nc = 10, size_t Nr = 10>
-    std::vector<int> insert(const std::array<std::array<T, Nc>, Nr> &data)
+    std::vector<int> insert(const std::array<std::array<T, Nc>, Nr>& data)
     {
         std::vector<int> ids;
         if (isnull()) {
@@ -420,7 +421,7 @@ public:
     }
 
     template <typename std::size_t Nc = 10>
-    int insert(const std::array<T, Nc> &data)
+    int insert(const std::array<T, Nc>& data)
     {
         if (check(Nc) == -1) {
             return -1;
@@ -596,14 +597,14 @@ public:
      * ============================================
      */
     template <typename std::size_t Nc = 10>
-    int tail(std::array<T, Nc> *data)
+    int tail(std::array<T, Nc>* data)
     {
         tail(data, -1);
         return 0;
     }
 
     template <typename std::size_t Nc = 10, size_t Nr = 10>
-    int tail(std::array<std::array<T, Nc>, Nr> *data)
+    int tail(std::array<std::array<T, Nc>, Nr>* data)
     {
         int row = -1;
         int ret = 0;
@@ -620,7 +621,7 @@ public:
         return row;
     }
     template <typename std::size_t Nc = 10>
-    int tail(std::array<T, Nc> *data, const int row)
+    int tail(std::array<T, Nc>* data, const int row)
     {
         if (isnull()) {
             elog::bug("data no init!");
@@ -678,7 +679,7 @@ public:
      * ============================================
      */
     template <typename std::size_t Nc = 10>
-    int read(std::array<T, Nc> *data)
+    int read(std::array<T, Nc>* data)
     {
         if (isnull()) {
             elog::bug("data no init!");
@@ -699,7 +700,7 @@ public:
     } /* -----  end of function read  ----- */
 
     template <typename std::size_t Nc = 10, size_t Nr = 10>
-    int read(std::array<std::array<T, Nc>, Nr> *data)
+    int read(std::array<std::array<T, Nc>, Nr>* data)
     {
         if (isnull()) {
             elog::bug("data no init!");
@@ -740,7 +741,7 @@ public:
      * ============================================
      */
     template <typename std::size_t Nc = 10>
-    int read(std::array<T, Nc> *data, const size_t row)
+    int read(std::array<T, Nc>* data, const size_t row)
     {
         if (isnull()) {
             elog::bug("data no init!");
@@ -748,7 +749,7 @@ public:
         }
         if (Nc != _mulberry.column) {
             elog::bug("Nm must eq column, Nc:", Nc,
-                     "  column:", _mulberry.column);
+                      "  column:", _mulberry.column);
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
@@ -790,7 +791,7 @@ public:
      * ============================================
      */
     template <typename std::size_t Nc = 10>
-    int read(std::array<T, Nc> *data, const size_t row,
+    int read(std::array<T, Nc>* data, const size_t row,
              func_type_ret<bool, T> fun)
 
     {
@@ -800,7 +801,7 @@ public:
         }
         if (Nc != _mulberry.column) {
             elog::bug("Nm must eq column, Nc:", Nc,
-                     "  column:", _mulberry.column);
+                      "  column:", _mulberry.column);
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
@@ -849,7 +850,7 @@ public:
      *  --- follow the row change ---
      * ============================================
      */
-    T *fetch(const size_t row, const size_t column) const
+    T* fetch(const size_t row, const size_t column) const
     {
         if (isnull()) {
             elog::bug("data no init!");
@@ -893,7 +894,7 @@ public:
      *
      * ============================================
      */
-    int fetch(T **t, const size_t row, const size_t column)
+    int fetch(T** t, const size_t row, const size_t column)
     {
         if (isnull()) {
             elog::bug("data no init!");
@@ -922,7 +923,7 @@ public:
         if (isnull()) {
             assert("data no init!");
         }
-        T *t = fetch(row, column);
+        T* t = fetch(row, column);
         if (t == nullptr) {
             //    assert("at in row, column is nullptr");
             return 0;
@@ -942,7 +943,7 @@ public:
      * ============================================
      */
     template <typename std::size_t Nc = 10>
-    int fixed(std::array<T, Nc> *data, const size_t row)
+    int fixed(std::array<T, Nc>* data, const size_t row)
 
     {
         if (isnull()) {
@@ -953,12 +954,12 @@ public:
         if (ATOMICEBETWEEN(_tailIndex, row, _writingIndex, _mulberry.row) ==
             false) {
             elog::bug("row must -lt rows, column must -lt column,  row:", row,
-                     " mulberry row:", _mulberry.row);
+                      " mulberry row:", _mulberry.row);
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
             elog::bug("data not init, writed index:", *_writedIndex,
-                     " tail:", _tailIndex->load(std::memory_order_acquire));
+                      " tail:", _tailIndex->load(std::memory_order_acquire));
             return -1;
         }
         size_t index = 0, column = 0;
@@ -1032,7 +1033,7 @@ public:
      * =======================================
      */
 
-    const SilkPermit<T> &operator[](size_t row)
+    const SilkPermit<T>& operator[](size_t row)
     {
         elog::echo("[] row:", row);
         _rc = {row, 0};
@@ -1046,7 +1047,7 @@ public:
         return at(_rc.row, column);
     }
 
-    const SilkPermit<T> &operator[](Scope scope)
+    const SilkPermit<T>& operator[](Scope scope)
     {
         _scope = scope;
 
@@ -1065,7 +1066,7 @@ public:
     /*     _row = 0; */
     /*     return mins; */
     /* }; */
-    SilkPermit &operator=(const SilkPermit &_other)
+    SilkPermit& operator=(const SilkPermit& _other)
     {
         if (this != &_other) {
             released();
@@ -1082,7 +1083,7 @@ public:
 
         return *this;
     }
-    SilkPermit &operator=(const std::shared_ptr<SilkPermit> _other)
+    SilkPermit& operator=(const std::shared_ptr<SilkPermit> _other)
     {
         if (this != _other.get()) {
             released();
@@ -1196,9 +1197,9 @@ public:
     };
     /* constructor */
 
-    Silkworm(const Silkworm<T> &&_other) { *this = std::move(_other); }
+    Silkworm(const Silkworm<T>&& _other) { *this = std::move(_other); }
 
-    Silkworm &operator=(const Silkworm<T> &_other)
+    Silkworm& operator=(const Silkworm<T>& _other)
     {
         if (this != &_other) {
             _columns = _other._columns;
@@ -1209,7 +1210,7 @@ public:
 
     ~Silkworm()
     {
-        Silk<T> *ptr = nullptr;
+        Silk<T>* ptr = nullptr;
         // elog::echo("_current_id:", _current_id);
         for (int m = 0; m <= _current_id; m++) {
             int i = _silk_tree_ptr->fetch(&ptr, m);
@@ -1239,7 +1240,7 @@ public:
      *
      * ============================================
      */
-    void release(Mulberry<T> *mul)
+    void release(Mulberry<T>* mul)
     {
         size_t first = mul->first;
         size_t offset = mul->offset;
@@ -1254,7 +1255,7 @@ public:
         }
         Lock _lock(SilkMutex);
 
-        Silk<T> *ptr = nullptr;
+        Silk<T>* ptr = nullptr;
         int i = _silk_tree_ptr->fetch(&ptr, index);
         if (i == -1 || ptr == nullptr) {
             elog::bug("ptr is null");
@@ -1378,7 +1379,7 @@ protected:
 private:
     /* ====================  METHODS =======================================
      */
-    void BuildMulbeery(Mulberry<T> &mulberry, const size_t row,
+    void BuildMulbeery(Mulberry<T>& mulberry, const size_t row,
                        const size_t column)
     {
         // Mulberry<T> mulberry;
@@ -1416,7 +1417,7 @@ private:
      *
      * ============================================
      */
-    void reset(Silk<T> *ptr)
+    void reset(Silk<T>* ptr)
     {
         if (ptr->await_list.size() <= 1) {
             return;
@@ -1452,11 +1453,11 @@ private:
      *
      * ============================================
      */
-    int ranking(Mulberry<T> *mul, int start_id, std::size_t need_total)
+    int ranking(Mulberry<T>* mul, int start_id, std::size_t need_total)
     {
         int id = -1, next = 0;
         int run_id = start_id;
-        Silk<T> *ptr = nullptr;
+        Silk<T>* ptr = nullptr;
         for (; run_id <= _current_id; run_id++) {
             int i = _silk_tree_ptr->fetch(&ptr, run_id);
             id = -1;
@@ -1502,7 +1503,7 @@ private:
         SilkType await_pair = std::make_pair(0, _total);
         size_t msize = sizeof(T) * _total;
 
-        silk.data = (T *)malloc(msize);
+        silk.data = (T*)malloc(msize);
         silk.await_list.push_back(await_pair);
 
         _current_id = _silk_tree_ptr->push(silk);

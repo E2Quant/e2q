@@ -385,10 +385,12 @@ void FixApplication::onMessage(const FIX44::QuoteStatusReport& message,
     else {
         if (_is_logout) {
             GlobalMatcher->SessionLogout(sid);
-            elog::info("logout:", sid.getTargetCompID());
+
             if (SessionSymList.count(sid) == 1) {
                 SessionSymList[sid].clear();
             }
+
+            elog::info("logout:", sid.getTargetCompID());
         }
     }
 
@@ -654,17 +656,16 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
     FIX::Text rejtext;
     rejtext.setValue(message + " symbol:" + symbol.getValue());
     reject.setField(rejtext);
+
     std::size_t idx = GlobalDBPtr->getId();
 
     // 这儿是平仓出现的
-    e2::OrdStatus stat = e2::OrdStatus::ost_Suspended;
+    e2::OrdStatus stat = e2::OrdStatus::ost_Canceled;
     if (ticket == 0) {
         // 开仓出现的
         stat = e2::OrdStatus::ost_Rejected;
     }
 
-    //  &&
-    //            it.second.dia == DoIAction::LIST
     Pgsql* gsql = GlobalDBPtr->ptr(idx);
     if (gsql != nullptr) {
         int cfi = 0;
@@ -946,7 +947,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
         elog::bug("bug stock:", sym, " side:", oside,
                   " ticket:", oid.getValue(), " date:", tradeDate.getValue());
         if (price.getLength() > 0) order_price = price.getValue();
-        rejectOrder(sid, clOrdID, symbol, side, "stop order now", ticket, qid,
+        rejectOrder(sid, clOrdID, symbol, side, "symbol not exist", ticket, qid,
                     order_qty, order_price);
         return;
     }

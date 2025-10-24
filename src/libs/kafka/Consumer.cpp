@@ -73,6 +73,7 @@
 #include "libs/kafka/protocol/proto.hpp"
 #include "quickfix/FixFields.h"
 #include "quickfix/FixValues.h"
+#include "quickfix/fix44/MessageCracker.h"
 #include "quickfix/fix44/Quote.h"
 #include "quickfix/fix44/QuoteStatusReport.h"
 
@@ -89,7 +90,7 @@ namespace e2q {
  *
  * ============================================
  */
-void KfConsumeCb::SymbolInit(const char *p, int sz)
+void KfConsumeCb::SymbolInit(const char* p, int sz)
 {
     std::size_t idx = 0;
 
@@ -137,7 +138,7 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
     FinFabr->_fix_symbols.insert({sinit.CfiCode, info});
 
     std::size_t gidx = GlobalDBPtr->getId();
-    Pgsql *gsql = GlobalDBPtr->ptr(gidx);
+    Pgsql* gsql = GlobalDBPtr->ptr(gidx);
     std::string table = "public.";
     if (gsql != nullptr) {
         gsql->public_table(table);
@@ -179,7 +180,7 @@ void KfConsumeCb::SymbolInit(const char *p, int sz)
  *
  * ============================================
  */
-void KfConsumeCb::MarketIng(const char *p, int sz)
+void KfConsumeCb::MarketIng(const char* p, int sz)
 {
     std::size_t idx = 0;
     MarketDelOrIPOMessage mdoi;
@@ -221,7 +222,7 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
             FinFabr->_fix_symbols.insert({mdoi.CfiCode, info});
 
             std::size_t gidx = GlobalDBPtr->getId();
-            Pgsql *gsql = GlobalDBPtr->ptr(gidx);
+            Pgsql* gsql = GlobalDBPtr->ptr(gidx);
             std::string table = "public.";
             if (gsql != nullptr) {
                 gsql->public_table(table);
@@ -249,25 +250,6 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
         if (FinFabr->_fix_symbols.count(mdoi.CfiCode) == 1) {
             FinFabr->_fix_symbols[mdoi.CfiCode].dia = DoIAction::DELISTING;
             FinFabr->_fix_symbols[mdoi.CfiCode].unix_time = mdoi.unix_time;
-            // FinFabr->_fix_symbols[mdoi.CfiCode].count_down = mdoi.count_down;
-
-            std::size_t gidx = GlobalDBPtr->getId();
-
-            Pgsql *gsql = GlobalDBPtr->ptr(gidx);
-            std::string table = "public.";
-            if (gsql != nullptr) {
-                gsql->update_table("stockinfo");
-
-                gsql->update_field("dtime", (mdoi.unix_time / 1000));
-                std::string cont =
-                    elog::format("symbol=%d and verid=%d", mdoi.CfiCode,
-                                 FinFabr->_QuantVerId);
-                gsql->update_condition(cont);
-
-                UpdateCommit(gsql);
-            }
-
-            GlobalDBPtr->release(gidx);
         }
         else {
             elog::bug("bug cficode:", mdoi.CfiCode);
@@ -295,7 +277,8 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
             if (std::find(std::begin(it->second), std::end(it->second),
                           mdoi.CfiCode) != std::end(it->second)) {
                 // 如果是退市，就只发给当前的一个sessionid
-                // elog::echo("delisting:", mdoi.CfiCode);
+                // elog::echo("delisting:", mdoi.CfiCode,
+                //            " name:", it->first.getTargetCompID().getValue());
                 Quote(it->first, mdoi);
             }
         }
@@ -315,7 +298,7 @@ void KfConsumeCb::MarketIng(const char *p, int sz)
  *
  * ============================================
  */
-void KfConsumeCb::Quote(const FIX::SessionID &session,
+void KfConsumeCb::Quote(const FIX::SessionID& session,
                         MarketDelOrIPOMessage mdoi)
 {
     // elog::info("Quote");
@@ -350,7 +333,7 @@ void KfConsumeCb::Quote(const FIX::SessionID &session,
     try {
         FIX::Session::sendToTarget(quote, session);
     }
-    catch (FIX::SessionNotFound &e) {
+    catch (FIX::SessionNotFound& e) {
         elog::bug(e.what());
     }
 } /* -----  end of function KfConsumeCb::Quote  ----- */
@@ -366,7 +349,7 @@ void KfConsumeCb::Quote(const FIX::SessionID &session,
  *
  * ============================================
  */
-void KfConsumeCb::SymbolExrd(const char *p, int sz)
+void KfConsumeCb::SymbolExrd(const char* p, int sz)
 {
     std::size_t idx = 0;
     StockAXdxrMessage saxm;
@@ -454,7 +437,7 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
     }
 
     std::size_t gidx = GlobalDBPtr->getId();
-    Pgsql *gsql = GlobalDBPtr->ptr(gidx);
+    Pgsql* gsql = GlobalDBPtr->ptr(gidx);
     std::string cfi_str = elog::format(
         "(SELECT id FROM stockinfo WHERE symbol=%d and verid=%d ORDER BY id "
         "DESC LIMIT "
@@ -488,8 +471,8 @@ void KfConsumeCb::SymbolExrd(const char *p, int sz)
         UtilTime ut;
         std::size_t exrd_time = ut.strtostamp(ymd, fmt);
 
-        char *field = nullptr;
-        char *val = nullptr;
+        char* field = nullptr;
+        char* val = nullptr;
 
         std::string sql = elog::format(
             "SELECT ticket FROM trades WHERE symbol = (SELECT id FROM "
@@ -549,6 +532,25 @@ void KfConsumeCb::StopOrder()
     // 晚一点再发布，免得还有事情没有处理完成
     TSleep(FinFabr->_offer_time);
     FinFabr->_StopOrder = true;
+
+    FIX::ClOrdID cl0id;
+    cl0id.setValue("1");
+    FIX::Side side = convert(e2::Side::os_Buy);
+
+    FIX44::OrderStatusRequest osr(cl0id, side);
+
+    for (auto it = SessionSymList.begin(); it != SessionSymList.end(); it++) {
+        try {
+            FIX::Session::sendToTarget(osr, it->first);
+        }
+        catch (FIX::FieldNotFound& f) {
+            elog::bug(f.what(), " field:", f.field);
+            // elog::echo(msg.toXML());
+        }
+        catch (FIX::SessionNotFound& e) {
+            elog::bug(e.what());
+        }
+    }
 } /* -----  end of function KfConsumeCb::StopOrder  ----- */
 
 /*
@@ -570,6 +572,78 @@ void KfConsumeCb::ExitOrder()
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  KfConsumeCb::Header
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void KfConsumeCb::Header(const RdKafka::Headers* headers)
+{
+    //  headers = message->headers();
+    if (headers) {
+        std::vector<RdKafka::Headers::Header> hdrs = headers->get_all();
+        for (size_t i = 0; i < hdrs.size(); i++) {
+            const RdKafka::Headers::Header hdr = hdrs[i];
+
+            if (hdr.value() != NULL) {
+                elog::bug(" Header: %s ", hdr.key().c_str(), "=",
+                          (int)hdr.value_size(), ".", (const char*)hdr.value());
+            }
+            else {
+                elog::bug(" Header:  ", hdr.key().c_str(), "= NULL");
+            }
+        }
+    }
+} /* -----  end of function KfConsumeCb::Header  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  KfConsumeCb::Events
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void KfConsumeCb::Events(const char* p, int sz, int64_t now_offset)
+{
+    switch (*p) {
+        case e2l_pro_t::INIT:
+            SymbolInit(p + 1, sz);
+            break;
+        case e2l_pro_t::XDXR:
+            SymbolExrd(p + 1, sz);
+            break;
+        case e2l_pro_t::TICK:
+            TicketMsg(p + 1, sz, _lastoffset);
+            break;
+        case e2l_pro_t::SUSPEND:
+            StopOrder();
+            break;
+        case e2l_pro_t::MARKETING:
+            MarketIng(p + 1, sz);
+            break;
+        case e2l_pro_t::CUSTOM:
+            CustomMsg(p + 1, sz, _lastoffset);
+            break;
+        case e2l_pro_t::EXIT:
+            ExitOrder();
+            break;
+        default:
+            std::string error = elog::format("%s sz:%d\n", p, sz);
+            elog::bug("bad data! error:", error);
+            break;
+    }
+} /* -----  end of function KfConsumeCb::Events  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  KfConsumeCb::QuoteStatusReport
  *  ->  void *
  *  Parameters:
@@ -578,7 +652,7 @@ void KfConsumeCb::ExitOrder()
  *
  * ============================================
  */
-void KfConsumeCb::QuoteStatusReport(const FIX::SessionID &session, ExRD node,
+void KfConsumeCb::QuoteStatusReport(const FIX::SessionID& session, ExRD node,
                                     std::size_t symbol,
                                     std::vector<long> tickets)
 {
@@ -619,11 +693,11 @@ void KfConsumeCb::QuoteStatusReport(const FIX::SessionID &session, ExRD node,
     try {
         FIX::Session::sendToTarget(qsr, session);
     }
-    catch (FIX::FieldNotFound &f) {
+    catch (FIX::FieldNotFound& f) {
         elog::bug(f.what(), " field:", f.field);
         // elog::echo(msg.toXML());
     }
-    catch (FIX::SessionNotFound &e) {
+    catch (FIX::SessionNotFound& e) {
         elog::bug(e.what());
     }
 } /* -----  end of function KfConsumeCb::QuoteStatusReport ----- */
@@ -639,7 +713,7 @@ void KfConsumeCb::QuoteStatusReport(const FIX::SessionID &session, ExRD node,
  *
  * ============================================
  */
-void KfConsumeCb::CustomMsg(const char *ptr, int sz, int64_t moffset)
+void KfConsumeCb::CustomMsg(const char* ptr, int sz, int64_t moffset)
 {
     PushGCM(ptr, sz);
 
@@ -664,7 +738,7 @@ void KfConsumeCb::CustomMsg(const char *ptr, int sz, int64_t moffset)
  *
  * ============================================
  */
-void KfConsumeCb::TicketMsg(const char *ptr, int sz, int64_t moffset)
+void KfConsumeCb::TicketMsg(const char* ptr, int sz, int64_t moffset)
 {
     MarketTickMessage mtm;
     mtm.mtm(ptr, sz);
@@ -719,7 +793,7 @@ void KfConsumeCb::logs(std::array<SeqType, trading_protocols> trad_data,
                        int64_t moffset)
 {
     UtilTime ut;
-    const char *fmt = "%Y-%m-%d %H:%M";
+    const char* fmt = "%Y-%m-%d %H:%M";
 
     bprinter::TablePrinter tp(&std::cout);
     tp.AddColumn("time", 20);
@@ -776,12 +850,12 @@ void KafkaFeed::handle(TradType tradcall)
     /*
      * Create configuration objects
      */
-    RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
+    RdKafka::Conf* conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
     if (!conf) {
         elog::bug("conf is null");
         return;
     }
-    RdKafka::Conf *tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
+    RdKafka::Conf* tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
     if (!tconf) {
         delete conf;
         elog::bug("tconf");
@@ -809,7 +883,7 @@ void KafkaFeed::handle(TradType tradcall)
     /*
      * Create consumer using accumulated global configuration.
      */
-    RdKafka::Consumer *consumer = RdKafka::Consumer::create(conf, errstr);
+    RdKafka::Consumer* consumer = RdKafka::Consumer::create(conf, errstr);
     if (!consumer) {
         elog::bug("Failed to create consumer: ", errstr);
         delete conf;
@@ -820,7 +894,7 @@ void KafkaFeed::handle(TradType tradcall)
     /*
      * Create topic handle.
      */
-    RdKafka::Topic *topic =
+    RdKafka::Topic* topic =
         RdKafka::Topic::create(consumer, _topic, tconf, errstr);
     if (!topic) {
         elog::bug("Failed to create topic: ", errstr);

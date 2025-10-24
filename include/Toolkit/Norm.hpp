@@ -489,15 +489,15 @@ struct __OrderInfo {
     e2::Int_e ticket = 0;  // 订单号
     e2::OrdStatus stat;
     e2::Side side;
-    e2::Int_e qty = 0;  // 委託成功數量
+    e2::Int_e qty = 0;  // 委托成功数量
     e2::Int_e price = 0;
     e2::Int_e adjpx = 0;  // adj close
     e2::Int_e stoppx = 0;
     e2::Int_e slippage = 0;
     e2::OrdType ordtype;
-    e2::Int_e cumqty = 0;                        // 已成交數量
-    e2::Int_e avgpx = 0;                         // 委託成功 价格
-    e2::Int_e leavesqty = 0;                     /// 剩餘有效量
+    e2::Int_e cumqty = 0;                        // 已成交数量
+    e2::Int_e avgpx = 0;                         // 委托成功 价格
+    e2::Int_e leavesqty = 0;                     /// 剩余有效量
     e2::Int_e openqty = 0;                       // 可平仓数量
     e2::Int_e closeTck = 0;                      // 平 仓哪一个 ticket 的值
     e2::Int_e tdate = 0;                         //  trade date
@@ -505,6 +505,7 @@ struct __OrderInfo {
 }; /* ----------  end of struct __OrderInfo  ---------- */
 
 typedef struct __OrderInfo OrderInfo;
+
 // Order No. {cl0id, OrderInfo}
 typedef std::map<std::string, OrderInfo> OrderInfoMap;
 // Order No. {ticket, cl0id}
@@ -646,7 +647,7 @@ typedef struct __FinancialFabricate FinancialFabricate;
 /**
  * oms database
  */
-using TradType = std::function<void(std::array<SeqType, trading_protocols> &)>;
+using TradType = std::function<void(std::array<SeqType, trading_protocols>&)>;
 
 /*
  * =====================================================================================
@@ -655,12 +656,12 @@ using TradType = std::function<void(std::array<SeqType, trading_protocols> &)>;
  * =====================================================================================
  */
 struct CompareItem {
-    bool operator<(const CompareItem &rhs) const;
-    bool operator>(const CompareItem &rhs) const;
+    bool operator<(const CompareItem& rhs) const;
+    bool operator>(const CompareItem& rhs) const;
 
-    bool operator==(const CompareItem &rhs) const;
+    bool operator==(const CompareItem& rhs) const;
 
-    friend std::ostream &operator<<(std::ostream &ost, const CompareItem &);
+    friend std::ostream& operator<<(std::ostream& ost, const CompareItem&);
 
 }; /* ----------  end of struct bItem  ---------- */
 
@@ -686,7 +687,7 @@ struct AutoIncrement {
     std::size_t _number = 0;  // number in e2lscript
 }; /* ----------  end of struct AutoIncrement  ---------- */
 
-static const char *B64chars =
+static const char* B64chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static const int B64index[256] = {
@@ -701,11 +702,11 @@ static const int B64index[256] = {
 // https://stackoverflow.com/questions/180947/base64-decode-snippet-in-c/34571089#34571089
 class Base64 {
 public:
-    const std::string b64encode(const void *data, const size_t &len)
+    const std::string b64encode(const void* data, const size_t& len)
     {
         std::string result((len + 2) / 3 * 4, '=');
-        unsigned char *p = (unsigned char *)data;
-        char *str = &result[0];
+        unsigned char* p = (unsigned char*)data;
+        char* str = &result[0];
         size_t j = 0, pad = len % 3;
         const size_t last = len - pad;
 
@@ -726,16 +727,16 @@ public:
         return result;
     }
 
-    const std::string b64decode(const void *data, const size_t &len)
+    const std::string b64decode(const void* data, const size_t& len)
     {
         if (len == 0) return "";
 
-        unsigned char *p = (unsigned char *)data;
+        unsigned char* p = (unsigned char*)data;
         size_t j = 0, pad1 = len % 4 || p[len - 1] == '=',
                pad2 = pad1 && (len % 4 > 2 || p[len - 2] != '=');
         const size_t last = (len - pad1) / 4 << 2;
         std::string result(last / 4 * 3 + pad1 + pad2, '\0');
-        unsigned char *str = (unsigned char *)&result[0];
+        unsigned char* str = (unsigned char*)&result[0];
 
         for (size_t i = 0; i < last; i += 4) {
             int n = B64index[p[i]] << 18 | B64index[p[i + 1]] << 12 |
@@ -755,12 +756,12 @@ public:
         return result;
     }
 
-    std::string b64encode(const std::string &str)
+    std::string b64encode(const std::string& str)
     {
         return b64encode(str.c_str(), str.size());
     }
 
-    std::string b64decode(const std::string &str64)
+    std::string b64decode(const std::string& str64)
     {
         return b64decode(str64.c_str(), str64.size());
     }

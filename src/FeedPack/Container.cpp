@@ -100,10 +100,6 @@ void Container::InitCell()
         elog::bug("source ptr is nullptr");
         return;
     }
-    // if (_cells.size() > 0) {
-    //     elog::echo("cells size:", _cells.size());
-    //     return;
-    // }
 
     if (_cells.count(0) == 0) {
         for (auto t : _time_frames) {
@@ -616,10 +612,10 @@ int Container::writed(std::size_t id, std::size_t timeframe)
     for (auto cell : _cells.at(id)) {
         if (cell.frame == timeframe) {
             ret = cell.data->writed();
-
             break;
         }
     }
+
     return ret;
 
 } /* -----  end of function Container::writed  ----- */

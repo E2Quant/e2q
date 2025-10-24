@@ -322,6 +322,7 @@ void E2LFunList()
 
     AddFun(SymbolLockForEA, 0, "FSymbolLockForEA", E2L_NORETURN, "();");
     AddFun(Delisting, 1, "FDelisting", E2L_RETURN, "(cfi_id);");
+    AddFun(IsSuspended, 0, "FIsSuspended", E2L_RETURN, "();");
     /**
      * market info end
      */
