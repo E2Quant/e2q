@@ -54,6 +54,7 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/Util.hpp"
 
 namespace e2q {
 
@@ -90,6 +91,12 @@ void Container::Cell(std::vector<e2::TimeFrames>& tf,
 void Container::InitCell()
 {
     std::vector<size_t> symId = FixPtr->_symbols;
+
+    while (_time_frames.size() == 0) {
+        // 以后再优化吧
+        TSleep(FixPtr->_offer_time);
+        //       elog::bug("_time_frames.size() :", _time_frames.size());
+    }
 
     if (_time_frames.size() == 0 || symId.size() == 0) {
         elog::bug("_time_frames.size() == 0");
@@ -261,7 +268,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
                 break;
             }
             case e2::TimeFrames::PERIOD_MN1: {
-                // 43200
+                // 43200obtain
                 startTime = (std::size_t)ut.first_of_the_month(timestamp);
                 if (FixPtr->_gmt) {
                     startTime -= ut.offset_gmt();
@@ -317,7 +324,6 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
             if (ohlc[OHLC_T::low_t] > data[Trading::t_price]) {
                 ohlc[OHLC_T::low_t] = data[Trading::t_price];
             }
-
             ohlc[OHLC_T::close_t] = data[Trading::t_price];
             ohlc[OHLC_T::adjclose_t] = data[Trading::t_adjprice];
 

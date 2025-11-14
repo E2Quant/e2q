@@ -205,6 +205,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
         // e2q::elog::bug(" symbols id is history , id:", symbol);
         return e2::Bool::B_FALSE;
     }
+
     if (symbol <= 0 || price <= 0 ||
         e2q::FixPtr->_fix_symbols.count(symbol) == 0) {
         llog::bug("symbol or price not exist!");

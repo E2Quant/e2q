@@ -668,34 +668,16 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
 void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
                            const FIX::SessionID& sid)
 {
-    if (cfiCode == 0 || FixPtr->_fix_symbols.count(cfiCode) > 1 ||
+    if (cfiCode == 0 || FixPtr->_fix_symbols.count(cfiCode) == 0 ||
         FixPtr->_fix_symbols[cfiCode].dia != DoIAction::DELISTING) {
         return;
     }
-
-    // std::uint16_t count = FixPtr->_fix_symbols[cfiCode].count_down;
-
-    // elog::echo("count:", count);
-    // if (count > 0) {
-    //     FixPtr->_fix_symbols[cfiCode].count_down--;
-    //     return;
-    // }
+    if (_is_end) {
+        elog::echo("ending");
+        return;
+    }
 
     // 在这儿就需要准备退市了
-
-    // FixPtr->_symbols.erase(
-    //     std::remove(FixPtr->_symbols.begin(), FixPtr->_symbols.end(),
-    //     cfiCode), FixPtr->_symbols.end());
-
-    // bool exit_s = true;
-    // for (auto code : FixPtr->_symbols) {
-    //     if (code == 0) {
-    //         continue;
-    //     }
-    //     if (code != cfiCode) {
-    //         exit_s = false;
-    //     }
-    // }
 
     // 在没有订单就直接退出来了
     std::size_t count = 0;
@@ -732,11 +714,9 @@ void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
         GlobalDBPtr->release(gidx);
 
         FixPtr->_fix_symbols[cfiCode].count_down = 0;
-        elog::info("delisting:", cfiCode);
+
+        elog::info("quit delisting:", cfiCode);
         _fq.quit();
-    }
-    else {
-        elog::bug("bug delisting:", cfiCode);
     }
 
 } /* -----  end of function FixAccount::delisting  ----- */
@@ -1568,12 +1548,12 @@ void FixAccount::wait()
     int test_time = sleep_time * 5;
     int idx_number = 0;
     while (_is_end == false) {
-        FIX::process_sleep(sleep_time);
         if (idx_number == test_time) {
             TestRequest();
             idx_number = 0;
         }
         idx_number++;
+        FIX::process_sleep(sleep_time);
     }
 } /* -----  end of function FixAccount::wait  ----- */
 
@@ -1590,9 +1570,11 @@ void FixAccount::wait()
  */
 void FixAccount::quit(const FIX::SessionID& sid)
 {
+    QuoteStatusReport(0);
     UpdateQuantProfit();
 
     _is_end = true;
+    elog::echo("quit");
 } /* -----  end of function FixAccount::quit  ----- */
 
 /*

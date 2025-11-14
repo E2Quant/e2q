@@ -247,7 +247,8 @@ void KfConsumeCb::MarketIng(const char* p, int sz)
     if (mdoi.action == DoIAction::DELISTING) {
         //  del_code = 1;
 
-        if (FinFabr->_fix_symbols.count(mdoi.CfiCode) == 1) {
+        if (FinFabr->_fix_symbols.count(mdoi.CfiCode) == 1 &&
+            FinFabr->_fix_symbols[mdoi.CfiCode].dia == DoIAction::LIST) {
             FinFabr->_fix_symbols[mdoi.CfiCode].dia = DoIAction::DELISTING;
             FinFabr->_fix_symbols[mdoi.CfiCode].unix_time = mdoi.unix_time;
         }
@@ -280,6 +281,7 @@ void KfConsumeCb::MarketIng(const char* p, int sz)
                 // elog::echo("delisting:", mdoi.CfiCode,
                 //            " name:", it->first.getTargetCompID().getValue());
                 Quote(it->first, mdoi);
+                FinFabr->_fix_symbols[mdoi.CfiCode].dia = DoIAction::THROWOUT;
             }
         }
     }

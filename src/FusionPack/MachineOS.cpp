@@ -120,8 +120,15 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
 
     try {
         FIX::SessionSettings settings = EaSetting();
-        if (settings.getSessions().size() == 0) {
+        std::size_t bug_client = 5;
+
+        while (settings.getSessions().size() == 0) {
+            if (bug_client <= 0) {
+                return;
+            }
             settings = EaSetting(true);
+            sleep(1);
+            bug_client--;
         }
 
         /**
@@ -143,7 +150,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
                                                 settings);
 #endif
 
-        std::size_t bug_client = 5;
+        bug_client = 5;
         do {
             elog::info("initiator start, e2l path:", e2l_script);
             if (_initiator.isStopped() == false) {
@@ -173,8 +180,6 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
 
                 _sbase.runScript();
 
-                fix_application.QuoteStatusReport(0);
-
                 fix_application.quit(sid);
             };  // -----  end lambda  -----
 
@@ -188,11 +193,11 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
         }
         else {
             elog::bug("fix not login sid:", sid.getSenderCompID().getValue());
+            fix_application.quit(sid);
         }
     }
     catch (std::exception& e) {
         elog::bug(e.what());
-        return;
     }
 
     if (GlobalMainArguments.log_io.is_open()) {
@@ -393,10 +398,10 @@ FIX::SessionSettings MachineOS::EaSetting(bool offset)
 
             settings.set(session, dict_session);
         }
-        else {
-            elog::info(sql);
-            elog::info("begin is empty!");
-        }
+        // else {
+        //     elog::info(sql);
+        //     elog::info("begin is empty!");
+        // }
     }
     else {
         elog::bug(sql);

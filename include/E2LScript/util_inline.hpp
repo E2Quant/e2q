@@ -66,6 +66,7 @@
 #include "MessagePack/RingLoop.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
+#include "Toolkit/UtilTime.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/DB/pg.hpp"
 #include "libs/kafka/producer.hpp"
@@ -781,7 +782,8 @@ struct LogProtoBin_t {
         }
         BasicLock _lock(_EMute);
 
-        FILE* pFile;
+        file_info_type pfile;
+        // FILE* pFile;
         std::size_t idh = _idx++;
         auto dirIter = std::filesystem::directory_iterator(_dir);
 
@@ -799,14 +801,15 @@ struct LogProtoBin_t {
             lpath = _dir + elog::format("oms_%d_%ld_.log", getpid(), idh);
         }
 
-        pFile = fopen(lpath.c_str(), "wb");
-        _ldata.insert({tid, pFile});
+        pfile._file = fopen(lpath.c_str(), "wb");
+        pfile._isFlush = 0;
+        _ldata.insert({tid, pfile});
     }
     void release()
     {
         for (auto it : _ldata) {
-            fflush(it.second);
-            fclose(it.second);
+            fflush(it.second._file);
+            fclose(it.second._file);
         }
     }
     void data(const char* p, std::size_t len, std::thread::id tid)
@@ -817,34 +820,42 @@ struct LogProtoBin_t {
         }
 
         BasicLock _lock(_EMute);
-        FILE* pFile = _ldata.at(tid);
+
+        FILE* pFile = _ldata.at(tid)._file;
+        std::size_t isflush = _ldata.at(tid)._isFlush;
         std::size_t size_l = fwrite(p, sizeof(char), len, pFile);
         if (size_l != (len)) {
             elog::echo("size_l:", size_l, " len:", len);
         }
         fputc('\0', pFile);
 
-        auto fun = [this](std::thread::id tid, FILE* pFile) {
-            if (_isFlush == 0) {
-                _isFlush = ticket_now;
-                return;
-            }
-            if (_isFlush == ticket_now) {
-                return;
-            }
-            _isFlush = ticket_now;
-            fflush(pFile);
-        };  // -----  end lambda  -----
+        e2q::UtilTime ut;
+        std::size_t now = ut.time();
+        if (isflush == 0) {
+            _ldata.at(tid)._isFlush = now;
+            return;
+        }
+        if ((now - isflush) < _next_time) {
+            return;
+        }
+        _ldata.at(tid)._isFlush = now;
 
-        THREAD_FUN(fun, tid, pFile);
+        fflush(pFile);
     }
     void dir(std::string& dir) { _dir = "./" + dir + "/"; }
 
 private:
-    std::map<std::thread::id, FILE*> _ldata;
+    struct __file_info {
+        FILE* _file;
+        std::size_t _isFlush = 0;
+    }; /* ----------  end of struct __file_info  ---------- */
+
+    typedef struct __file_info file_info_type;
+    std::map<std::thread::id, file_info_type> _ldata;
 
     std::size_t _idx = 0;
-    std::size_t _isFlush = 0;
+
+    std::size_t _next_time = 100;
     using EMute = BasicLock::mutex_type;
     mutable EMute _EMute;
 

@@ -394,8 +394,9 @@ struct __ExRD {
 typedef struct __ExRD ExRD;
 
 enum DoIAction {
-    LIST = 'L',      // 上市
-    DELISTING = 'D'  // 退市
+    LIST = 'L',       // 上市
+    DELISTING = 'D',  // 退市
+    THROWOUT = 'T'    // 丢弃
 }; /* ----------  end of enum DoIAction  ---------- */
 
 typedef enum DoIAction DoIAction;
