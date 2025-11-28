@@ -283,6 +283,29 @@ e2::Int_e ExDividendShare(e2::Int_e cfi, e2::Int_e idx)
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  ExDividendSplit
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e ExDividendSplit(e2::Int_e cfi, e2::Int_e idx)
+{
+    e2::Int_e ret = 0;
+    std::size_t _idx = NUMBERVAL(idx);
+    if (_idx > e2q::FinFabr->_exrd.at(cfi).size()) {
+        return ret;
+    }
+
+    ret = e2q::FinFabr->_exrd.at(cfi).at(_idx)._split;
+    return ret;
+} /* -----  end of function ExDividendSplit  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  BrokerBook
  *  ->  void *
  *  Parameters:

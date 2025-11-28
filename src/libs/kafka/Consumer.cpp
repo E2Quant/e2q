@@ -253,8 +253,8 @@ void KfConsumeCb::MarketIng(const char* p, int sz)
             FinFabr->_fix_symbols[mdoi.CfiCode].unix_time = mdoi.unix_time;
         }
         else {
-            elog::bug("bug cficode:", mdoi.CfiCode);
-            // 不存在不没必要了
+            // elog::bug("bug cficode:", mdoi.CfiCode);
+            //  不存在不没必要了
             return;
         }
     }
@@ -363,6 +363,7 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
     mlen += fldsiz(StockAXdxrMessage, category);
     mlen += fldsiz(StockAXdxrMessage, fenhong);
     mlen += fldsiz(StockAXdxrMessage, songzhuangu);
+    mlen += fldsiz(StockAXdxrMessage, split);
     mlen += fldsiz(StockAXdxrMessage, outstandend);
     mlen += fldsiz(StockAXdxrMessage, outstanding);
     mlen += fldsiz(StockAXdxrMessage, mrketCaping);
@@ -370,7 +371,6 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
 
     if (sz != (int)mlen) {
         std::string err = elog::format("sz:%d  mlen:%ld \n", sz, mlen);
-
         elog::bug(err);
         return;
     }
@@ -386,6 +386,7 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
     idx += parse_uint_t(p + idx, saxm.category);
     idx += parse_uint_t(p + idx, saxm.fenhong);
     idx += parse_uint_t(p + idx, saxm.songzhuangu);
+    idx += parse_uint_t(p + idx, saxm.split);
     idx += parse_uint_t(p + idx, saxm.outstanding);
     idx += parse_uint_t(p + idx, saxm.outstandend);
     idx += parse_uint_t(p + idx, saxm.mrketCaping);
@@ -402,16 +403,18 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
 
     saxm.fenhong /= saxm.uint;
     saxm.songzhuangu /= saxm.uint;
+    saxm.split /= saxm.uint;
 
     double cash = NUMBERVAL(saxm.fenhong);
     double shares = NUMBERVAL(saxm.songzhuangu);
+    double split = NUMBERVAL(saxm.split);
 
     node._cash = saxm.fenhong;
     // 因为是百分比
     node._share = saxm.songzhuangu;
+    node._split = saxm.split;
 
     SeqType cfiCode = VALNUMBER(saxm.CfiCode);
-
     // e2l script broker.cpp 计算 adj 使用的
     if (FinFabr->_exrd.count(cfiCode) == 0) {
         std::vector<ExRD> nodes;
@@ -450,6 +453,8 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
         gsql->insert_field("symbol", cfi_str);
         gsql->insert_field("cash", cash);
         gsql->insert_field("shares", shares);
+        gsql->insert_field("split", split);
+
         gsql->insert_field("extype", (int)node._extype);
         gsql->insert_field("ymd", node._ymd);
         gsql->insert_field("outstanding", NUMBERVAL(node._mshare._Outstanding));
@@ -466,8 +471,11 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
     if (FinFabr->_fix_symbols.count(saxm.CfiCode) == 1) {
         stock = FinFabr->_fix_symbols.at(saxm.CfiCode).symbol;
     }
+    // 先这样，到时候遇到了，再优化
+    double splits = split > 0 ? ((split * 10.0 - 1.0) + shares) : shares;
+
     // 现金收益，add trade_report
-    if (stock.length() > 0 && (cash > 0 || shares > 0)) {
+    if (stock.length() > 0 && (cash > 0 || splits > 0)) {
         std::string ymd = std::to_string(node._ymd);
         const char fmt[] = "%Y%m%d";
         UtilTime ut;
@@ -503,7 +511,7 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
                     ticket = std::stol(val);
                     tickets.push_back(ticket);
                     GlobalMatcher->ExdrChange(saxm.CfiCode, ticket, cash,
-                                              shares, exrd_time);
+                                              splits, exrd_time);
                 }
             }
         }
@@ -683,6 +691,10 @@ void KfConsumeCb::QuoteStatusReport(const FIX::SessionID& session, ExRD node,
     FIX::BidSize btype;
     btype.setValue(node._extype);
     qsr.setField(btype);
+
+    FIX::OfferSize split;
+    split.setValue(node._split);
+    qsr.setField(split);
 
     for (auto it : tickets) {
         FIX44::QuoteStatusReport::NoPartyIDs relateGroup;

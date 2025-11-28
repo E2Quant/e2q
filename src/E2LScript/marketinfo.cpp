@@ -705,6 +705,23 @@ e2::Int_e ExdiShare(e2::Int_e id)
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  ExdiSplit
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e ExdiSplit(e2::Int_e id)
+{
+    e2::Int_e ret = e2q::ExdiSymList.split(id);
+    return ret;
+} /* -----  end of function ExdiSplit  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  CustomDataSize
  *  ->  void *
  *  Parameters:

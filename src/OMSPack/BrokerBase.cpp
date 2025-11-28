@@ -426,9 +426,11 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
             InsertCommit(gsql);
         }
 
-        sql = elog::format("UPDATE fixsession SET login=1 WHERE id = %d ;",
-                           fix_id);
+        sql = elog::format(
+            "UPDATE fixsession SET login=1 WHERE id = %d AND login = 0 ;",
+            fix_id);
 
+        //        elog::echo(sql);
         gsql->update_sql(sql);
         UpdateCommit(gsql);
 
@@ -669,9 +671,9 @@ void BrokerBase::CloseSession(const FIX::SessionID& sid)
 {
     std::string compid = sid.getTargetCompID().getValue();
 
-    std::string sql = elog::format(
-        "UPDATE fixsession SET login=0 WHERE targetcompid = '%s' ;",
-        compid.c_str());
+    std::string sql =
+        elog::format("UPDATE fixsession SET login=0 WHERE targetcompid = '%s' ",
+                     compid.c_str());
 
     std::size_t idx = GlobalDBPtr->getId();
     Pgsql* gsql = GlobalDBPtr->ptr(idx);

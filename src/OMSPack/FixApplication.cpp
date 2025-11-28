@@ -56,9 +56,12 @@
 #include "OMSPack/IDGenerator.hpp"
 #include "OMSPack/OrderBook/Order.hpp"
 #include "OMSPack/SessionGlobal.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/UtilTime.hpp"
 #include "Toolkit/eLog.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/DB/pg.hpp"
 #include "quickfix/Exceptions.h"
 #include "quickfix/Field.h"
 #include "quickfix/FieldTypes.h"
@@ -392,8 +395,6 @@ void FixApplication::onMessage(const FIX44::QuoteStatusReport& message,
             if (SessionSymList.count(sid) == 1) {
                 SessionSymList[sid].clear();
             }
-
-            // elog::info("clear:", sid.getTargetCompID());
         }
     }
 
@@ -656,12 +657,6 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         oid, clOrdID, aOrigClOrdID, FIX::OrdStatus(FIX::OrdStatus_REJECTED),
         aCxlRejResponseTo);
 
-    FIX::Text rejtext;
-    rejtext.setValue(message + " symbol:" + symbol.getValue());
-    reject.setField(rejtext);
-
-    std::size_t idx = GlobalDBPtr->getId();
-
     // 这儿是平仓出现的
     e2::OrdStatus stat = e2::OrdStatus::ost_Canceled;
     if (ticket == 0) {
@@ -669,47 +664,60 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         stat = e2::OrdStatus::ost_Rejected;
     }
 
-    Pgsql* gsql = GlobalDBPtr->ptr(idx);
-    if (gsql != nullptr) {
-        int cfi = 0;
-        for (auto it : FinFabr->_fix_symbols) {
-            if (it.first == 0) {
-                continue;
-            }
-            // 这儿以后优化吧
-            if (it.second.symbol == symbol.getValue()) {
-                if (it.first > cfi) {
-                    cfi = it.first;
+    FIX::Text rejtext;
+    if (message.length() == 0) {
+        // risk == -1
+        rejtext.setValue("risk == -1, process order symbol:" +
+                         symbol.getValue());
+    }
+    else {
+        std::size_t idx = GlobalDBPtr->getId();
+        Pgsql* gsql = GlobalDBPtr->ptr(idx);
+        if (gsql != nullptr) {
+            int cfi = 0;
+            for (auto it : FinFabr->_fix_symbols) {
+                if (it.first == 0) {
+                    continue;
+                }
+                // 这儿以后优化吧
+                if (it.second.symbol == symbol.getValue()) {
+                    if (it.first > cfi) {
+                        cfi = it.first;
+                    }
                 }
             }
-        }
-        std::string cfi_str = elog::format(
-            "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC "
-            "LIMIT "
-            "1 )",
-            cfi);
-        gsql->insert_table("trades");
-        gsql->insert_field("symbol", cfi_str);
-        gsql->insert_field("ticket", ticket);
-        gsql->insert_field("stat", int(stat));
-        gsql->insert_field("ctime", ticket_now);
-        gsql->insert_field("otime", ticket_now);
 
-        gsql->insert_field("side", int(_side));
-        gsql->insert_field("quantid", quantId);
-        gsql->insert_field("qty", qty);
-        gsql->insert_field("price", NUMBERVAL(price));
-        InsertCommit(gsql);
+            std::string cfi_str = elog::format(
+                "(SELECT id FROM stockinfo WHERE symbol=%d ORDER BY id DESC "
+                "LIMIT "
+                "1 )",
+                cfi);
+            gsql->insert_table("trades");
+            gsql->insert_field("symbol", cfi_str);
+            gsql->insert_field("ticket", ticket);
+            gsql->insert_field("stat", int(stat));
+            gsql->insert_field("ctime", ticket_now);
+            gsql->insert_field("otime", ticket_now);
+
+            gsql->insert_field("side", int(_side));
+            gsql->insert_field("quantid", quantId);
+            gsql->insert_field("qty", qty);
+            gsql->insert_field("price", NUMBERVAL(price));
+
+            InsertCommit(gsql);
+        }
+
+        GlobalDBPtr->release(idx);
+        rejtext.setValue(message + " symbol:" + symbol.getValue());
     }
 
-    GlobalDBPtr->release(idx);
+    reject.setField(rejtext);
 
     try {
         FIX::Session::sendToTarget(reject, sid);
     }
     catch (FIX::SessionNotFound&) {
     }
-
 } /* -----  end of function FixApplication::rejectOrder  ----- */
 
 /*
@@ -799,6 +807,7 @@ void FixApplication::FeedDataHandle()
     GlobalMatcher->exist();
 
     _is_end = true;
+
 #ifdef KAFKALOG
     log.exist();
 #endif
@@ -947,8 +956,10 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
         }
     }
     if (FinFabr->_stock.count(sym) == 0) {
-        elog::bug("bug stock:", sym, " side:", oside,
-                  " ticket:", oid.getValue(), " date:", tradeDate.getValue());
+        UtilTime ut;
+        std::string day = ut.toDate(atol(tradeDate.getValue().c_str()) / 1000);
+        // elog::bug("bug stock:", sym, " side:", oside,
+        //           " ticket:", oid.getValue(), " date:", day);
         if (price.getLength() > 0) order_price = price.getValue();
         rejectOrder(sid, clOrdID, symbol, side, "symbol not exist", ticket, qid,
                     order_qty, order_price);
@@ -996,7 +1007,6 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
         }
     }
     if (order_price <= 0 || order_qty <= 0) {
-        elog::echo("order_price == 0");
         rejectOrder(sid, clOrdID, symbol, side, "order_price == 0", ticket, qid,
                     order_qty, order_price);
         return;
@@ -1030,7 +1040,6 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
         if (risk == 0 && margin != -1) {
             GlobalMatcher->Margin(sid, ticket, margin, order_qty);
-
             ret = processOrder(order);
         }
         else {
@@ -1039,7 +1048,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
         if (ret == false) {
             GlobalMatcher->freeMargin(sid, ticket, margin);
 
-            rejectOrder(sid, clOrdID, symbol, side, "risk == -1, process order",
+            rejectOrder(sid, clOrdID, symbol, side, "",
                         (ticket_close > 0 ? ticket_close : ticket), qid,
                         order_qty, order_price);
         }

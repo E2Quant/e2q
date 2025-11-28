@@ -222,6 +222,8 @@ void E2LFunList()
     AddFun(ExDividendCash, 2, "FExDividendCash", E2L_RETURN, "(cfi_code,idx);");
     AddFun(ExDividendShare, 2, "FExDividendShare", E2L_RETURN,
            "(cfi_code,idx);");
+    AddFun(ExDividendSplit, 2, "FExDividendSplit", E2L_RETURN,
+           "(cfi_code,idx);");
     AddFun(BrokerBook, 1, "FBrokerBook", E2L_NORETURN, "(booktype);");
 
     /**
@@ -313,6 +315,7 @@ void E2LFunList()
     AddFun(isExdiDate, 1, "FExdiDate", E2L_RETURN, "(cfi_id);");
     AddFun(ExdiCash, 1, "FExdiCash", E2L_RETURN, "(cfi_id);");
     AddFun(ExdiShare, 1, "FExdiShare", E2L_RETURN, "(cfi_id);");
+    AddFun(ExdiSplit, 1, "FExdiSplit", E2L_RETURN, "(cfi_id);");
 
     AddFun(CustomDataSize, 2, "FCustomDataSize", E2L_RETURN, "(cfi_id, idx);");
     AddFun(CustomDataNumber, 2, "FCustomDataNumber", E2L_RETURN,

@@ -215,6 +215,24 @@ void Exchange::RiskFix(int process, func_type<> child_process)
         if (acceptor.isStopped() == false) {
             acceptor.stop();
         }
+
+        std::size_t gidx = GlobalDBPtr->getId();
+
+        Pgsql* gsql = GlobalDBPtr->ptr(gidx);
+        std::string table = "public.";
+        if (gsql != nullptr) {
+            gsql->update_table("stockinfo");
+
+            gsql->update_field("dtime", (ticket_now / 1000));
+            std::string cont =
+                elog::format(" verid=%d and dtime = 0", FinFabr->_QuantVerId);
+            gsql->update_condition(cont);
+
+            UpdateCommit(gsql);
+        }
+
+        GlobalDBPtr->release(gidx);
+
         elog::info("oms stop");
     }
     catch (std::exception& e) {

@@ -76,10 +76,10 @@ UtilTime::UtilTime() {} /* -----  end of function UtilTime::UtilTime  ----- */
  *
  * ============================================
  */
-_millisecond UtilTime::strtostamp(std::string timestr, const char *fmt)
+_millisecond UtilTime::strtostamp(std::string timestr, const char* fmt)
 {
     std::tm tm = {};
-    const char *snext = strptime(timestr.c_str(), fmt, &tm);
+    const char* snext = strptime(timestr.c_str(), fmt, &tm);
     if (snext == NULL) {
         //       elog::echo("snext is null");
         return 0;
@@ -106,16 +106,17 @@ _millisecond UtilTime::strtostamp(std::string timestr, const char *fmt)
  *
  * ============================================
  */
-std::string UtilTime::stamptostr(size_t now, const char *fmt)
+std::string UtilTime::stamptostr(size_t now, const char* fmt)
 {
     if (now == 0) {
         return "";
     }
     if (now > DEF_MIN_SECOND) {
-        std::cerr << "now is  millisecond:" << now << std::endl;
+        // std::cerr << "now is  millisecond:" << now << std::endl;
+        now /= 1000;
     }
     std::time_t tmp = now;
-    std::tm *t = std::localtime(&tmp);
+    std::tm* t = std::localtime(&tmp);
 
     std::stringstream day;
     day << std::put_time(t, fmt);
@@ -150,7 +151,7 @@ std::string UtilTime::toDate(size_t now)
  *
  * ============================================
  */
-std::string UtilTime::millitostr(_millisecond now, const char *fmt)
+std::string UtilTime::millitostr(_millisecond now, const char* fmt)
 {
     return millitostr(now, fmt, false);
 } /* -----  end of function Utiltime::millitostr  ----- */
@@ -165,7 +166,7 @@ std::string UtilTime::millitostr(_millisecond now, const char *fmt)
  *   millisecond to string
  * ============================================
  */
-std::string UtilTime::millitostr(_millisecond now, const char *fmt, bool ext)
+std::string UtilTime::millitostr(_millisecond now, const char* fmt, bool ext)
 {
     if (now == 0) {
         return "";
@@ -176,7 +177,7 @@ std::string UtilTime::millitostr(_millisecond now, const char *fmt, bool ext)
     std::time_t tmp = now / 1000;
     int mill = now % 1000;
 
-    std::tm *t = std::localtime(&tmp);
+    std::tm* t = std::localtime(&tmp);
 
     std::stringstream day;
     if (ext) {
@@ -292,7 +293,7 @@ long UtilTime::offset_gmt()
 int UtilTime::time_offset()
 {
     time_t gmt, rawtime = std::time(NULL);
-    struct tm *ptm;
+    struct tm* ptm;
 
 #if !defined(WIN32)
     struct tm gbuf;
@@ -322,12 +323,12 @@ int UtilTime::time_offset()
 int UtilTime::deltam()
 {
     time_t t = std::time(NULL);
-    struct tm *loc = std::localtime(&t);
+    struct tm* loc = std::localtime(&t);
     /* save values because they could be erased by the call to gmtime */
     int loc_min = loc->tm_min;
     int loc_hour = loc->tm_hour;
     int loc_day = loc->tm_mday;
-    struct tm *utc = gmtime(&t);
+    struct tm* utc = gmtime(&t);
     int delta = loc_min - utc->tm_min;
     int deltaj = loc_day - utc->tm_mday;
     delta += (loc_hour - utc->tm_hour) * 60;
@@ -352,7 +353,7 @@ int UtilTime::deltam()
  *
  * ============================================
  */
-time_t UtilTime::daytm(std::string &day, std::string &fmt)
+time_t UtilTime::daytm(std::string& day, std::string& fmt)
 {
     std::tm then{};
 
@@ -381,7 +382,7 @@ time_t UtilTime::daytm(std::string &day, std::string &fmt)
  */
 time_t UtilTime::first_of_the_week(time_t t, bool gmt)
 {
-    tm *timeinfo;
+    tm* timeinfo;
 
     if (gmt) {
         timeinfo = gmtime(&t);

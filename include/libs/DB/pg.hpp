@@ -242,6 +242,7 @@ public:
         return ret;
     }
     void pgbegin() { PQexec(_conn, "BEGIN"); }
+    void pgConstraints() { PQexec(_conn, "SET CONSTRAINTS ALL DEFERRED;"); };
     void pgcommit() { PQexec(_conn, "COMMIT"); }
 
     void update_table(std::string table) { _update_sql += table + " SET "; }

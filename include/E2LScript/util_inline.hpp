@@ -590,6 +590,31 @@ typedef ExRD exdi_type;
 // inline
 
 struct __ExdiType {
+#define ExData(sym, type, ret)                            \
+    ({                                                    \
+        do {                                              \
+            if (_exdiv_map.count(sym) == 0) {             \
+                ret = 0;                                  \
+            }                                             \
+            else {                                        \
+                exdi_type et = _exdiv_map.at(sym).back(); \
+                switch (type) {                           \
+                    case 0:                               \
+                        ret = et._cash;                   \
+                        break;                            \
+                    case 1:                               \
+                        ret = et._share;                  \
+                        break;                            \
+                    case 2:                               \
+                        ret = et._split;                  \
+                        break;                            \
+                    default:                              \
+                        break;                            \
+                }                                         \
+            }                                             \
+        } while (0);                                      \
+    })
+
     void add(e2::Int_e sym, exdi_type et)
     {
         BasicLock _lock(_EMute);
@@ -605,24 +630,26 @@ struct __ExdiType {
 
     e2::Int_e cash(e2::Int_e sym)
     {
-        if (_exdiv_map.count(sym) == 0) {
-            return 0;
-        }
-        else {
-            exdi_type et = _exdiv_map.at(sym).back();
-            return et._cash;
-        }
+        e2::Int_e ret = 0;
+        ExData(sym, 0, ret);
+
+        return ret;
     }
 
     e2::Int_e share(e2::Int_e sym)
     {
-        if (_exdiv_map.count(sym) == 0) {
-            return 0;
-        }
-        else {
-            exdi_type et = _exdiv_map.at(sym).back();
-            return et._share;
-        }
+        e2::Int_e ret = 0;
+        ExData(sym, 1, ret);
+
+        return ret;
+    }
+
+    e2::Int_e split(e2::Int_e sym)
+    {
+        e2::Int_e ret = 0;
+        ExData(sym, 2, ret);
+
+        return ret;
     }
 
     e2::Bool date(e2::Int_e sym)

@@ -45,7 +45,6 @@
 #ifndef BEAMOBJ_INC
 #define BEAMOBJ_INC
 #include <array>
-#include <cstdint>
 #include <memory>
 #include <thread>
 
@@ -55,7 +54,6 @@
 #include "OMSPack/foreign.hpp"
 #include "SessionGlobal.hpp"
 #include "Toolkit/Norm.hpp"
-#include "Toolkit/UtilTime.hpp"
 namespace e2q {
 struct FixBeam : public FuncBeamClass<FuncSignal> {
     void callback(std::shared_ptr<FuncSignal> beam)
@@ -84,8 +82,8 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
                             int ret = ptr->data_ptr->fixed(&rec_data, row);
                             if (ret == -1) {
                                 elog::bug(ptr->data_ptr->name(),
-                                         " row error:", row, " m:", m,
-                                         " start:", start, " end:", end);
+                                          " row error:", row, " m:", m,
+                                          " start:", start, " end:", end);
                                 continue;
                             }
                             SeqType symbol = rec_data[Trading::t_stock];

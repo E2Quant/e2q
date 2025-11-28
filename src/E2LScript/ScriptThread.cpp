@@ -66,11 +66,6 @@ using namespace e2;
 std::shared_ptr<ContainerStash> e2l_cnt = nullptr;
 
 /**
- * Stash StrategyMaster memory for ea
- */
-// ThreadDisruptorStashSharePtr ext_sb_ptr = nullptr;
-
-/**
  * fun list
  */
 std::vector<E2lFun_t> funList;

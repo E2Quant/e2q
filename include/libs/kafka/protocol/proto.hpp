@@ -159,10 +159,11 @@ typedef struct MarketDelOrIPOMessage MarketDelOrIPOMessage;
 | category     | 11     | 2      | Integer | category   |
 | fenhong      | 13     | 4      | Integer | fenhong    |
 | songzhuangu  | 17     | 4      | Integer | songzhuangu|
-| outstanding  | 21     | 4      | Integer | outstanding|
-| outstandend  | 25     | 4      | Integer | outstandend|
-| mrketCaping  | 29     | 4      | Integer | mrketCaping|
-| Aligned      | 33     | 1      | Alpha   | aligned_t  |
+| split        | 11     | 4      | Integer | split      |
+| outstanding  | 25     | 4      | Integer | outstanding|
+| outstandend  | 26     | 4      | Integer | outstandend|
+| mrketCaping  | 33     | 4      | Integer | mrketCaping|
+| Aligned      | 37     | 1      | Alpha   | aligned_t  |
 
 */
 struct StockAXdxrMessage : public BaseMessage {
@@ -173,6 +174,7 @@ struct StockAXdxrMessage : public BaseMessage {
     std::uint16_t category = 0;
     std::uint32_t fenhong = 0;
     std::uint32_t songzhuangu = 0;
+    std::uint32_t split = 0;
     std::uint32_t outstanding = 0;
     std::uint32_t outstandend = 0;
     std::uint32_t mrketCaping = 0;
@@ -217,7 +219,7 @@ struct MarketTickMessage : public BaseMessage {
      *
      * ============================================
      */
-    void mtm(const char *ptr, int sz)
+    void mtm(const char* ptr, int sz)
     {
         std::size_t idx = 0;
         mlen = 1;

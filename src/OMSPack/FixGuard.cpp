@@ -419,8 +419,28 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
     }
 
     if (nqs.groupCount(pid.field()) <= 1) {
-        elog::info("empty fix_symbols ! session:",
-                   session.getTargetCompID().getValue());
+        std::size_t idx = GlobalDBPtr->getId();
+        Pgsql* gsql = GlobalDBPtr->ptr(idx);
+        if (gsql == nullptr) {
+            GlobalDBPtr->release(idx);
+            elog::bug("pgsql is null, idx:", idx);
+            return;
+        }
+
+        std::string compid = session.getTargetCompID().getValue();
+
+        std::string sql = elog::format(
+            "UPDATE fixsession SET login=1 WHERE targetcompid='%s';",
+            compid.c_str());
+
+        //        elog::echo(sql);
+
+        gsql->update_sql(sql);
+        UpdateCommit(gsql);
+        GlobalDBPtr->release(idx);
+
+        elog::info("session:", compid,
+                   " empty fix_symbols:", SessionSymList.size());
         return;
     }
 

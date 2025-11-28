@@ -205,7 +205,7 @@ void StrategyBase::runScript()
 
     do {
         next_row = e2l_cnt->data_ptr->aquire();
-        // elog::echo(next_row);
+
         for (; e2l_count < next_row; e2l_count++) {
             pool.emit(e2l_count);
 

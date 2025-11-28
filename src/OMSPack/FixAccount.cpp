@@ -268,6 +268,7 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
         }
         pids = nqs.groupCount(pid.field());
         if (pids == 0) {
+            elog::bug("pids is 0!");
             return;
         }
         for (int n = 1; n <= pids; n++) {
@@ -359,7 +360,7 @@ void FixAccount::onMessage(const FIX44::Quote& message,
                            const FIX::SessionID& sid)
 {
     // elog::echo(message.toXML());
-    elog::info("Quote");
+    // elog::info("Quote");
     FIX::Symbol symbol;
     FIX::QuoteID funix_time;
     FIX::QuoteType qt;
@@ -692,35 +693,53 @@ void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
         }
     }
     if (count == 0 && FixPtr->_fix_symbols[cfiCode].count_down > 0) {
-        std::size_t gidx = GlobalDBPtr->getId();
-
-        Pgsql* gsql = GlobalDBPtr->ptr(gidx);
-        std::string table = "public.";
-        if (gsql != nullptr) {
-            gsql->update_table("stockinfo");
-
-            gsql->update_field(
-                "dtime", (FixPtr->_fix_symbols[cfiCode].unix_time / 1000));
-            std::string cont = elog::format("symbol=%d and verid=%d",
-                                            (int)cfiCode, FixPtr->_QuantVerId);
-            gsql->update_condition(cont);
-
-            UpdateCommit(gsql);
-        }
-        else {
-            elog::echo("bug gsql");
-        }
-
-        GlobalDBPtr->release(gidx);
-
         FixPtr->_fix_symbols[cfiCode].count_down = 0;
-
         elog::info("quit delisting:", cfiCode);
         _fq.quit();
     }
 
 } /* -----  end of function FixAccount::delisting  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixAccount::ExitCode
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void FixAccount::ExitCode(std::size_t cfiCode)
+{
+    if (FixPtr->_fix_symbols[cfiCode].dia != DoIAction::DELISTING) {
+        return;
+    }
+
+    FixPtr->_fix_symbols[cfiCode].count_down = 0;
+
+    std::size_t gidx = GlobalDBPtr->getId();
+
+    Pgsql* gsql = GlobalDBPtr->ptr(gidx);
+    std::string table = "public.";
+    if (gsql != nullptr) {
+        gsql->update_table("stockinfo");
+
+        gsql->update_field("dtime",
+                           (FixPtr->_fix_symbols[cfiCode].unix_time / 1000));
+        std::string cont = elog::format("symbol=%d and verid=%d and dtime = 0",
+                                        (int)cfiCode, FixPtr->_QuantVerId);
+        gsql->update_condition(cont);
+
+        UpdateCommit(gsql);
+
+        elog::echo("unix_time:", FixPtr->_fix_symbols[cfiCode].unix_time,
+                   " cfi:", cfiCode);
+    }
+
+    GlobalDBPtr->release(gidx);
+} /* -----  end of function FixAccount::ExitCode  ----- */
 /*
  * ===  FUNCTION  fsafdsa
  *
@@ -758,6 +777,7 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
     FIX::StrikePrice cash;
     FIX::MktBidPx share;
     FIX::BidSize etype;
+    FIX::OfferSize split;
     FIX44::QuoteStatusReport::NoPartyIDs relateGroup;
 
     message.getFieldIfSet(symobl);
@@ -765,12 +785,18 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
     message.getFieldIfSet(cash);
     message.getFieldIfSet(share);
     message.getFieldIfSet(etype);
+    message.getFieldIfSet(split);
 
     exdi_type et;
     et._ymd = atoll(ymd.getValue().c_str());
     et._cash = cash.getValue();
 
     et._share = share.getValue();
+    et._split = split.getValue();
+
+    double splits =
+        et._split > 0 ? ((et._split * 10.0 - 1.0) + et._share) : et._share;
+
     et._extype = (ExType)etype.getValue();
     SeqType sym = atoll(symobl.getValue().c_str());
 
@@ -825,7 +851,7 @@ void FixAccount::onMessage(const FIX44::QuoteStatusReport& message,
 
                 FixPtr->_OrderIds[quantId].at(cl0id).qty =
                     FixPtr->_OrderIds[quantId].at(cl0id).openqty =
-                        qty * (1.0 + NUMBERVAL(et._share));
+                        qty * (1.0 + NUMBERVAL(splits));
             }
         }
     }
@@ -1572,6 +1598,11 @@ void FixAccount::quit(const FIX::SessionID& sid)
 {
     QuoteStatusReport(0);
     UpdateQuantProfit();
+
+    for (auto it : FixPtr->_fix_symbols) {
+        std::size_t cfiCode = it.first;
+        ExitCode(cfiCode);
+    }
 
     _is_end = true;
     elog::echo("quit");

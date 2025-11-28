@@ -384,6 +384,7 @@ struct __Shares {
 typedef struct __Shares MShares;
 
 struct __ExRD {
+    float _split = 0;        // ETF 类的拆分
     float _cash = 0;         // cash dividend 分红
     std::size_t _share = 0;  // 送转股
     ExType _extype;          // category

@@ -308,11 +308,12 @@ private:
                                 std::size_t thread_number, bool rc);
     void UpdateQuantProfit();
 
-    void delisting(std::size_t cficode, std::uint64_t dtime,
+    void delisting(std::size_t cfiCode, std::uint64_t dtime,
                    const FIX::SessionID&);
 
     void History();
 
+    void ExitCode(std::size_t cfiCode);
     void TestRequest();
     /* =============  DATA MEMBERS  =================== */
     FIX::SenderCompID _sender;
