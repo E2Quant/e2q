@@ -168,7 +168,7 @@ void ScriptThread::e2lInit()
         _context.runCode();
     }
     else {
-        e2q::llog::bug("isgc is error");
+        e2q::elog::bug("isgc is error");
     }
 } /* -----  end of function ScriptThread::e2lInit  ----- */
 /*

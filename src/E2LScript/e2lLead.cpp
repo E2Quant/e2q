@@ -139,6 +139,9 @@ void E2LFunList()
     AddFun(tframe, 1, "FTFrame", E2L_NORETURN, "(frame);");
     AddFun(deftframe, 0, "FDefTFrame", E2L_RETURN, "();");
 
+    AddFun(tframelength, 0, "FTFrameLength", E2L_RETURN, "();");
+    AddFun(gettframe, 1, "FGetTFrame", E2L_RETURN, "(idx);");
+
     AddFun(index, 0, "FIndex", E2L_RETURN, "();");
     AddFun(offers, 1, "FOffers", E2L_NORETURN, "(istick);");
     AddFun(OfferTime, 1, "FOfferTime", E2L_NORETURN, "(time);");

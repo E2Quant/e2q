@@ -499,6 +499,11 @@ SeqType Container::aquire()
 void Container::wait_for()
 {
     SeqType num = _listener.fetch_add(inc, std::memory_order_release);
+
+    if (_trigger->status() == E2Q_EXIST) {
+        return;
+    }
+
     _trigger->start();
     _trigger->subscriber();
     num -= 1;

@@ -285,7 +285,7 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
                     if (std::find(FixPtr->_symbols.begin(),
                                   FixPtr->_symbols.end(),
                                   cfi_code) == FixPtr->_symbols.end()) {
-                        elog::echo("cfi:", cfi_code);
+                        elog::echo("tolist cfi:", cfi_code);
                         FixPtr->_symbols.push_back(cfi_code);
                     }
                 }
@@ -394,7 +394,7 @@ void FixAccount::onMessage(const FIX44::Quote& message,
             FixPtr->_fix_symbols[cfiCode].dia = DoIAction::DELISTING;
             FixPtr->_fix_symbols[cfiCode].unix_time = unix_time;
             FixPtr->_fix_symbols[cfiCode].count_down = count_down;
-            elog::echo("cficode:", cfiCode);
+            elog::echo("delisting cficode:", cfiCode);
         }
         else {
             elog::bug("cficode:", cfiCode);

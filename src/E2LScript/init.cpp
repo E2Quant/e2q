@@ -106,7 +106,7 @@ e2::Int_e isInit()
  *
  * ============================================
  */
-void fix(const char *cfg)
+void fix(const char* cfg)
 {
     if (cfg == nullptr) {
         llog::bug("cfg is null");
@@ -139,7 +139,7 @@ void fix(const char *cfg)
  *
  * ============================================
  */
-void mkkf(const char *source)
+void mkkf(const char* source)
 {
     if (source == nullptr) {
         llog::bug("source or topic not  nullptr");
@@ -168,7 +168,7 @@ void mkkf(const char *source)
  *
  * ============================================
  */
-void topic_tick(const char *topic)
+void topic_tick(const char* topic)
 {
     if (topic == nullptr || e2q::FinFabr == nullptr) {
         llog::bug("source or topic not  nullptr");
@@ -188,7 +188,7 @@ void topic_tick(const char *topic)
  *
  * ============================================
  */
-void topic_log(const char *topic)
+void topic_log(const char* topic)
 {
     if (topic == nullptr) {
         llog::bug("source or topic not  nullptr");
@@ -229,7 +229,7 @@ void topic_log(const char *topic)
  *
  * ============================================
  */
-void mkcsv(const char *source, const char *symbol)
+void mkcsv(const char* source, const char* symbol)
 {
     if (source == nullptr || symbol == nullptr) {
         llog::bug("path , symbol, code not  nullptr");
@@ -296,6 +296,43 @@ e2::Int_e deftframe()
 {
     return VALNUMBER(e2q::FixPtr->_current_tf);
 } /* -----  end of function deftframe  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  tframelength
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e tframelength()
+{
+    e2::Int_e ret = e2q::FixPtr->_tf.size();
+    return VALNUMBER(ret);
+} /* -----  end of function tframelength  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  gettframe
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e gettframe(e2::Int_e idx)
+{
+    idx = NUMBERVAL(idx);
+    idx = idx % e2q::FixPtr->_tf.size();
+
+    e2::TimeFrames tf = e2q::FixPtr->_tf.at(idx);
+    return VALNUMBER(tf);
+} /* -----  end of function gettframe  ----- */
 /*
  * ===  FUNCTION  =============================
  *
@@ -412,7 +449,7 @@ void gmtime()
  *
  * ============================================
  */
-void commission(e2::Int_e cms, const char *ccy)
+void commission(e2::Int_e cms, const char* ccy)
 {
     cms = NUMBERVAL(cms);
     e2q::FinFabr->_commission = cms;
@@ -523,8 +560,8 @@ void TradeMode(e2::SymbolTradeMode m)
  */
 void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
 {
-    char *field = nullptr;
-    char *val = nullptr;
+    char* field = nullptr;
+    char* val = nullptr;
     int maj = (int)NUMBERVAL(abs(major));
     int min = (int)NUMBERVAL(abs(minor));
     int pat = (int)NUMBERVAL(abs(patch));
@@ -532,17 +569,17 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
     if (e2q::FinFabr->_QuantVerId > 0 || e2q::GlobalDBPtr == nullptr) {
         return;
     }
-    char *v = nullptr;
+    char* v = nullptr;
     std::size_t len = snprintf(NULL, 0, "%d.%d.%d", maj, min, pat) + 1;
     v = MALLOC(char, len);
     snprintf(v, len, "%d.%d.%d", maj, min, pat);
 
-    const char *fmt =
+    const char* fmt =
         "SELECT id  FROM trade_info WHERE version = '%s' LIMIT 1;";
     std::string sql = llog::format(fmt, v);
 
     std::size_t idx = e2q::GlobalDBPtr->getId();
-    e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(idx);
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
     if (gsql == nullptr) {
         e2q::GlobalDBPtr->release(idx);
         RELEASE(v);

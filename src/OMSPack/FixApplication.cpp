@@ -130,6 +130,10 @@ void FixApplication::onLogon(const FIX::SessionID& sid)
  */
 void FixApplication::onLogout(const FIX::SessionID& sid)
 {
+    if (SessionSymList.count(sid) == 1 && SessionSymList.at(sid).size() > 0) {
+        elog::info("reset here");
+        return;
+    }
     if (!_is_end) {
         elog::info("logout:", sid.getTargetCompID());
     }
