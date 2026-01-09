@@ -879,7 +879,7 @@ bool FixApplication::end()
 int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
                               double bot_qty, e2::Int_e symbol)
 {
-    int risk = -1;
+    int risk = -3;
 
     if (_program != nullptr) {
         /**
@@ -1017,6 +1017,13 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
     }
 
     risk = E2LScript(oType, oside, order_qty, sym);
+    if (risk < 0) {
+        // 直接在这儿退出了，不要再分配了
+        rejectOrder(sid, clOrdID, symbol, side, "",
+                    (ticket_close > 0 ? ticket_close : ticket), qid, order_qty,
+                    order_price);
+        return;
+    }
     /**
      * 3.limit order book
      */
@@ -1041,7 +1048,8 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
                 order->hasMargin(margin);
             }
         }
-
+        // 这儿的 risk 和上面的可能需要优化一下
+        // 现在先这样吧，留以后再说
         if (risk == 0 && margin != -1) {
             GlobalMatcher->Margin(sid, ticket, margin, order_qty);
             ret = processOrder(order);

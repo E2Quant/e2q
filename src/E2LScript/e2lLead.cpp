@@ -166,6 +166,7 @@ void E2LFunList()
     AddFun(LotAndShare, 1, "FLotAndShare", E2L_NORETURN, "(lot);");
     AddFun(CurrentLS, 0, "FCurrentLS", E2L_RETURN, "();");
     AddFun(whois, 0, "FWhois", E2L_RETURN, "();");
+    AddFun(ConfigShow, 0, "FConfigShow", E2L_NORETURN, "();");
     /**
      * init end
      */

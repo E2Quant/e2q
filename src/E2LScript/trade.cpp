@@ -212,8 +212,9 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
         return e2::Bool::B_FALSE;
     }
 
-    if (e2q::FixPtr->_fix_symbols.at(symbol).dia == e2q::DoIAction::DELISTING) {
-        llog::bug("symbol is delisting:", symbol);
+    if (e2q::FixPtr->_fix_symbols.at(symbol).dia != e2q::DoIAction::LIST) {
+        llog::bug("symbol is delisting:", symbol,
+                  " ticket time:", e2q::ticket_now);
 
         return e2::Bool::B_FALSE;
     }

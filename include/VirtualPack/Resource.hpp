@@ -66,7 +66,7 @@ namespace MessageShare {
 
 template <typename T>
 struct StashPack {
-    StashPack &operator=(const StashPack &_other);
+    StashPack& operator=(const StashPack& _other);
     size_t id;        // beam assign return id
     size_t type = 0;  //  messagepack set add here, 通过查找，可以找出这个ID
                       //  对应的内存，进行不同的操作
@@ -150,6 +150,7 @@ public:
     {
         if (_source_ptr == nullptr) {
             elog::bug(" _source_ptr not init");
+            return nullptr;
         }
         std::shared_ptr<T> _msg_share_ptr = std::make_shared<T>();
         _msg_share_ptr->id = 0;

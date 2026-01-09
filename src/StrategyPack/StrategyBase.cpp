@@ -85,7 +85,7 @@ StrategyBase::StrategyBase(_Resource_ptr ptr,
         _source_ptr = std::move(ptr);
     }
 
-    if (beam_data != nullptr) {
+    if (_source_ptr != nullptr && beam_data != nullptr) {
         StrategyBeam _sbeam;
         _sbeam.resource(_source_ptr);
         beam_data->assign<StrategyBeam, Connect_beam>(_sbeam);

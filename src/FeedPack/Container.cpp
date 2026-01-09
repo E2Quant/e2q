@@ -47,6 +47,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <vector>
 
@@ -290,6 +291,7 @@ int Container::push(std::array<e2q::SeqType, trading_protocols>& data)
 
         if (stock > 0) {
             row = _cells.at(stock).at(m).data->hash_row();
+
             if (ohlc[OHLC_T::close_t] == 0 && row > 0) {
                 pause = true;
             }
@@ -611,9 +613,9 @@ int Container::rows(std::size_t id, std::size_t timeframe)
  *
  * ============================================
  */
-int Container::writed(std::size_t id, std::size_t timeframe)
+std::uint64_t Container::writed(std::size_t id, std::size_t timeframe)
 {
-    int ret = -1;
+    std::uint64_t ret = 0;
 
     if (_cells.count(id) == 0) {
         elog::info("code not found:", id);
@@ -622,7 +624,7 @@ int Container::writed(std::size_t id, std::size_t timeframe)
 
     for (auto cell : _cells.at(id)) {
         if (cell.frame == timeframe) {
-            ret = cell.data->writed();
+            ret = cell.data->total();
             break;
         }
     }

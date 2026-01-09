@@ -558,7 +558,7 @@ void Disruptor::quit()
 
     follow_min = _barrier_list.get_min();
     elog::info("name:", _name, " sleep 1, me_seq:", me_seq,
-              " follow:", follow_min, " pid:", getpid());
+               " follow:", follow_min, " pid:", getpid());
 #endif
 
 } /* -----  end of function Disruptor::quit  ----- */
@@ -592,7 +592,7 @@ void Disruptor::wait_for(wait_for_t fun)
             follow_min = _barrier_list.get_min();
         }
 
-        if (follow_min > me_seq) {
+        if (me_seq < follow_min) {
             fun(me_seq, follow_min);
         }
 
@@ -603,7 +603,7 @@ void Disruptor::wait_for(wait_for_t fun)
 #ifdef DEBUG
 
     elog::echo(_name, ", me_seq:", me_seq, " follow:", follow_min,
-              " pid:", getpid());
+               " pid:", getpid());
 #endif
 
 } /* -----  end of function Disruptor::wait_for  ----- */
@@ -697,7 +697,7 @@ int Disruptor::wait_next()
  *   追随 master
  * ============================================
  */
-void Disruptor::from(const Disruptor &_other)
+void Disruptor::from(const Disruptor& _other)
 {
     if (this != &_other) {
         SilkPermit::operator=(_other);

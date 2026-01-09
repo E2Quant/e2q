@@ -49,6 +49,7 @@
 #include "E2LScript/util_inline.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/DB/pg.hpp"
+#include "utility/Log.hpp"
 
 namespace e2l {
 
@@ -161,7 +162,7 @@ e2::Int_e analytotal(e2::Int_e analy)
  *
  * ============================================
  */
-void Analse(e2::Int_e id, const char *name)
+void Analse(e2::Int_e id, const char* name)
 {
     id = NUMBERVAL(id);
     std::thread::id _id = std::this_thread::get_id();
@@ -268,18 +269,23 @@ void AnalseLog(e2::Int_e key, e2::Int_e val, e2::Int_e type, e2::Int_e time)
 
     std::string table = "public.";
     std::size_t gidx = e2q::GlobalDBPtr->getId();
-    e2q::Pgsql *gsql = e2q::GlobalDBPtr->ptr(gidx);
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(gidx);
     if (gsql != nullptr) {
-        gsql->public_table(table);
-        gsql->insert_table("analselog");
-        gsql->insert_field("quantid", quantid);
-        gsql->insert_field("key", _key);
+        std::string sql = llog::format(
+            "SELECT id FROM analse WHERE quantid= %ld LIMIT 1;", quantid);
+        bool ret = SelectSQL(gsql, sql);
+        if (ret && gsql->tuple_size() > 0) {
+            gsql->public_table(table);
+            gsql->insert_table("analselog");
+            gsql->insert_field("quantid", quantid);
+            gsql->insert_field("key", _key);
 
-        gsql->insert_field("values", _val, 5);
-        gsql->insert_field("type", _type);
+            gsql->insert_field("values", _val, 5);
+            gsql->insert_field("type", _type);
 
-        gsql->insert_field("ctime", time);
-        InsertCommit(gsql);
+            gsql->insert_field("ctime", time);
+            InsertCommit(gsql);
+        }
     }
 
     e2q::GlobalDBPtr->release(gidx);

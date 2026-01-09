@@ -575,6 +575,14 @@ enum BotLob {
 
 typedef enum BotLob BotLob;
 
+struct __E2LVersion {
+    int maj = 0;
+    int min = 0;
+    int patch = 0;
+
+}; /* ----------  end of struct __E2LVersion  ---------- */
+
+typedef struct __E2LVersion E2LVersion;
 /**
  * oms database
  */
@@ -582,6 +590,7 @@ struct __FinancialFabricate : public MarketInfo {
     // 默认是观察员状态，即只记录交易，但现金和投资组合的价值不会发生变化
     e2::SettleInstMode _sim = e2::SettleInstMode::_observer;
 
+    E2LVersion _e2l_ver;
     // 默认是 tif_day
     e2::TimeInForce _tif = e2::TimeInForce::tif_day;
 

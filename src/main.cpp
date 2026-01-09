@@ -335,16 +335,16 @@ int e2q_action(int argc, char* argv[])
                  e2q::GlobalMainArguments.log_dir.c_str());
     }
     else {
-        int number_log = 0;
+        //        int number_log = 0;
         for (const auto& p :
              std::filesystem::directory_iterator(GlobalMainArguments.log_dir)) {
             if (p.is_directory()) {
                 continue;
             }
-            number_log++;
+            //          number_log++;
         }
         snprintf(log_file, 256, "%s/ea_%d.log",
-                 e2q::GlobalMainArguments.log_dir.c_str(), number_log);
+                 e2q::GlobalMainArguments.log_dir.c_str(), getpid());
     }
 
     GlobalMainArguments.log_io.open(log_file, std::ios::app);

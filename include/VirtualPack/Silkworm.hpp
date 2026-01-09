@@ -50,6 +50,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
@@ -150,11 +151,19 @@ struct __Coordinate {
 
 typedef struct __Coordinate Coordinate;
 
-#define ATOMICPTR(ret, ptr)                                  \
+#define ATOMICPTR(ptr)                                       \
     ({                                                       \
+        size_t __ret = 0;                                    \
         do {                                                 \
-            *ret = ptr->load(std::memory_order_acquire) - 1; \
+            size_t v = ptr->load(std::memory_order_acquire); \
+            if (v == 0) {                                    \
+                __ret = _mulberry.row - 1;                   \
+            }                                                \
+            else {                                           \
+                __ret = v - 1;                               \
+            }                                                \
         } while (0);                                         \
+        __ret;                                               \
     })
 
 #define ATOMICADD(ptr)                                                      \
@@ -185,6 +194,7 @@ typedef struct __Coordinate Coordinate;
         } while (0);                                              \
         __ret;                                                    \
     })
+
 #define ATOMICEQPTR(ptr0, ptr1)                                \
     ({                                                         \
         bool __ret = false;                                    \
@@ -195,6 +205,7 @@ typedef struct __Coordinate Coordinate;
         } while (0);                                           \
         __ret;                                                 \
     })
+
 /**
  * _tailIndex, row, _writingIndex, _mulberry.row
  */
@@ -268,6 +279,7 @@ public:
         _tailIndex = std::make_shared<std::atomic_size_t>(0);
 
         _writedIndex = std::make_shared<size_t>(0);
+        _writedTotal = 0;
     }; /* constructor */
     // SilkPermit() = default; /* constructor */
     SilkPermit(const SilkPermit& _bn) { *this = _bn; };
@@ -295,10 +307,16 @@ public:
         }
         std::size_t m = ATOMICSIZT_T(_writingIndex);
         if (m == 0) {
-            return -1;
+            // elog::bug("_writingIndex == 0");
+            return 0;
         }
         return *_writedIndex;
     }
+
+    /**
+     * 写入总数
+     */
+    std::uint64_t total() { return _writedTotal; }
 
     /*
      * ===  FUNCTION
@@ -437,8 +455,9 @@ public:
         }
 
         ATOMICADD(_writingIndex);
-        ATOMICPTR(_writedIndex, _writingIndex);
+        *_writedIndex = ATOMICPTR(_writingIndex);
 
+        _writedTotal++;
         return ATOMICSIZT_T(_writingIndex);
     }
 
@@ -458,7 +477,9 @@ public:
         }
 
         ATOMICADD(_writingIndex);
-        ATOMICPTR(_writedIndex, _writingIndex);
+        *_writedIndex = ATOMICPTR(_writingIndex);
+
+        _writedTotal++;
 
         return ATOMICSIZT_T(_writingIndex);
     }
@@ -753,7 +774,7 @@ public:
             return -1;
         }
         if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            elog::bug("data not init");
+            // elog::bug("data not init");
             return -1;
         }
 
@@ -957,11 +978,14 @@ public:
                       " mulberry row:", _mulberry.row);
             return -1;
         }
-        if (ATOMICEQ(_writedIndex, _writingIndex)) {
-            elog::bug("data not init, writed index:", *_writedIndex,
+        if (ATOMICEQ(_writedIndex, _writingIndex) == true) {
+            elog::bug("atomiceq-> writedIndex:", *_writedIndex,
+                      " writingIndex:",
+                      _writingIndex->load(std::memory_order_acquire),
                       " tail:", _tailIndex->load(std::memory_order_acquire));
             return -1;
         }
+
         size_t index = 0, column = 0;
 
         for (column = 0; column < _mulberry.column; column++) {
@@ -979,7 +1003,8 @@ public:
      *  Parameters:
      *  - size_t  arg
      *  Description:
-     *
+     *  如果不主动删除 now 会一直等于 _mulberry.row - 1
+     *  因为装满了
      * ============================================
      */
 
@@ -990,6 +1015,7 @@ public:
         size_t now =
             writed < tail ? (_mulberry.row - tail + writed) : (writed - tail);
 
+        // elog::info("tail:", tail, " write:", writed);
         return now;
     } /* -----  end of function hash_row  ----- */
 
@@ -1150,6 +1176,11 @@ protected:
      * 已经写入的 index
      */
     std::shared_ptr<size_t> _writedIndex = nullptr;
+    // std::size_t _writedIndex = 0;
+    /**
+     * 写入总数
+     */
+    std::uint64_t _writedTotal = 0;
 
     /**
      * 下一个准备 写的 index

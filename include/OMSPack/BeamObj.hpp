@@ -159,7 +159,6 @@ struct FixBeam : public FuncBeamClass<FuncSignal> {
                 // 如果没有申请 symbole 就只发送 index 的 symbole
                 // OnlyEA::FORANLYONE 否则会出错
                 // && 先不做这儿的处理
-                // FinFabr->_fix_symbol_only_for_ea == OnlyEA::FORANLYONE
                 _fix.MarketMessage(it->first, rec_data);
                 continue;
             }

@@ -64,21 +64,25 @@ void STLog::TicketComment(std::size_t quantid, std::size_t ticket, int side,
                           int oe)
 {
     std::size_t idx = GlobalDBPtr->getId();
-    Pgsql *gsql = GlobalDBPtr->ptr(idx);
+    Pgsql* gsql = GlobalDBPtr->ptr(idx);
     if (gsql != nullptr) {
-        std::string table = "public.";
-        gsql->public_table(table);
-        gsql->insert_table("analselog");
-        gsql->insert_field("quantid", quantid);
-        gsql->insert_field("key", ticket);
+        std::string sql = llog::format(
+            "SELECT id FROM analse WHERE quantid= %ld LIMIT 1;", quantid);
+        bool ret = SelectSQL(gsql, sql);
+        if (ret && gsql->tuple_size() > 0) {
+            std::string table = "public.";
+            gsql->public_table(table);
+            gsql->insert_table("analselog");
+            gsql->insert_field("quantid", quantid);
+            gsql->insert_field("key", ticket);
 
-        gsql->insert_field("values", side);
-        gsql->insert_field("type", oe);
+            gsql->insert_field("values", side);
+            gsql->insert_field("type", oe);
 
-        gsql->insert_field("ctime", e2q::ticket_now);
-        InsertCommit(gsql);
+            gsql->insert_field("ctime", e2q::ticket_now);
+            InsertCommit(gsql);
+        }
     }
-
     GlobalDBPtr->release(idx);
 
 } /* -----  end of function STLog::TicketComment  ----- */

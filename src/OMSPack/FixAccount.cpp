@@ -642,6 +642,22 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
             _fq.handle(data);
 
             std::size_t cfiCode = data[Trading::t_stock];
+            if (FixPtr->_fix_symbols.count(cfiCode) == 0) {
+                continue;
+            }
+
+            // 以后再优化吧
+            if (data[Trading::t_qty] == 0 &&
+                FixPtr->_fix_symbols[cfiCode].dia == DoIAction::LIST) {
+                // 涨跌板
+                FixPtr->_fix_symbols[cfiCode].dia = DoIAction::THROWOUT;
+            }
+
+            if (data[Trading::t_qty] > 0 &&
+                FixPtr->_fix_symbols[cfiCode].dia == DoIAction::THROWOUT) {
+                // 涨跌板
+                FixPtr->_fix_symbols[cfiCode].dia = DoIAction::LIST;
+            }
 
             delisting(cfiCode, data[Trading::t_time], sid);
         }
@@ -669,7 +685,7 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
 void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
                            const FIX::SessionID& sid)
 {
-    if (cfiCode == 0 || FixPtr->_fix_symbols.count(cfiCode) == 0 ||
+    if (cfiCode == 0 ||
         FixPtr->_fix_symbols[cfiCode].dia != DoIAction::DELISTING) {
         return;
     }
@@ -1162,8 +1178,8 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
         // 2, 4(sell)
 
         RejectOrCancelNewOrder(quantId, key, 0, tk, thread_number, true);
-        elog::bug("quantid:", quantId, "ticket == 0: ", tk,
-                  " text:", rejtext.getValue());
+        // elog::bug("quantid:", quantId, "ticket == 0: ", tk,
+        //           " text:", rejtext.getValue());
     }
 
 } /* -----  end of function FixAccount::onMessage  ----- */

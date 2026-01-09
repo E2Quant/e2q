@@ -47,6 +47,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -54,7 +55,6 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "FeedPack/foreign.hpp"
 #include "Toolkit/Norm.hpp"
-#include "assembler/BaseType.hpp"
 namespace e2q {
 
 /*
@@ -113,7 +113,7 @@ public:
     /**
      * init cell
      */
-    void Cell(std::vector<e2::TimeFrames> &, std::vector<TradeTime> &);
+    void Cell(std::vector<e2::TimeFrames>&, std::vector<TradeTime>&);
 
     void InitCell();
 
@@ -122,7 +122,7 @@ public:
      */
     SeqType getData(std::size_t id, e2::TimeFrames);
 
-    int push(std::array<e2q::SeqType, trading_protocols> &);
+    int push(std::array<e2q::SeqType, trading_protocols>&);
 
     SeqType aquire();
     std::size_t now() { return _now; }
@@ -131,13 +131,13 @@ public:
     void quit();
     bool runing();
     int rows(std::size_t id, std::size_t timeframe);
-    int writed(std::size_t id, std::size_t timeframe);
-    int tail(std::array<SeqType, ohlc_column> &);
-    int read(std::array<SeqType, ohlc_column> &, std::size_t, std::size_t,
+    std::uint64_t writed(std::size_t id, std::size_t timeframe);
+    int tail(std::array<SeqType, ohlc_column>&);
+    int read(std::array<SeqType, ohlc_column>&, std::size_t, std::size_t,
              std::size_t);
     std::size_t idx(std::size_t, std::size_t);
     template <typename std::size_t Nr = 10>
-    int reads(std::array<std::array<SeqType, ohlc_column>, Nr> &ohlcs,
+    int reads(std::array<std::array<SeqType, ohlc_column>, Nr>& ohlcs,
               std::size_t stock, std::size_t timeframe)
 
     {

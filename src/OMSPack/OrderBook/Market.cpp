@@ -188,13 +188,14 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
             if (spread_ask != nullptr) {
                 // if (FinFabr->_settlement == 0 ||
                 //     order_start_time > spread_ask->market_time()) {
+#ifdef DEBUG
                 elog::info(spread_ask->isBot(),
                           " ask opqty:", spread_ask->getOpenQuantity(),
                           " leaveqty:", spread_ask->getLeavesQty(),
                           " tick:", spread_ask->getTicket(),
                           " order_start_time:", order_start_time,
                           " spred_ask:", spread_ask->market_time());
-
+#endif
                 spread_ask->cancel();
                 spread_ask->Closeed();
                 if (!spread_ask->isBot()) {
@@ -209,12 +210,14 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
             if (spread_bid != nullptr) {
                 // if (FinFabr->_settlement == 0 ||
                 //     order_start_time > spread_bid->market_time()) {
+#ifdef DEBUG
                 elog::info(spread_bid->isBot(),
                           " bid opqty:", spread_bid->getOpenQuantity(),
                           " leaveqty:", spread_bid->getLeavesQty(),
                           " tick:", spread_bid->getTicket(),
                           " order_start_time:", order_start_time,
                           " spred_ask:", spread_bid->market_time());
+#endif
                 spread_bid->cancel();
                 spread_bid->Closeed();
                 if (!spread_bid->isBot()) {

@@ -153,6 +153,9 @@ void KfConsumeCb::SymbolInit(const char* p, int sz)
     GlobalDBPtr->release(gidx);
 
     if (sinit.Aligned == Aligned_t::PULL) {
+        // e2l init.cpp 这儿有处理的
+        e2q::FinFabr->_ok = e2::InitOk::I_OK;
+
         elog::info("SymbolInit ok symbols size:", FinFabr->_fix_symbols.size());
         //  转成豪秒
         FinFabr->_offer_time = NUMBERVAL(sinit.OfferTime) * 1000;

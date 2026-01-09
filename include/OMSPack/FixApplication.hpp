@@ -243,7 +243,6 @@ FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon)*/
     }
     void fillOrder(const OrderLots& order)
     {
-        elog::info("fillOrder");
         const char status = order.isFilled ? FIX::OrdStatus_FILLED
                                            : FIX::OrdStatus_PARTIALLY_FILLED;
         double equity =

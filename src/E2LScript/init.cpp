@@ -46,6 +46,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <sstream>
@@ -58,6 +59,8 @@
 #include "E2LScript/foreign.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/bprinter/table_printer.h"
+#include "utility/Log.hpp"
 namespace e2l {
 
 /*
@@ -562,17 +565,21 @@ void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
 {
     char* field = nullptr;
     char* val = nullptr;
-    int maj = (int)NUMBERVAL(abs(major));
-    int min = (int)NUMBERVAL(abs(minor));
-    int pat = (int)NUMBERVAL(abs(patch));
+    e2q::FinFabr->_e2l_ver.maj = (int)NUMBERVAL(abs(major));
+    e2q::FinFabr->_e2l_ver.min = (int)NUMBERVAL(abs(minor));
+    e2q::FinFabr->_e2l_ver.patch = (int)NUMBERVAL(abs(patch));
     std::string qversion = "";
     if (e2q::FinFabr->_QuantVerId > 0 || e2q::GlobalDBPtr == nullptr) {
         return;
     }
     char* v = nullptr;
-    std::size_t len = snprintf(NULL, 0, "%d.%d.%d", maj, min, pat) + 1;
+    std::size_t len =
+        snprintf(NULL, 0, "%d.%d.%d", e2q::FinFabr->_e2l_ver.maj,
+                 e2q::FinFabr->_e2l_ver.min, e2q::FinFabr->_e2l_ver.patch) +
+        1;
     v = MALLOC(char, len);
-    snprintf(v, len, "%d.%d.%d", maj, min, pat);
+    snprintf(v, len, "%d.%d.%d", e2q::FinFabr->_e2l_ver.maj,
+             e2q::FinFabr->_e2l_ver.min, e2q::FinFabr->_e2l_ver.patch);
 
     const char* fmt =
         "SELECT id  FROM trade_info WHERE version = '%s' LIMIT 1;";
@@ -715,4 +722,84 @@ e2::Int_e whois()
 
     return ret;
 } /* -----  end of function whois  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  ConfigShow
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ * 显示当前的配置，包括ea 和 oms 端
+ * ============================================
+ */
+void ConfigShow()
+{
+    bprinter::TablePrinter tp(&std::cout);
+
+    tp.set_flush_left();
+    tp.AddColumn("name", 15);
+    tp.AddColumn("value", 35);
+
+    std::string fix_cfg = "";
+
+    tp.PrintHeader();
+
+    if (e2q::FixPtr != nullptr) {
+        fix_cfg = e2q::FixPtr->_fix_cfg;
+        tp << "fix cfg" << fix_cfg;
+        tp << "kafka" << e2q::FixPtr->_source;
+        tp << "csv_kafka" << MKType::mk_kafka;
+
+        std::string tf = "";
+        for (size_t idx = 0; idx < e2q::FixPtr->_tf.size(); idx++) {
+            tf = "tf_" + std::to_string(idx);
+
+            tp << tf << e2q::FixPtr->_tf.at(0);
+        }
+        tp << "gmt" << (e2q::FixPtr->_gmt == 0 ? 0 : 1);
+        tp << "cash" << llog::format("%.5f", e2q::FixPtr->_cash.total_cash);
+        tp << "all Postion"
+           << llog::format("%.5f", e2q::FixPtr->_cash.all_postion);
+        tp << "thread Postion" << e2q::FixPtr->_cash._thread_pos.size();
+        tp << "thread size" << e2q::FixPtr->_cash._tsize;
+        tp << "offers" << e2q::FixPtr->_offers;
+        tp << "thread number" << e2q::e2l_thread_num;
+    }
+    else if (e2q::FinFabr != nullptr) {
+        fix_cfg = e2q::FinFabr->_fix_cfg;
+
+        std::string eversion = llog::format(
+            "%d.%d.%d", e2q::FinFabr->_e2l_ver.maj, e2q::FinFabr->_e2l_ver.min,
+            e2q::FinFabr->_e2l_ver.patch);
+
+        std::string tread_time =
+            llog::format("%02ld:%02ld - %02ld:%02ld",
+                         e2q::FinFabr->_tradetime.at(0).open_hour,
+                         e2q::FinFabr->_tradetime.at(0).open_min,
+                         e2q::FinFabr->_tradetime.at(0).close_hour,
+                         e2q::FinFabr->_tradetime.at(0).close_min);
+
+        tp << "fix cfg" << fix_cfg;
+        tp << "kafka" << e2q::FinFabr->_source;
+        tp << "csv_kafka" << e2q::FinFabr->_csv_kafka;
+        tp << "topic" << e2q::FinFabr->_topic;
+        tp << "trade time" << tread_time;
+        tp << "ccy" << e2q::FinFabr->_ccy;
+        tp << "commission" << e2q::FinFabr->_commission;
+        tp << "trade mode" << e2q::FinFabr->_trade_mode;
+        tp << "lot and share"
+           << llog::format("%.5f", e2q::FinFabr->_lot_and_share);
+        tp << "Settlement" << (e2q::FinFabr->_settlement == 0 ? 0 : 1);
+        tp << "SettlInst" << e2q::FinFabr->_ME;
+        tp << "MatchEventInit" << e2q::FinFabr->_sim;
+        tp << "BrokerBook" << e2q::FinFabr->_BookType;
+        tp << "SymbolOnlyForEA" << e2q::FinFabr->_fix_symbol_only_for_ea;
+        tp << "version" << eversion;
+    }
+
+    tp.PrintFooter();
+} /* -----  end of function ConfigShow  ----- */
+
 }  // namespace e2l
