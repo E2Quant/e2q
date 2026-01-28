@@ -736,7 +736,7 @@ e2::Int_e whois()
  */
 void ConfigShow()
 {
-    bprinter::TablePrinter tp(&std::cout);
+    bprinter::TablePrinter tp(&e2q::GlobalMainArguments.log_io);
 
     tp.set_flush_left();
     tp.AddColumn("name", 15);

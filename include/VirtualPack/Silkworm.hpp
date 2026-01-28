@@ -92,7 +92,9 @@ enum __rw { r = 0, w, rw }; /* ----------  end of enum __rw  ---------- */
 typedef enum __rw _RW;
 
 enum ___rcmajor {
+    // 行向量
     row = 0,
+    // 列向量
     col = 1
 }; /* ----------  end of enum ___rcmajor  ---------- */
 typedef enum ___rcmajor _MAJOR;

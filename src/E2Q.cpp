@@ -119,7 +119,7 @@ void E2Q::trader(size_t n, std::size_t quant_start, int run)
  *
  * ============================================
  */
-void E2Q::setCfg(std::string &e2l, std::string &db)
+void E2Q::setCfg(std::string& e2l, std::string& db)
 {
     e2l_path = e2l;
     db_path = db;
@@ -136,7 +136,7 @@ void E2Q::setCfg(std::string &e2l, std::string &db)
  *
  * ============================================
  */
-void E2Q::log_dir(std::string &dir)
+void E2Q::log_dir(std::string& dir)
 {
 #ifndef KAFKALOG
     log.dir(dir);
@@ -155,7 +155,7 @@ void E2Q::log_dir(std::string &dir)
  *
  * ============================================
  */
-void E2Q::search_dir(std::string &dir)
+void E2Q::search_dir(std::string& dir)
 {
     esearch_dir = dir;
 } /* -----  end of function E2Q::search_dir  ----- */

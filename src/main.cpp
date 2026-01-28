@@ -50,7 +50,6 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -73,7 +72,7 @@ using namespace e2q;
  *
  * ============================================
  */
-void only_run(const char* f)
+void only_run(const char* f, bool graph)
 {
     e2::ParserCtx ctx;
 
@@ -94,6 +93,9 @@ void only_run(const char* f)
     if (isgc) {
         context.runCode();
         int ret = context.runFunction(a, a);
+        if (graph) {
+            context.setupAndRunPasses();
+        }
         elog::echo("ret:", ret);
     }
     else {
@@ -144,9 +146,10 @@ int e2q_action(int argc, char* argv[])
     int fd[2];
     char buffer[2];
     pipe(fd);
-
+    bool graph = false;
     char* b = nullptr;
     char* e = nullptr;
+    char* o = nullptr;
     char* s = nullptr;
     char* p = nullptr;
     char* f = nullptr;
@@ -169,22 +172,23 @@ int e2q_action(int argc, char* argv[])
     char pid_file[] = "/tmp/e2q_%ld.pid";
     std::string help =
         "%s -e script.e2 \n \
-                Usage: \n \
-                -h help \n \
-                -a if oms default fix account number or if ea account index \n \
-                -b bin history ticket file directory \n \
-                -d daemon run \n \
-                -e which loading ea e2l script \n \
-                -f log directory \n \
-                -l show llvm ir for e2l \n \
-                -n read number bin history tickets \n \
-                -i e2l import codes directory,def:/usr/local/include/e2/ \n \
-                -s which loading oms e2l script \n \
-                -o only test e2l script \n \
-                -p which loading db properties \n \
-                -r e2l run number \n \
-                -v show e2q version \n \
-                ";
+        Usage: \n \
+        -h help \n \
+        -a if oms default fix account number or if ea account index \n \
+        -b bin history ticket file directory \n \
+        -d daemon run \n \
+        -e which loading ea e2l script \n \
+        -f log directory \n \
+        -l show llvm ir for e2l \n \
+        -n read number bin history tickets \n \
+        -i e2l import codes directory,def:/usr/local/include/e2/ \n \
+        -s which loading oms e2l script \n \
+        -o only test e2l script \n \
+        -g only test e2l script build graph dot \n \
+        -p which loading db properties \n \
+        -r e2l run number \n \
+        -v show e2q version \n \
+        ";
 
     if (argc < 2) {
         printf(help.c_str(), argv[0]);
@@ -258,11 +262,13 @@ int e2q_action(int argc, char* argv[])
                 break;
             }
             case 'o': {
-                e = optarg;
-                if (e != nullptr) {
-                    only_run(e);
-                }
-                return 0;
+                o = optarg;
+
+                break;
+            }
+            case 'g': {
+                graph = true;
+                break;
             }
             case 'f': {
                 f = optarg;
@@ -296,6 +302,11 @@ int e2q_action(int argc, char* argv[])
                 printf("%s -h\n", argv[0]);
                 exit(-1);
         }
+    }
+
+    if (o != nullptr) {
+        only_run(o, graph);
+        return 0;
     }
 
     for (index = optind; index < argc; index++) {
@@ -394,7 +405,7 @@ int e2q_action(int argc, char* argv[])
                 perror("fork()");
                 exit(-1);
 
-            // PID == 0 代表是子程序
+                // PID == 0 代表是子程序
             case 0: {
                 printf("[Child] I'm Child process\n");
                 printf("[Child] Child's PID is %d name: %s \n", getpid(),
@@ -411,7 +422,7 @@ int e2q_action(int argc, char* argv[])
 
                 return 0;
             }
-            // PID > 0 代表是父程序
+                // PID > 0 代表是父程序
             default:
                 // printf("{parent} Parent PID is %d\n", getpid());
                 break;
