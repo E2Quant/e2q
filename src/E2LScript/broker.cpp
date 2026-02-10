@@ -155,6 +155,22 @@ void MatchEventInit(e2::MatchEvent me)
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  MatchTrigger
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void MatchTrigger(e2::Bool b)
+{
+    e2q::FinFabr->_match_trigger = b;
+
+} /* -----  end of function MatchTrigger  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  EnableExdividend
  *  ->  void *
  *  Parameters:

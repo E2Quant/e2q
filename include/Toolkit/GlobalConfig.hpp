@@ -45,10 +45,10 @@
 #ifndef GLOBALCONFIG_INC
 #define GLOBALCONFIG_INC
 #include <cstddef>
-#include <e2l.hpp>
 #include <memory>
 #include <string>
 
+#include "e2/e2l.hpp"
 #include "libs/DB/PGConnectPool.hpp"
 #include "libs/kafka/protocol/proto.hpp"
 namespace e2q {
@@ -71,24 +71,24 @@ typedef struct __Feed FEED;
  * to llvm function point
  */
 
-typedef std::tuple<void *, size_t, std::string, bool, std::string> E2lFun_t;
+typedef std::tuple<void*, size_t, std::string, bool, std::string> E2lFun_t;
 
-#define AddFun(fun, arg, name, act, desz)                                \
-    ({                                                                   \
-        do {                                                             \
-            E2lFun_t _fun##_f =                                          \
-                std::make_tuple((void *)e2l::fun, arg, name, act, desz); \
-            funList.push_back(_fun##_f);                                 \
-        } while (0);                                                     \
-    })
-
-#define AddFunExt(vfuns, ns, fun, arg, name, act, desz)                 \
+#define AddFun(fun, arg, name, act, desz)                               \
     ({                                                                  \
         do {                                                            \
             E2lFun_t _fun##_f =                                         \
-                std::make_tuple((void *)ns::fun, arg, name, act, desz); \
-            vfuns.push_back(_fun##_f);                                  \
+                std::make_tuple((void*)e2l::fun, arg, name, act, desz); \
+            funList.push_back(_fun##_f);                                \
         } while (0);                                                    \
+    })
+
+#define AddFunExt(vfuns, ns, fun, arg, name, act, desz)                \
+    ({                                                                 \
+        do {                                                           \
+            E2lFun_t _fun##_f =                                        \
+                std::make_tuple((void*)ns::fun, arg, name, act, desz); \
+            vfuns.push_back(_fun##_f);                                 \
+        } while (0);                                                   \
     })
 
 inline std::size_t GlobalProcessId;
@@ -147,7 +147,7 @@ inline CustomMsgStore GlobalCustomMsg;
                         break;                                                \
                     }                                                         \
                     default:                                                  \
-                        elog::bug("bad type!");                                \
+                        elog::bug("bad type!");                               \
                         break;                                                \
                 }                                                             \
                 cmsg.Aligned = *(ptr + idx);                                  \
@@ -155,8 +155,8 @@ inline CustomMsgStore GlobalCustomMsg;
                 idx += 2;                                                     \
                 if (idx < (std::size_t)sz &&                                  \
                     cmsg.Aligned == Aligned_t::PULL) {                        \
-                    elog::info("cfi:", cmsg.CfiCode, " A:", cmsg.Aligned,      \
-                              " idx:", idx, " sz:", sz);                      \
+                    elog::info("cfi:", cmsg.CfiCode, " A:", cmsg.Aligned,     \
+                               " idx:", idx, " sz:", sz);                     \
                 }                                                             \
             } while (idx < (std::size_t)sz &&                                 \
                      cmsg.Aligned == Aligned_t::UNDER);                       \

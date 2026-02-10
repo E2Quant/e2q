@@ -277,7 +277,7 @@ void KfConsumeCb::MarketIng(const char* p, int sz)
                 Quote(it->first, mdoi);
             }
         }
-        if (mdoi.action == DoIAction::DELISTING) {
+        else if (mdoi.action == DoIAction::DELISTING) {
             if (std::find(std::begin(it->second), std::end(it->second),
                           mdoi.CfiCode) != std::end(it->second)) {
                 // 如果是退市，就只发给当前的一个sessionid
@@ -287,11 +287,63 @@ void KfConsumeCb::MarketIng(const char* p, int sz)
                 FinFabr->_fix_symbols[mdoi.CfiCode].dia = DoIAction::THROWOUT;
             }
         }
+        else {
+            elog::echo("THROWOUT :", mdoi.CfiCode,
+                       " name:", it->first.getTargetCompID().getValue());
+        }
     }
     // }
 
 } /* -----  end of function KfConsumeCb::MarketIng  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  KfConsumeCb::DealMatchMsg
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void KfConsumeCb::DealMatchMsg(const char* ptr, int sz, int64_t offset)
+{
+    DealMatchMessage dmm;
+    int isOk = dmm.dmm(ptr, sz);
+
+    if (isOk != 0) {
+        return;
+    }
+
+    bprinter::TablePrinter tp(&std::cout);
+    tp.AddColumn("stock", 20);
+    tp.AddColumn("side", 10);
+    tp.AddColumn("dprice", 10);
+    tp.AddColumn("dqty", 10);
+    tp.AddColumn("commission", 10);
+    tp.AddColumn("tamount", 10);
+    tp.AddColumn("tdate", 10);
+    tp.AddColumn("ttime", 10);
+    tp.AddColumn("unix_time", 10);
+    tp.AddColumn("ticket", 10);
+    tp.AddColumn("unique_size", 10);
+    tp.AddColumn("unique_id", 20);
+
+    tp.PrintHeader();
+    tp << dmm.stock << dmm.side << dmm.dprice << dmm.dqty << dmm.commission
+       << dmm.tamount << dmm.tdate << dmm.ttime << dmm.unix_time << dmm.ticket
+       << dmm.unique_size << dmm.unique_id;
+    tp.PrintFooter();
+
+    if (_DealCall != nullptr) {
+        _DealCall(dmm.stock, dmm.unix_time, dmm.dprice, dmm.dprice);
+    }
+    else {
+        elog::bug("deal call");
+    }
+
+} /* -----  end of function KfConsumeCb::DealMatchMsg  ----- */
 /*
  * ===  FUNCTION  =============================
  *
@@ -312,7 +364,11 @@ void KfConsumeCb::Quote(const FIX::SessionID& session,
     std::string sym = std::string(mdoi.Stock);
 
     FIX::QuoteID id;
+#if __APPLE__
+    id.setValue(elog::format("%llu", mdoi.unix_time));
+#else
     id.setValue(elog::format("%ld", mdoi.unix_time));
+#endif
 
     FIX44::Quote quote(id);
 
@@ -647,6 +703,9 @@ void KfConsumeCb::Events(const char* p, int sz, int64_t now_offset)
         case e2l_pro_t::EXIT:
             ExitOrder();
             break;
+        case e2l_pro_t::DEAL:
+            DealMatchMsg(p + 1, sz, _lastoffset);
+            break;
         default:
             std::string error = elog::format("%s sz:%d\n", p, sz);
             elog::bug("bad data! error:", error);
@@ -758,8 +817,11 @@ void KfConsumeCb::CustomMsg(const char* ptr, int sz, int64_t moffset)
 void KfConsumeCb::TicketMsg(const char* ptr, int sz, int64_t moffset)
 {
     MarketTickMessage mtm;
-    mtm.mtm(ptr, sz);
-
+    int isOk = mtm.mtm(ptr, sz);
+    if (isOk > 0) {
+        elog::bug("sz:", sz, "  mlen: ", isOk);
+        return;
+    }
     // if (mtm.Aligned == Aligned_t::PULL) {
     //     if (_lastTime == mtm.unix_time) {
 
@@ -789,6 +851,10 @@ void KfConsumeCb::TicketMsg(const char* ptr, int sz, int64_t moffset)
     _call_data[Trading::t_adjprice] = mtm.price;
     _call_data[Trading::t_msg] = mtm.number;
     _call_data[Trading::t_stock] = mtm.CfiCode;
+    _call_data[Trading::t_match] = MatchType::_not;
+    if (mtm.match == 'y') {
+        _call_data[Trading::t_match] = MatchType::_yes;
+    }
 
     if (_TunCall != nullptr) {
         _TunCall(_call_data);
@@ -939,6 +1005,7 @@ void KafkaFeed::handle(TradType tradcall)
     //    std::size_t kcount = 1;
 
     KfConsumeCb ex_consume_cb;
+    ex_consume_cb.dealcall(_DealCall);
     ex_consume_cb.handle(tradcall);
 
     elog::echo(consumer->name(), " Created consumer ");

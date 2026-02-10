@@ -251,11 +251,8 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
     // 如果程序没有特定的股票选择，那么就会自动选择所有的股票
     std::size_t number_symbols = FixPtr->_symbols.size();
 
-    // elog::echo("number_symbols:", number_symbols, " group count:", count);
     std::size_t cfi_code = 0;
-    if (count == 0) {
-        elog::bug("group count == 0!");
-    }
+
     for (int m = 1; m <= count; m++) {
         msg.getGroup(m, nqs);
 
@@ -360,7 +357,7 @@ void FixAccount::onMessage(const FIX44::Quote& message,
                            const FIX::SessionID& sid)
 {
     // elog::echo(message.toXML());
-    // elog::info("Quote");
+
     FIX::Symbol symbol;
     FIX::QuoteID funix_time;
     FIX::QuoteType qt;
@@ -375,7 +372,7 @@ void FixAccount::onMessage(const FIX44::Quote& message,
 
     std::uint32_t cfiCode = atol(cfi_code.getValue().c_str());
     std::uint64_t unix_time = atoll(funix_time.getValue().c_str());
-
+    elog::info("Quote cfi:", cfiCode);
     std::uint16_t count_down = (std::uint16_t)os.getValue();
 
     if (qt == FIX::QuoteType_TRADEABLE) {
@@ -470,7 +467,7 @@ void FixAccount::History()
 #ifdef DEBUG
             int number_size = 0;
 #endif
-            char buffer[33] = {0};
+            char buffer[34] = {0};
             std::size_t bytes_read = 0;
             std::array<SeqType, trading_protocols> _call_data{0};
             MarketTickMessage mtm;
@@ -481,7 +478,7 @@ void FixAccount::History()
                     break;
                 }
 
-                mtm.mtm(buffer + 1, 32);
+                mtm.mtm(buffer + 1, 33);
 
                 _call_data[Trading::t_time] = mtm.unix_time;
                 _call_data[Trading::t_frame] = mtm.frame;
@@ -593,7 +590,7 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
                            const FIX::SessionID& sid)
 {
     if (FixPtr->_symbols.size() == 0) {
-        // elog::echo("Maret refresh size: ", FixPtr->_symbols.size());
+        elog::echo("Maret refresh size: ", FixPtr->_symbols.size());
         return;
     }
     FIX::MDEntryPx px;
@@ -695,7 +692,6 @@ void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
     }
 
     // 在这儿就需要准备退市了
-
     // 在没有订单就直接退出来了
     std::size_t count = 0;
     for (auto order : FixPtr->_OrderIds) {
@@ -712,6 +708,10 @@ void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
         FixPtr->_fix_symbols[cfiCode].count_down = 0;
         elog::info("quit delisting:", cfiCode);
         _fq.quit();
+    }
+    else {
+        elog::info("count:", count,
+                   " down:", FixPtr->_fix_symbols[cfiCode].count_down);
     }
 
 } /* -----  end of function FixAccount::delisting  ----- */

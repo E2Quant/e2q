@@ -49,9 +49,7 @@
 
 #include <cstdarg>
 #include <cstddef>
-#include <cstdio>
 #include <ctime>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -63,12 +61,12 @@ namespace e2q {
 namespace elog {
 
 template <class T>
-T base_name(T const &path, T const &delims = "/\\")
+T base_name(T const& path, T const& delims = "/\\")
 {
     return path.substr(path.find_last_of(delims) + 1);
 }
 template <class T>
-T remove_extension(T const &filename)
+T remove_extension(T const& filename)
 {
     typename T::size_type const p(filename.find_last_of('.'));
     return p > 0 && p != T::npos ? filename.substr(0, p) : filename;
@@ -89,8 +87,8 @@ T remove_extension(T const &filename)
  */
 
 template <typename... Args>
-void log_cout(const char *file, const char *functionName, long lineNumber,
-              std::string color, Args &&...args)
+void log_cout(const char* file, const char* functionName, long lineNumber,
+              std::string color, Args&&... args)
 {
     std::time_t t = std::time(nullptr);
 
@@ -125,13 +123,16 @@ void log_cout(const char *file, const char *functionName, long lineNumber,
 #endif
 }
 
+#define edebug(...) \
+    log_cout(__FILE__, __FUNCTION__, __LINE__, KCYN, __VA_ARGS__);
+
 #define echo(...) log_cout(__FILE__, __FUNCTION__, __LINE__, KBLU, __VA_ARGS__);
 #define bug(...) log_cout(__FILE__, __FUNCTION__, __LINE__, KRED, __VA_ARGS__);
 #define info(...) log_cout(__FILE__, __FUNCTION__, __LINE__, KGRN, __VA_ARGS__);
-#define debug(...) \
-    log_cout(__FILE__, __PRETTY_FUNCTION__, __LINE__, KORG, __VA_ARGS__);
 
-std::string format(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+#define warn(...) log_cout(__FILE__, __FUNCTION__, __LINE__, KYEL, __VA_ARGS__);
+
+std::string format(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 }  // namespace elog
 }  // namespace e2q

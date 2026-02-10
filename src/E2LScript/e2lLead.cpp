@@ -219,6 +219,7 @@ void E2LFunList()
     AddFun(TIForce, 1, "FTimeInForce", E2L_NORETURN, "(timeinforce);");
     AddFun(MarginRate, 1, "FMarginRate", E2L_NORETURN, "(rate);");
     AddFun(MatchEventInit, 1, "FMatchEventInit", E2L_NORETURN, "(match);");
+    AddFun(MatchTrigger, 1, "FMatchTrigger", E2L_NORETURN, "(bool);");
     AddFun(EnableExdividend, 1, "FExdividendEnable", E2L_NORETURN, "(bool);");
     AddFun(ExDivPrice, 1, "FExDivPrice", E2L_RETURN, "(cfi_code);");
     AddFun(ExDividendSize, 1, "FExDividendSize", E2L_RETURN, "(cfi_code);");

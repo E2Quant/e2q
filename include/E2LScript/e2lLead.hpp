@@ -47,7 +47,6 @@
 
 #include "E2LScript/BIN2E_HEAD_FILE.hpp"
 #include "E2LScript/util_inline.hpp"
-
 namespace e2q {
 
 /*

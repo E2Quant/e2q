@@ -112,6 +112,8 @@ private:
     /* =============  METHODS       =================== */
 
     void MDebug(std::string& desz, const OrderPending*);
+
+    void md_log(const e2q::OrderPending*);
     OrderLots make(std::size_t);
     /* =============  DATA MEMBERS  =================== */
 

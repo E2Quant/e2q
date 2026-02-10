@@ -45,6 +45,7 @@
 #ifndef NORM_INC
 #define NORM_INC
 
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <cstddef>
@@ -64,15 +65,6 @@
 
 namespace e2q {
 
-template <typename BaseType>
-using BasePtr = std::shared_ptr<BaseType>;
-
-template <typename... Args>
-using func_type = std::function<void(Args...)>;
-
-template <typename ret, typename... Args>
-using func_type_ret = std::function<ret(Args...)>;
-
 /**
  * bit  time
  */
@@ -87,6 +79,34 @@ typedef int64_t SeqType;
  * e2q system number type
  */
 typedef SeqType NumberType;
+
+template <typename BaseType>
+using BasePtr = std::shared_ptr<BaseType>;
+
+template <typename... Args>
+using func_type = std::function<void(Args...)>;
+
+template <typename ret, typename... Args>
+using func_type_ret = std::function<ret(Args...)>;
+
+// SeqType cfi, SeqType now, SeqType price,
+// SeqType qty  SeqType match
+#define call_args 5
+
+enum __CallArgType {
+    _cfi = 0,
+    _now,
+    _price,
+    _qty,
+    _match
+}; /* ----------  end of enum __CallArgType  ---------- */
+
+typedef enum __CallArgType CallArgType;
+using call_type = std::array<SeqType, call_args>;
+using fix_call_func_type = func_type_ret<SeqType, call_type>;
+
+// symbol, now,price, , SeqType
+using deal_match_type = func_type<std::string, SeqType, SeqType, SeqType>;
 
 typedef std::atomic<SeqType> atomic_seqtype;
 
@@ -108,6 +128,12 @@ Side
 
 */
 
+enum __MatchType {
+    _not = 0,
+    _yes
+}; /* ----------  end of enum __MatchType  ---------- */
+
+typedef enum __MatchType MatchType;
 /**
  * OMS Quote FeedData
  */
@@ -119,11 +145,12 @@ enum Trading {
     t_price,
     t_msg,
     t_stock,
-    t_adjprice
+    t_adjprice,
+    t_match
 }; /* ----------  end of enum Trading  ---------- */
 
 typedef enum Trading Trading;
-#define trading_protocols 8
+#define trading_protocols 9
 
 /**
  * ohlc time type
@@ -141,7 +168,8 @@ enum OHLC_T {
     low_t,
     close_t,
     volume_t,
-    adjclose_t
+    adjclose_t,
+    match_t
 }; /* ----------  end of enum OHLC_T  ---------- */
 
 typedef enum OHLC_T OHLC_T;
@@ -640,6 +668,7 @@ struct __FinancialFabricate : public MarketInfo {
      */
     e2::MatchEvent _ME = e2::MatchEvent::ME_OrderIn;
 
+    e2::Bool _match_trigger = e2::Bool::B_FALSE;
     /**
      * 默认 b-Book, 本地撮合
      */

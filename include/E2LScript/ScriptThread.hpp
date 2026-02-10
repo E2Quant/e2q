@@ -50,6 +50,7 @@
 
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
+#include "e2/e2l.hpp"
 #include "libs/snowflake.hpp"
 namespace e2q {
 
@@ -75,7 +76,7 @@ public:
     size_t MemSize();
     bool CheckCall();
     /* =============  MUTATORS      =================== */
-    void init(const char *file, std::string edir);
+    void init(const char* file, std::string edir);
 
     void e2lInit();
     int toScript(double argc, double argv);

@@ -743,14 +743,26 @@ void FixApplication::FeedDataHandle()
 
     FIN_FABR_IS_NULL();
 
+    auto fun_deal_match = [this](std::string sym, SeqType now, SeqType price,
+                                 SeqType adj_price) {
+        this->matcher(sym, now, price, adj_price);
+    };  // -----  end lambda  -----
+
+    _fdata.callDealMatch(fun_deal_match);
+
     /**
      * ordtype:
      * limit
      * 1. reject
      * 2. pending loop
      */
-    auto fix_call = [this](SeqType cfi, SeqType now, SeqType price,
-                           SeqType qty) {
+    auto fix_call = [this](call_type ct) {
+        SeqType cfi = ct[CallArgType::_cfi];
+        SeqType now = ct[CallArgType::_now];
+        SeqType price = ct[CallArgType::_price];
+        SeqType qty = ct[CallArgType::_qty];
+        SeqType match = ct[CallArgType::_match];
+
         SeqType adj_ret = -1;
         if (price == 0) {
             return adj_ret;
@@ -793,8 +805,15 @@ void FixApplication::FeedDataHandle()
         }
 
         // 涨跌停，由 kafka 发送价格端来控制，有量的话，就交易,否则不进行交易
+        // 另一种方法是直接 deal match message
         if (qty > 0) {
-            this->matcher(sym, now, price, adj_ret);
+            if (FinFabr->_match_trigger == e2::Bool::B_TRUE &&
+                match == MatchType::_not) {
+                return adj_ret;
+            }
+            else {
+                this->matcher(sym, now, price, adj_ret);
+            }
         }
 
         return adj_ret;
@@ -962,8 +981,8 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
     if (FinFabr->_stock.count(sym) == 0) {
         UtilTime ut;
         std::string day = ut.toDate(atol(tradeDate.getValue().c_str()) / 1000);
-        // elog::bug("bug stock:", sym, " side:", oside,
-        //           " ticket:", oid.getValue(), " date:", day);
+        elog::bug("bug stock:", sym, " side:", oside,
+                  " ticket:", oid.getValue(), " date:", day);
         if (price.getLength() > 0) order_price = price.getValue();
         rejectOrder(sid, clOrdID, symbol, side, "symbol not exist", ticket, qid,
                     order_qty, order_price);
@@ -979,6 +998,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
         if (FinFabr->_StopOrder) {
             // 不接受新的订单
+            elog::info("stop order now");
             rejectOrder(sid, clOrdID, symbol, side, "stop order now", ticket,
                         qid, order_qty, price.getValue());
             return;
@@ -1005,12 +1025,14 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
             if (order_qty == -1) {
                 error = "settlement T + x";
             }
+            elog::info(error);
             rejectOrder(sid, clOrdID, symbol, side, error, ticket_close, qid,
                         order_qty, order_price);
             return;
         }
     }
     if (order_price <= 0 || order_qty <= 0) {
+        elog::info("order_price == 0");
         rejectOrder(sid, clOrdID, symbol, side, "order_price == 0", ticket, qid,
                     order_qty, order_price);
         return;
@@ -1019,6 +1041,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
     risk = E2LScript(oType, oside, order_qty, sym);
     if (risk < 0) {
         // 直接在这儿退出了，不要再分配了
+        elog::info("risk < 0");
         rejectOrder(sid, clOrdID, symbol, side, "",
                     (ticket_close > 0 ? ticket_close : ticket), qid, order_qty,
                     order_price);

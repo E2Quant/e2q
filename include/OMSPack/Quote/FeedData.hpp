@@ -46,11 +46,8 @@
 #define FEEDDATA_INC
 
 #include <cstddef>
-#include <istream>
 #include <memory>
-#include <stdexcept>
 #include <string>
-#include <vector>
 
 #include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/Quote/Tunnel.hpp"
@@ -87,11 +84,12 @@ public:
     void resource(_Resource_ptr ptr);
     void callback(std::shared_ptr<ConnectSignal> beam);
 
+    // sym, now, price, adj_ret
+    void callDealMatch(deal_match_type t) { _DealCall = std::move(t); };
     /**
      * 控制，有可能不选择这个 feeddata 之类的
      */
-    void ctrl(
-        func_type_ret<SeqType, SeqType, SeqType, SeqType, SeqType> fix_call);
+    void ctrl(fix_call_func_type fix_call);
     /* ====================  OPERATORS
      * =======================================
      */
@@ -114,6 +112,7 @@ private:
     std::shared_ptr<BeamData> _data_ptr = nullptr;
 
     DisruptorStashSharePtr _master = nullptr;
+    deal_match_type _DealCall = nullptr;
 
 }; /* -----  end of class FeedData  ----- */
 

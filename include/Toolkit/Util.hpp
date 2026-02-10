@@ -46,7 +46,6 @@
 #define UTIL_INC
 
 #include <fstream>
-#include <thread>
 #include <tuple>
 #include <utility>
 namespace e2q {

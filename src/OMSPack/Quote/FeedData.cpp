@@ -107,8 +107,7 @@ void FeedData::callback(std::shared_ptr<ConnectSignal> beam)
  *
  * ============================================
  */
-void FeedData::ctrl(
-    func_type_ret<SeqType, SeqType, SeqType, SeqType, SeqType> fix_call)
+void FeedData::ctrl(fix_call_func_type fix_call)
 {
     if (_master == nullptr) {
         elog::bug("_master is nullptr");
@@ -116,18 +115,22 @@ void FeedData::ctrl(
     }
 
     auto ctrl_fun = [this,
-                     &fix_call](std::array<SeqType, trading_protocols> &data) {
+                     &fix_call](std::array<SeqType, trading_protocols>& data) {
         this->_master->data_ptr->wait_next();
 
         SeqType sym_id = data[e2q::Trading::t_stock];
 
         if (fix_call != nullptr && sym_id > 0) {
             // 计算 复权的
-            SeqType price = data[e2q::Trading::t_price];
-            SeqType now = data[e2q::Trading::t_time];
-            SeqType qty = data[e2q::Trading::t_qty];
 
-            SeqType ret = fix_call(sym_id, now, price, qty);
+            call_type ct;
+            ct[CallArgType::_price] = data[e2q::Trading::t_price];
+            ct[CallArgType::_now] = data[e2q::Trading::t_time];
+            ct[CallArgType::_qty] = data[e2q::Trading::t_qty];
+            ct[CallArgType::_cfi] = sym_id;
+            ct[CallArgType::_match] = data[Trading::t_match];
+
+            SeqType ret = fix_call(ct);
 
             if (ret > 0) {
                 data[Trading::t_adjprice] = ret;
@@ -154,6 +157,7 @@ void FeedData::ctrl(
     }
     else if (FinFabr->_csv_kafka == e2::MKType::mk_kafka) {
         KafkaFeed kf(FinFabr->_source, FinFabr->_topic);
+        kf.dealCall(_DealCall);
         kf.handle(ctrl_fun);
     }
     else {

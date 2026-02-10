@@ -403,7 +403,6 @@ e2::Int_e BarSeries(e2::BarType bt)
         return ret;
     }
     ret = e2q::e2l_bar_ohlc.value(pid, bt);
-
     return ret;
 } /* -----  end of function BarSeries  ----- */
 /*

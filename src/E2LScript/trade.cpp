@@ -113,23 +113,24 @@ e2::Bool OrderClose(
 
     if (oi.closeTck > 0 || stoppx <= 0) {
         // 防止 传入 平仓的 ticket ID
-        // llog::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
+        //llog::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
         return e2::Bool::B_FALSE;
     }
 
     if (e2q::FixPtr->_fix_symbols.count(oi.symbol) == 0) {
-        e2q::elog::bug("symobls id error, symbol:", oi.symbol);
+        llog::bug("symobls id error, symbol:", oi.symbol);
         return e2::Bool::B_FALSE;
     }
 
     if (e2q::FixPtr->_fix_symbols.at(oi.symbol).count_down == 0 &&
         e2q::FixPtr->_fix_symbols.at(oi.symbol).dia ==
             e2q::DoIAction::DELISTING) {
-        e2q::elog::bug("symbols id is Delistend , symbol:", oi.symbol);
+        llog::bug("symbols id is Delistend , symbol:", oi.symbol);
         return e2::Bool::B_FALSE;
     }
 
     if (oi.trading != e2q::TradeStatus::MARKET) {
+        llog::bug("trading is not market:", oi.trading);
         return e2::Bool::B_FALSE;
     }
     if (oi.trading == e2q::TradeStatus::CLOSEING) {
@@ -202,7 +203,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     qty = NUMBERVAL(qty);
 
     if (e2q::GlobalMainArguments.number_for_bin_read >= 0) {
-        // e2q::elog::bug(" symbols id is history , id:", symbol);
+        e2q::elog::bug(" symbols id is history , id:", symbol);
         return e2::Bool::B_FALSE;
     }
 

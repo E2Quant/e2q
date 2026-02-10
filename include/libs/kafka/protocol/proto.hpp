@@ -47,6 +47,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <utility>
 #include <vector>
@@ -63,7 +64,8 @@ enum e2l_pro_t {
     MARKETING = 'M',
     CUSTOM = 'C',
     EXIT = 'E',
-    LOG = 'L'
+    LOG = 'L',
+    DEAL = 'D'
 }; /* ----------  end of enum e2l_pro_t  ---------- */
 
 typedef enum e2l_pro_t E2l_pro_t;
@@ -195,7 +197,8 @@ typedef struct StockAXdxrMessage StockAXdxrMessage;
 | price        | 16     | 6      | Integer64 | price     |
 | qty          | 22     | 6      | Integer64 | qty       |
 | number       | 28     | 6      | Integer32 | number    |
-| Aligned      | 34     | 1      | Alpha     | Aligned_t |
+| match        | 34     | 1      | Alpha     | 'n','y'   |
+| Aligned      | 35     | 1      | Alpha     | Aligned_t |
 
  */
 // if qty == 0   // 涨跌停 不撮合交易
@@ -207,6 +210,8 @@ struct MarketTickMessage : public BaseMessage {
     std::uint64_t price = 0;  // last price
     std::uint64_t qty = 0;
     std::uint32_t number = 0;
+    char match = 'n';  // not match ticket, yes match ticket
+                       // fixapplication matcher use this
 
     /*
      * ===  FUNCTION  =============================
@@ -219,7 +224,7 @@ struct MarketTickMessage : public BaseMessage {
      *
      * ============================================
      */
-    void mtm(const char* ptr, int sz)
+    int mtm(const char* ptr, int sz)
     {
         std::size_t idx = 0;
         mlen = 1;
@@ -230,12 +235,12 @@ struct MarketTickMessage : public BaseMessage {
         mlen += sizeof(price) - 2;
         mlen += sizeof(qty) - 2;
         mlen += sizeof(number);
+        mlen += sizeof(match);
 
         if (sz != (int)mlen) {
             printf("sz:%d  mlen:%ld \n", sz, mlen);
 
-            // elog::bug(err);
-            return;
+            return mlen;
         }
         idx += parse_uint_t(ptr + idx, CfiCode);
 
@@ -254,7 +259,11 @@ struct MarketTickMessage : public BaseMessage {
         idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, qty);
         idx += parse_uint_t(ptr + idx, number);
 
+        match = *(ptr + idx);
+        idx++;
+
         Aligned = *(ptr + idx);
+        return 0;
     } /* -----  end of function mtm  ----- */
 
 private:
@@ -262,6 +271,109 @@ private:
 }; /* ----------  end of struct MarketTickMessage  ---------- */
 
 typedef struct MarketTickMessage MarketTickMessage;
+
+/*--
+
+| Name         | Offset | Length | Value     | Notes       |
+| :----------- | ------ | ------ | --------- | --------- |
+| Message Type | 0      | 1      | 'D'       | Deal      |
+| stock        | 1      | 10     | Alpha     | 股票名称      |
+| side         | 11     | 1      | Alpha     | 'B', 'S'  |
+| dprice       | 12     | 6      | Integer64 | 成交均价     |
+| dqty         | 18     | 6      | Integer64 | qty       |
+| commission   | 24     | 6      | Integer64 | commission       |
+| tamount      | 30     | 6      | Integer64 | 成交额   |
+| tdate        | 36     | 6      | Integer32 | trade date       |
+| ttime        | 42     | 6      | Integer32 | trade time       |
+| unix_time    | 48     | 8      | Integer64 | unix_time |
+| ticket       | 54     | 8      | Integer64 | 当前一笔的ticket      |
+| unique_size  | 62     | 6      | Integer16 | size   |
+| unique_id    | 68     | 256    | Alpha     | unique value   |
+| Aligned      | 324    | 1      | Alpha     | Aligned_t |
+
+ */
+/**
+ * 单独的撮合价格
+ */
+struct DealMatchMessage : public BaseMessage {
+    char stock[E2QSTOCK_LENGTH] = {0};
+    char side = 'B';           // BID OR ASK  change e2::Side
+    std::uint64_t dprice = 0;  // last price
+    std::uint64_t dqty = 0;
+    std::uint64_t commission = 0;  // last price
+    std::uint64_t tamount = 0;
+    std::uint32_t tdate = 0;
+    std::uint32_t ttime = 0;
+    std::uint64_t unix_time = 0;
+    std::uint64_t ticket = 0;
+    std::uint16_t unique_size = 0;
+    char unique_id[256] = {0};
+
+    /*
+     * ===  FUNCTION  =============================
+     *
+     *         Name:  dmm
+     *  ->  void *
+     *  Parameters:
+     *  - size_t  arg
+     *  Description:
+     *
+     * ============================================
+     */
+    int dmm(const char* ptr, int sz)
+    {
+        std::size_t idx = 0;
+        mlen = 1;
+        std::size_t stock_len = sizeof(stock);
+        mlen += stock_len;
+        mlen += sizeof(side);
+        mlen += sizeof(dprice) - 2;
+        mlen += sizeof(dqty) - 2;
+        mlen += sizeof(commission) - 2;
+        mlen += sizeof(tamount) - 2;
+        mlen += sizeof(tdate);
+        mlen += sizeof(ttime);
+        mlen += sizeof(unix_time);
+        mlen += sizeof(ticket);
+
+        mlen += sizeof(unique_size);
+
+        stock_len--;
+        std::memcpy(stock, ptr + idx, stock_len);
+        idx += stock_len;
+
+        side = *(ptr + idx);
+        idx++;
+
+        idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, dprice);
+        idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, dqty);
+        idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, commission);
+        idx += parse_uint_t<std::uint64_t, 2>(ptr + idx, tamount);
+
+        idx += parse_uint_t(ptr + idx, tdate);
+        idx += parse_uint_t(ptr + idx, ttime);
+        idx += parse_uint_t(ptr + idx, unix_time);
+        idx += parse_uint_t(ptr + idx, ticket);
+
+        idx += parse_uint_t(ptr + idx, unique_size);
+
+        if (unique_size > 256) {
+            unique_size = 256;
+        }
+
+        memcpy(unique_id, ptr + idx, unique_size);
+        idx += unique_size;
+
+        Aligned = *(ptr + idx);
+
+        return 0;
+    } /* -----  end of function dmm  ----- */
+private:
+    std::size_t mlen = 1;  // aligned
+
+}; /* ----------  end of struct DealMatchMessage  ---------- */
+
+typedef struct DealMatchMessage DealMatchMessage;
 
 /**
  * 定义数据

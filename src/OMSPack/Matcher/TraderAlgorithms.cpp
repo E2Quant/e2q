@@ -133,55 +133,59 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
     e2::Int_e match_now = now;
     e2::Int_e adj_now = adjprice;
     e2::Int_e market_price = price;
-
+    mpType PreData;
     std::vector<OrderLots> retLots;
 
     std::size_t len = _orderMatcher->OrderSizes();
     if (len == 0) {
-        // elog::bug("symbole order matcher is empty:", symbol);
+        elog::bug("symbole order matcher is empty:", symbol);
         return retLots;
     }
+    if (FinFabr->_match_trigger == e2::Bool::B_FALSE) {
+        _symbol_market_price.init(symbol);
+        PreData = _symbol_market_price.get(symbol);
 
-    _symbol_market_price.init(symbol);
-    mpType PreData = _symbol_market_price.get(symbol);
-
-    if (FinFabr->_settlement == 0 ||
-        FinFabr->_ME == e2::MatchEvent::ME_OrderIn) {
-        market_price = 0;
-    }
-    else {
-        if (PreData.PreTime == 0) {
-            PreData.PreTime = startTime;
-            PreData.PreNow = now;
-            PreData.PrePrice = price;
-            PreData.PreAdjPrice = adjprice;
-
-            _symbol_market_price.set(symbol, PreData);
-
-            return retLots;
-        }
-
-        if (startTime == PreData.PreTime) {
-            PreData.PrePrice = price;
-            PreData.PreAdjPrice = adjprice;
-
-            _symbol_market_price.set(symbol, PreData);
-
-            return retLots;
-        }
-
-        if (FinFabr->_ME == e2::MatchEvent::ME_Close) {
-            market_price = PreData.PrePrice;
-            match_now = PreData.PreNow;
-            adj_now = PreData.PreAdjPrice;
+        if (FinFabr->_settlement == 0 ||
+            FinFabr->_ME == e2::MatchEvent::ME_OrderIn) {
+            market_price = 0;
         }
         else {
-            market_price = price;
+            if (PreData.PreTime == 0) {
+                PreData.PreTime = startTime;
+                PreData.PreNow = now;
+                PreData.PrePrice = price;
+                PreData.PreAdjPrice = adjprice;
+
+                _symbol_market_price.set(symbol, PreData);
+
+                return retLots;
+            }
+
+            if (startTime == PreData.PreTime) {
+                PreData.PrePrice = price;
+                PreData.PreAdjPrice = adjprice;
+
+                _symbol_market_price.set(symbol, PreData);
+
+                return retLots;
+            }
+
+            if (FinFabr->_ME == e2::MatchEvent::ME_Close) {
+                market_price = PreData.PrePrice;
+                match_now = PreData.PreNow;
+                adj_now = PreData.PreAdjPrice;
+            }
+            else {
+                market_price = price;
+            }
         }
+    }
+    else {
+        market_price = price;
     }
 
     std::queue<OrderLots> orders;
-
+    elog::echo("symbol:", symbol);
     _orderMatcher->match(symbol, orders, market_price, adj_now, now);
 
     while (orders.size() > 0) {
@@ -220,14 +224,14 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
         retLots.push_back(ol);
         orders.pop();
     }
+    if (FinFabr->_match_trigger == e2::Bool::B_FALSE) {
+        PreData.PreTime = startTime;
+        PreData.PreNow = now;
 
-    PreData.PreTime = startTime;
-    PreData.PreNow = now;
-
-    PreData.PrePrice = price;
-    PreData.PreAdjPrice = adjprice;
-    _symbol_market_price.set(symbol, PreData);
-
+        PreData.PrePrice = price;
+        PreData.PreAdjPrice = adjprice;
+        _symbol_market_price.set(symbol, PreData);
+    }
     return retLots;
 } /* -----  end of function TraderAlgorithms::matcher  ----- */
 

@@ -51,9 +51,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "OMSPack/FixGuard.hpp"
+#include "Toolkit/Norm.hpp"
 #include "Toolkit/pack.hpp"
 #include "assembler/BaseType.hpp"
 #include "librdkafka/rdkafkacpp.h"
@@ -189,6 +191,7 @@ public:
     }
     /* =============  MUTATORS      =================== */
     void handle(TradType t) { _TunCall = std::move(t); }
+    void dealcall(deal_match_type t) { _DealCall = std::move(t); }
     /* =============  OPERATORS     =================== */
 
 protected:
@@ -217,8 +220,11 @@ private:
 
     void TicketMsg(const char* ptr, int sz, int64_t);
 
+    void DealMatchMsg(const char* ptr, int sz, int64_t);
+
     /* =============  DATA MEMBERS  =================== */
     TradType _TunCall = nullptr;
+    deal_match_type _DealCall = nullptr;
 
     std::array<SeqType, trading_protocols> _call_data{0};
 
@@ -244,7 +250,7 @@ public:
 
     /* =============  ACCESSORS     =================== */
     void handle(TradType tt);
-
+    void dealCall(deal_match_type tt) { _DealCall = std::move(tt); };
     /* =============  MUTATORS      =================== */
 
     /* =============  OPERATORS     =================== */
@@ -260,6 +266,8 @@ private:
     /* =============  DATA MEMBERS  =================== */
     std::string _bokers;
     std::string _topic;
+    deal_match_type _DealCall = nullptr;
+
     //    std::vector<std::string> _symobls;
 }; /* -----  end of class KafkaFeed  ----- */
 
