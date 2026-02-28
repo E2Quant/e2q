@@ -53,8 +53,8 @@
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/foreign.hpp"
-#include "assembler/BaseType.hpp"
 #include "Toolkit/eLog.hpp"
+#include "assembler/BaseType.hpp"
 
 #if __cplusplus >= 201703L
 
@@ -332,6 +332,9 @@ struct OrderLots {
     long lastExecutedQuantity;
     double lastExecutedPrice;
     double trade_amount;
+
+    // 在这儿记录手续费
+    double commission = 0;
 
     bool isFilled;
     bool isCancel;

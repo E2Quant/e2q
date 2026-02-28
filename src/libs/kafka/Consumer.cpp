@@ -337,7 +337,7 @@ void KfConsumeCb::DealMatchMsg(const char* ptr, int sz, int64_t offset)
     tp.PrintFooter();
 
     if (_DealCall != nullptr) {
-        _DealCall(dmm.stock, dmm.unix_time, dmm.dprice, dmm.dprice);
+        _DealCall(dmm);
     }
     else {
         elog::bug("deal call");

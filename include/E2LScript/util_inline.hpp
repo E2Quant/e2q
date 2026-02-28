@@ -503,12 +503,17 @@ struct __Analse_t {
             }
         }
         e2q::GlobalDBPtr->release(idx);
+        _not = true;
     }
+
+    bool isInit() { return _not; }
 
 private:
     std::map<std::thread::id, std::map<e2::Int_e, e2lAnalse>> _analse;
     using EMute = BasicLock::mutex_type;
     mutable EMute _EMute;
+
+    bool _not = false;
 
 }; /* ----------  end of struct __Analse_t  ---------- */
 

@@ -911,6 +911,9 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     // adj px
     FIX::LastParPx adjpx;
 
+    // 手续费
+    FIX::Commission coms;
+
     message.getFieldIfSet(exec);
     message.getFieldIfSet(stat);
     message.getFieldIfSet(side);
@@ -926,6 +929,10 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     message.getFieldIfSet(fquantId);
     message.getFieldIfSet(sfr);
     message.getFieldIfSet(adjpx);
+
+    message.getFieldIfSet(coms);
+
+    //    elog::echo("coms:",coms.getValue);
 
     e2::Int_e quantId = stol(fquantId.getValue().c_str());
     double margin = sfr.getValue();
@@ -1004,7 +1011,11 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
 
                 break;
             }
-            case e2::OrdStatus::ost_Filled:
+            case e2::OrdStatus::ost_Filled: {
+                double commission = coms.getValue();
+                if (commission > 0) {
+                    FixPtr->_cash.inc(thread_number, commission);
+                }
 
                 if (closetck > 0) {
                     // close order
@@ -1041,6 +1052,7 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
                 }
 
                 break;
+            }
 
             case e2::OrdStatus::ost_Partially_filled: {
                 break;

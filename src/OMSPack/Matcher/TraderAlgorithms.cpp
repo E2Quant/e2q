@@ -138,7 +138,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
 
     std::size_t len = _orderMatcher->OrderSizes();
     if (len == 0) {
-        elog::bug("symbole order matcher is empty:", symbol);
+        // elog::bug("symbole order matcher is empty:", symbol);
         return retLots;
     }
     if (FinFabr->_match_trigger == e2::Bool::B_FALSE) {
@@ -184,8 +184,10 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
         market_price = price;
     }
 
+    // elog::echo("symbol:", symbol);
+
     std::queue<OrderLots> orders;
-    elog::echo("symbol:", symbol);
+
     _orderMatcher->match(symbol, orders, market_price, adj_now, now);
 
     while (orders.size() > 0) {
@@ -204,6 +206,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
             }
             GlobalDBPtr->release(idx);
             _broker.freeMargin(ol.owner, ol.ticket, 0);
+
             ol.isCancel = true;
         }
         else if (ol.quantId > 0) {
@@ -215,6 +218,14 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
             }
             _broker.SettlInst(ol);
 
+            ol.commission = defDealCommission(ol.price, ol.quantity);
+
+            if (_rd_commission.count(ol.ticket) == 1) {
+                ol.commission = _rd_commission.at(ol.ticket);
+                _rd_commission.erase(ol.ticket);
+            }
+
+            _broker.DealCommission(ol.owner, ol.ticket, ol.commission);
             ol.isCancel = false;
         }
         else {
@@ -477,6 +488,28 @@ void TraderAlgorithms::ExdrChange(SeqType cfi, SeqType ticket, double cash,
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  TraderAlgorithms::RecordDealCommission
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void TraderAlgorithms::RecordDealCommission(std::size_t ticket, double dc)
+{
+    //    elog::info("RecordDealCommission error ticket:", ticket, " double:",
+    //    dc);
+
+    if (_rd_commission.count(ticket) == 0) {
+        _rd_commission.insert({ticket, dc});
+    }
+
+} /* -----  end of function TraderAlgorithms::RecordDealCommission  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  TraderAlgorithms::SessionLogout
  *  ->  void *
  *  Parameters:
@@ -489,4 +522,20 @@ void TraderAlgorithms::SessionLogout(const FIX::SessionID& sid)
 {
     _broker.CloseSession(sid);
 } /* -----  end of function TraderAlgorithms::SessionLogout  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  TraderAlgorithms::defDealCommission
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+double TraderAlgorithms::defDealCommission(double price, long qty)
+{
+    return 3.0;
+} /* -----  end of function TraderAlgorithms::defDealCommission  ----- */
 }  // namespace e2q

@@ -84,6 +84,90 @@ void BrokerBase::Debug()
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  BrokerBase::DealCommission
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  支持双向扣手续费
+ * ============================================
+ */
+void BrokerBase::DealCommission(const FIX::SessionID& sid, std::size_t ticket,
+                                double dc)
+{
+    if (dc == 0) {
+        // 不需要扣
+        return;
+    }
+
+    if (_traders.count(sid) == 0 ||
+        _traders.at(sid).order_cash.count(ticket) == 0) {
+        elog::bug("sid:", sid.getTargetCompID().getValue(),
+                  " order not found ticket:", ticket);
+        return;
+    }
+    if (_traders.at(sid).total_cash < dc) {
+        elog::bug("sid:", sid.getTargetCompID().getValue(), " total cash < ",
+                  dc);
+        return;
+    }
+
+    {
+        BasicLock _lock(_BMute);
+        _traders.at(sid).total_cash -= dc;
+    }
+
+    std::size_t idx = GlobalDBPtr->getId();
+    Pgsql* gsql = GlobalDBPtr->ptr(idx);
+    if (gsql == nullptr) {
+        GlobalDBPtr->release(idx);
+        elog::bug("pgsql is null, idx:", idx);
+        return;
+    }
+    const char fmt[] =
+        "(SELECT id FROM fixsession WHERE targetcompid = '%s' "
+        "LIMIT 1)";
+
+    std::string sessionid =
+        elog::format(fmt, sid.getTargetCompID().getString().c_str());
+
+    std::string ticket_to_id = elog::format(
+        "(select id from trades where ticket='%ld'  limit 1)", ticket);
+    double balance = _traders.at(sid).total_cash;
+    double credit = 0;
+    for (auto it : _traders.at(sid).order_cash) {
+        if (it.second.report || it.second.margin == 0) {
+            continue;
+        }
+        credit += it.second.margin;
+    }
+    credit += balance;
+
+    gsql->insert_table("trade_report");
+    gsql->insert_field("ticket", ticket_to_id);
+    gsql->insert_field("sessionid", sessionid);
+    gsql->insert_field("balance", balance, 3);
+    gsql->insert_field("margin", 0, 3);
+    gsql->insert_field("profit", (0.0 - dc), 3);
+    gsql->insert_field("side", 4);
+    gsql->insert_field("credit", credit, 3);
+    gsql->insert_field("ctime", 0);
+    InsertCommit(gsql);
+
+    // 扣除佣金
+    gsql->update_table("account");
+    std::string inc = " balance - " + std::to_string(dc);
+    gsql->update_field("balance", inc);
+
+    gsql->update_condition("sessionid", sessionid);
+    UpdateCommit(gsql);
+
+    GlobalDBPtr->release(idx);
+} /* -----  end of function BrokerBase::DealCommission  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  BrokerBase::Equity
  *  ->  void *
  *  Parameters:

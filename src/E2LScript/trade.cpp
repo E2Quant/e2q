@@ -113,7 +113,7 @@ e2::Bool OrderClose(
 
     if (oi.closeTck > 0 || stoppx <= 0) {
         // 防止 传入 平仓的 ticket ID
-        //llog::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
+        // llog::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
         return e2::Bool::B_FALSE;
     }
 
@@ -256,9 +256,16 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
 
     ordtype = (e2::OrdType)NUMBERVAL(ordtype);
 
+    if (e2q::e2_analse.isInit() == false) {
+        return e2::Bool::B_FALSE;
+    }
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
         quantid = e2q::FixPtr->_quantId[_id].first;
+    }
+
+    if (quantid == 0) {
+        return e2::Bool::B_FALSE;
     }
 
     e2q::FixPtr->_cash.add_freeze(number, expenditure);

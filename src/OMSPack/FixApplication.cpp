@@ -62,6 +62,7 @@
 #include "Toolkit/eLog.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/DB/pg.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 #include "quickfix/Exceptions.h"
 #include "quickfix/Field.h"
 #include "quickfix/FieldTypes.h"
@@ -743,8 +744,18 @@ void FixApplication::FeedDataHandle()
 
     FIN_FABR_IS_NULL();
 
-    auto fun_deal_match = [this](std::string sym, SeqType now, SeqType price,
-                                 SeqType adj_price) {
+    auto fun_deal_match = [this](DealMatchMessage& dmm) {
+        std::string sym = std::string(dmm.stock);
+        Int_e now = dmm.unix_time;
+        Int_e price = dmm.dprice;
+        Int_e adj_price = dmm.dprice;
+        double _commiss = NUMBERVAL(dmm.commission);
+        GlobalMatcher->RecordDealCommission(dmm.ticket, _commiss);
+
+        // match 的时候，要注意 ticket
+        // ，否则会乱，不过同时只有一个的话，还行，以后再优化吧
+        // 注意 手续费
+        // 有可能超过余额的情况
         this->matcher(sym, now, price, adj_price);
     };  // -----  end lambda  -----
 

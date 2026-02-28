@@ -178,6 +178,7 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
         elog::echo("clordis ie empty");
         return;
     }
+
     /**
      * 4. {sender compid process } risk log
      */
@@ -224,6 +225,11 @@ void FixGuard::updateOrder(const OrderLots& order, char status, double equity)
     executionReport.setField(tradeDate);
 
     executionReport.set(FIX::OrderQty(order.quantity));
+
+    // 手续费
+    FIX::Commission coms;
+    coms.setValue(order.commission);
+    executionReport.setField(coms);
 
     // 权益
     FIX::SettlCurrFxRate sfr;

@@ -62,6 +62,7 @@
 
 #include "E2L/E2LType.hpp"
 #include "assembler/BaseType.hpp"
+// #include "libs/kafka/protocol/proto.hpp"
 
 namespace e2q {
 
@@ -104,9 +105,6 @@ enum __CallArgType {
 typedef enum __CallArgType CallArgType;
 using call_type = std::array<SeqType, call_args>;
 using fix_call_func_type = func_type_ret<SeqType, call_type>;
-
-// symbol, now,price, , SeqType
-using deal_match_type = func_type<std::string, SeqType, SeqType, SeqType>;
 
 typedef std::atomic<SeqType> atomic_seqtype;
 

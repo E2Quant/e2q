@@ -45,6 +45,8 @@
 #ifndef TRADERALGORITHMS_INC
 #define TRADERALGORITHMS_INC
 
+#include <cstddef>
+#include <map>
 #include <vector>
 
 #include "OMSPack/BrokerBase.hpp"
@@ -75,30 +77,31 @@ public:
     /* ====================  MUTATORS =======================================
      */
     void InitSequence();
-    SeqType sequence(const FIX::SessionID &, e2::Side);
+    SeqType sequence(const FIX::SessionID&, e2::Side);
 
     std::vector<OrderLots> matcher(std::string symbol, e2::Int_e now,
                                    e2::Int_e price, e2::Int_e adjprice);
-    bool insert(OrderItem *);
+    bool insert(OrderItem*);
     void display();
-    e2::Int_e CheckClose(SeqType ticket, const std::string &, e2::Int_e lots);
+    e2::Int_e CheckClose(SeqType ticket, const std::string&, e2::Int_e lots);
     int AddBotTicket(SeqType ticket, e2::OrdType ordType, e2::Side side,
                      double bot_qty, e2::Int_e symbol);
     bool OrdTypePending();
-    void TopLevelPrice(const std::string &symbol, SeqType);
+    void TopLevelPrice(const std::string& symbol, SeqType);
 
-    double Equity(const FIX::SessionID &, std::size_t, const char status);
+    double Equity(const FIX::SessionID&, std::size_t, const char status);
     //    void SettlInst(OrderLots &);
 
-    void freeMargin(const FIX::SessionID &, std::size_t, double);
-    bool Margin(const FIX::SessionID &, std::size_t, double, long qty);
-    double CheckMargin(const FIX::SessionID &, double, long);
-    double traders(const FIX::SessionID &, double);
+    void freeMargin(const FIX::SessionID&, std::size_t, double);
+    bool Margin(const FIX::SessionID&, std::size_t, double, long qty);
+    double CheckMargin(const FIX::SessionID&, double, long);
+    double traders(const FIX::SessionID&, double);
 
     void ExdrChange(SeqType, SeqType ticket, double cash, double qty,
                     std::size_t);
 
-    void SessionLogout(const FIX::SessionID &);
+    void RecordDealCommission(std::size_t ticket, double dc);
+    void SessionLogout(const FIX::SessionID&);
     void exist()
     {
 #ifdef DEBUG
@@ -118,6 +121,7 @@ protected:
 private:
     /* ====================  METHODS ============================ */
 
+    double defDealCommission(double price, long qty);
     /* ====================  DATA MEMBER  ============================= */
     std::shared_ptr<OrderMatcher> _orderMatcher = nullptr;
 
@@ -130,7 +134,10 @@ private:
     BrokerBase _broker;
 
     std::size_t offset = 718281828;
-    AutoIncrement *_sequence{nullptr};
+    AutoIncrement* _sequence{nullptr};
+
+    // 记录需要佣金的订单
+    std::map<std::size_t, double> _rd_commission;
 }; /* -----  end of class TraderAlgorithms  ----- */
 
 }  // namespace e2q

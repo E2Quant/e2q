@@ -48,9 +48,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <map>
-#include <utility>
-#include <vector>
 
 #include "Toolkit/Norm.hpp"
 #include "libs/kafka/protocol/nbo.hpp"
@@ -286,7 +283,7 @@ typedef struct MarketTickMessage MarketTickMessage;
 | tdate        | 36     | 6      | Integer32 | trade date       |
 | ttime        | 42     | 6      | Integer32 | trade time       |
 | unix_time    | 48     | 8      | Integer64 | unix_time |
-| ticket       | 54     | 8      | Integer64 | 当前一笔的ticket      |
+| ticket       | 54     | 8      | Integer64 | 当前一笔的ticket |
 | unique_size  | 62     | 6      | Integer16 | size   |
 | unique_id    | 68     | 256    | Alpha     | unique value   |
 | Aligned      | 324    | 1      | Alpha     | Aligned_t |
@@ -375,6 +372,35 @@ private:
 
 typedef struct DealMatchMessage DealMatchMessage;
 
+// symbol...
+using deal_match_type = func_type<DealMatchMessage&>;
+
+/*--
+ *
+ *主要设计为人为控制订单信号
+ *
+| Name         | Offset | Length | Value     | Notes       |
+| :----------- | ------ | ------ | --------- | --------- |
+| Message Type | 0      | 1      | 'D'       | Deal      |
+| stock        | 1      | 10     | Alpha     | 股票名称      |
+| side         | 11     | 1      | Alpha     | 'B', 'S'  |
+| dprice       | 12     | 6      | Integer64 | 成交均价     |
+| dqty         | 18     | 6      | Integer64 | qty       |
+| commission   | 24     | 6      | Integer64 | commission       |
+| tamount      | 30     | 6      | Integer64 | 成交额   |
+| tdate        | 36     | 6      | Integer32 | trade date       |
+| ttime        | 42     | 6      | Integer32 | trade time       |
+| unix_time    | 48     | 8      | Integer64 | unix_time |
+| ticket       | 54     | 8      | Integer64 | 当前一笔的ticket |
+| unique_size  | 62     | 6      | Integer16 | size   |
+| unique_id    | 68     | 256    | Alpha     | unique value   |
+| Aligned      | 324    | 1      | Alpha     | Aligned_t |
+ */
+
+struct __PortableSignalsMessage {
+}; /* ----------  end of struct PortableSignalsMessage  ---------- */
+
+typedef struct __PortableSingleMessage PortableSingleMessage;
 /**
  * 定义数据
  *
@@ -397,7 +423,7 @@ typedef enum CmType CmType;
 | size         | 7      | 2      | Integer16 | value deci     |
 | type         | 9      | 1      | Alpha     | CmType         |
 | value        | 10     | 2,4,8..| I16,32,64 | data list      |
-| Aligned      |listsize| 1      | Alpha     | aligned_t      |
+| Aligned      |listsize| 1      | Alpha    RecordDealCommission | aligned_t |
 
 */
 

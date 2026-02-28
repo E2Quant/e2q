@@ -77,20 +77,22 @@ public:
      */
     void Debug();
     void setCommission(float cs);
+    void DealCommission(const FIX::SessionID& sid, std::size_t ticket,
+                        double dc = 0);
 
-    double Equity(const FIX::SessionID &, std::size_t, const char status);
-    void SettlInst(OrderLots &);
+    double Equity(const FIX::SessionID&, std::size_t, const char status);
+    void SettlInst(OrderLots&);
 
-    void freeMargin(const FIX::SessionID &, std::size_t, double);
-    bool Margin(const FIX::SessionID &, std::size_t, double, long);
-    double CheckMargin(const FIX::SessionID &, double, long);
-    double traders(const FIX::SessionID &, double);
+    void freeMargin(const FIX::SessionID&, std::size_t, double);
+    bool Margin(const FIX::SessionID&, std::size_t, double, long);
+    double CheckMargin(const FIX::SessionID&, double, long);
+    double traders(const FIX::SessionID&, double);
 
     void AddExdrCash(SeqType ticket, double cash, std::size_t);
     void AddExdrQty(SeqType, SeqType ticket, double qty, std::size_t);
 
-    void trade_report(OrderLots &);
-    void CloseSession(const FIX::SessionID &);
+    void trade_report(OrderLots&);
+    void CloseSession(const FIX::SessionID&);
     /* ====================  MUTATORS =======================================
      */
 
