@@ -159,6 +159,10 @@ void Exchange::RiskFix(int process, func_type<> child_process)
 {
     FIN_FABR_IS_NULL();
 
+    if (FinFabr->_fix_cfg.empty()) {
+        return;
+    }
+
     if (GlobalMatcher == nullptr) {
         GlobalMatcher = std::make_shared<TraderAlgorithms>();
         GlobalMatcher->InitSequence();

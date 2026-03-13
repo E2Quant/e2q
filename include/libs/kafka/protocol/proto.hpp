@@ -363,6 +363,13 @@ struct DealMatchMessage : public BaseMessage {
 
         Aligned = *(ptr + idx);
 
+        std::size_t len =
+            snprintf(NULL, 0, "%llu", (unsigned long long)unix_time) + 1;
+
+        if (len < 11) {
+            unix_time *= 1000;
+        }
+
         return 0;
     } /* -----  end of function dmm  ----- */
 private:

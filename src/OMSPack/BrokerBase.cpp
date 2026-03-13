@@ -133,6 +133,9 @@ void BrokerBase::DealCommission(const FIX::SessionID& sid, std::size_t ticket,
 
     std::string ticket_to_id = elog::format(
         "(select id from trades where ticket='%ld'  limit 1)", ticket);
+
+    std::string ctime_sql = elog::format(
+        "(select ctime from trades where ticket='%ld'  limit 1)", ticket);
     double balance = _traders.at(sid).total_cash;
     double credit = 0;
     for (auto it : _traders.at(sid).order_cash) {
@@ -151,7 +154,7 @@ void BrokerBase::DealCommission(const FIX::SessionID& sid, std::size_t ticket,
     gsql->insert_field("profit", (0.0 - dc), 3);
     gsql->insert_field("side", 4);
     gsql->insert_field("credit", credit, 3);
-    gsql->insert_field("ctime", 0);
+    gsql->insert_field("ctime", ctime_sql);
     InsertCommit(gsql);
 
     // 扣除佣金

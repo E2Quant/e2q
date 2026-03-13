@@ -117,7 +117,7 @@ void fix(const char* cfg)
     }
     int ret = access(cfg, R_OK);
     if (ret == -1) {
-        printf("file: %s not exist \n", cfg);
+        llog::bug(llog::format("file: %s not exist \n", cfg));
         return;
     }
     if (e2q::FixPtr != nullptr) {

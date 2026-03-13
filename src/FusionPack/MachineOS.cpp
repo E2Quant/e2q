@@ -114,6 +114,9 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
 
     FIX_PTR_IS_NULL();
 
+    if (FixPtr->_fix_cfg.length() == 0) {
+        return;
+    }
     /**
      * 2. start fix node
      */

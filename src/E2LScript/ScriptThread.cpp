@@ -106,6 +106,7 @@ void ScriptThread::init(const char* file, std::string edir)
             FixPtr->_gmt = 0;
             FixPtr->_analy.cash = 999000.0;
             FixPtr->_cash.isApplyOk = false;
+            FixPtr->_fix_cfg = "";
             break;
         }
         case e2lType::_OMS: {
@@ -113,6 +114,7 @@ void ScriptThread::init(const char* file, std::string edir)
             FinFabr->_ok = e2::InitOk::I_Proc;
             FinFabr->_offer_time = 0;
             FinFabr->_fix_symbol_only_for_ea = OnlyEA::FORANLYONE;
+            FinFabr->_fix_cfg = "";
             break;
         }
         default:
