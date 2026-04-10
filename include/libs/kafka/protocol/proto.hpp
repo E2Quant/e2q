@@ -366,7 +366,7 @@ struct DealMatchMessage : public BaseMessage {
         std::size_t len =
             snprintf(NULL, 0, "%llu", (unsigned long long)unix_time) + 1;
 
-        if (len < 11) {
+        if (len < 12) {
             unix_time *= 1000;
         }
 

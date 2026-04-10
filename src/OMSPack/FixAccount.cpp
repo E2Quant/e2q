@@ -709,10 +709,10 @@ void FixAccount::delisting(std::size_t cfiCode, std::uint64_t dtime,
         elog::info("quit delisting:", cfiCode);
         _fq.quit();
     }
-    else {
-        elog::info("count:", count,
-                   " down:", FixPtr->_fix_symbols[cfiCode].count_down);
-    }
+    // else {
+    //     elog::info("count:", count,
+    //                " down:", FixPtr->_fix_symbols[cfiCode].count_down);
+    // }
 
 } /* -----  end of function FixAccount::delisting  ----- */
 

@@ -231,6 +231,8 @@ public:
     }
     void shorted() { _long_short = 1; }
     void cancel() { _lastExecutedQuantity = 0; }
+    void qtyAtive(long qty) { _quantitative = qty; }
+    long qtyAtive() { return _quantitative; }
     /* =============  OPERATORS     =================== */
     bool operator<(const OrderPending& rhs) const
     {
@@ -297,6 +299,8 @@ private:
     double _avgExecutedPrice = 0;
     double _lastExecutedPrice = 0;
     long _lastExecutedQuantity = 0;
+
+    long _quantitative = 0;  // 定量，上游交易分批次返回来的交易量，以这个为准
     bool _bot = false;
 
     bool _isCloseOrder = false;
@@ -370,6 +374,7 @@ public:
           _otime(otime)
     {
         _pending = MALLOC(OrderPending, ticket, price, quantity, type, ctime);
+        _pending->qtyAtive(0);
     }
     ~OrderItem()
     {
@@ -396,6 +401,9 @@ public:
     e2::Int_e getTime() { return _time; }
     e2::Int_e getOtime() { return _otime; }
     void hasMargin(double margin) { _pending->Margin(margin); }
+
+    void qtyAtive(long qty) { _pending->qtyAtive(qty); }
+    long qtyAtive() { return _pending->qtyAtive(); }
 
     OrderLots Lots()
     {

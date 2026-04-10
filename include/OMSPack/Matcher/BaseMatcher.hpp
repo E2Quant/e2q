@@ -52,6 +52,7 @@
 #include "OMSPack/OrderBook/Order.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 namespace e2q {
 
 /*
@@ -76,6 +77,7 @@ public:
     virtual std::vector<OrderLots> matcher(std::string symbol, e2::Int_e now,
                                            e2::Int_e price,
                                            e2::Int_e adjprice) = 0;
+
     virtual bool insert(OrderItem*) = 0;
     virtual void display() = 0;
     virtual e2::Int_e CheckClose(SeqType ticket, const std::string&,
@@ -101,8 +103,7 @@ public:
     virtual void exist() = 0;
     virtual void SessionLogout(const FIX::SessionID&) = 0;
 
-    // 记录需要佣金的订单
-    virtual void RecordDealCommission(std::size_t ticket, double dc) = 0;
+    virtual void DealMatchMsg(DealMatchMessage&) = 0;
     /* =============  OPERATORS     =================== */
 
 protected:

@@ -55,6 +55,7 @@
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 namespace e2q {
 
 /*
@@ -81,6 +82,7 @@ public:
 
     std::vector<OrderLots> matcher(std::string symbol, e2::Int_e now,
                                    e2::Int_e price, e2::Int_e adjprice);
+
     bool insert(OrderItem*);
     void display();
     e2::Int_e CheckClose(SeqType ticket, const std::string&, e2::Int_e lots);
@@ -100,7 +102,7 @@ public:
     void ExdrChange(SeqType, SeqType ticket, double cash, double qty,
                     std::size_t);
 
-    void RecordDealCommission(std::size_t ticket, double dc);
+    void DealMatchMsg(DealMatchMessage&);
     void SessionLogout(const FIX::SessionID&);
     void exist()
     {
@@ -122,6 +124,9 @@ private:
     /* ====================  METHODS ============================ */
 
     double defDealCommission(double price, long qty);
+    // 记录需要佣金的订单
+    void RecordDealCommission(std::size_t ticket, double dc);
+    void matcher_qty(SeqType ticket, long);
     /* ====================  DATA MEMBER  ============================= */
     std::shared_ptr<OrderMatcher> _orderMatcher = nullptr;
 
@@ -138,6 +143,9 @@ private:
 
     // 记录需要佣金的订单
     std::map<std::size_t, double> _rd_commission;
+
+    std::map<std::size_t, long> _rd_qty;
+    // DealMatchMessage _dmm;
 }; /* -----  end of class TraderAlgorithms  ----- */
 
 }  // namespace e2q

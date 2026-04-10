@@ -149,6 +149,7 @@ OrderItem* Market::find(std::size_t ticket)
  *
  * ============================================
  */
+
 bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
                    e2::Int_e adj_price, std::size_t order_start_time)
 {
@@ -271,10 +272,18 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
                 break;
             }
         }
-
-        bid_qty = spread_bid->getLeavesQty();
-        ask_qty = spread_ask->getLeavesQty();
-        quantity = min(bid_qty, ask_qty);
+        quantity = 0;
+        if (spread_ask->qtyAtive() > 0) {
+            quantity = spread_ask->qtyAtive();
+        }
+        if (spread_bid->qtyAtive() > 0) {
+            quantity = spread_bid->qtyAtive();
+        }
+        if (quantity == 0) {
+            bid_qty = spread_bid->getLeavesQty();
+            ask_qty = spread_ask->getLeavesQty();
+            quantity = min(bid_qty, ask_qty);
+        }
 
         spread_ask->Adj(adj_price);
         spread_bid->Adj(adj_price);

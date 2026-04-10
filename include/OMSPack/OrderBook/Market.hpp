@@ -97,6 +97,7 @@ public:
     bool insert(OrderItem* order);
     void erase(OrderItem* order);
     OrderItem* find(std::size_t ticket);
+
     bool match(std::queue<OrderLots>&, e2::Int_e, e2::Int_e, std::size_t);
     std::size_t length();
     void display();

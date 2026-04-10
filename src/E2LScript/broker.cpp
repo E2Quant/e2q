@@ -336,4 +336,38 @@ void BrokerBook(e2::BookType bt)
     llog::echo("book Type:", e2q::FinFabr->_BookType);
 } /* -----  end of function BrokerBook  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  TotalCash
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e TotalCash()
+{
+    e2::Int_e tcash = e2q::FinFabr->_all_total_cash;
+    return VALNUMBER(tcash);
+} /* -----  end of function TotalCash  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  TotalMargin
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e TotalMargin()
+{
+    e2::Int_e margin = e2q::FinFabr->_all_margin;
+    return VALNUMBER(margin);
+} /* -----  end of function TotalMargin  ----- */
+
 }  // namespace e2l

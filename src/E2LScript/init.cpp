@@ -751,12 +751,12 @@ void ConfigShow()
         tp << "fix cfg" << fix_cfg;
         tp << "kafka" << e2q::FixPtr->_source;
         tp << "csv_kafka" << MKType::mk_kafka;
-
+        tp << "tf size" << e2q::FixPtr->_tf.size();
         std::string tf = "";
         for (size_t idx = 0; idx < e2q::FixPtr->_tf.size(); idx++) {
             tf = "tf_" + std::to_string(idx);
 
-            tp << tf << e2q::FixPtr->_tf.at(0);
+            tp << tf << e2q::FixPtr->_tf.at(idx);
         }
         tp << "gmt" << (e2q::FixPtr->_gmt == 0 ? 0 : 1);
         tp << "cash" << llog::format("%.5f", e2q::FixPtr->_cash.total_cash);

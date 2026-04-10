@@ -230,6 +230,8 @@ void E2LFunList()
     AddFun(ExDividendSplit, 2, "FExDividendSplit", E2L_RETURN,
            "(cfi_code,idx);");
     AddFun(BrokerBook, 1, "FBrokerBook", E2L_NORETURN, "(booktype);");
+    AddFun(TotalCash, 0, "FTotalCash", E2L_RETURN, "();");
+    AddFun(TotalMargin, 0, "FTotalMargin", E2L_RETURN, "();");
 
     /**
      * broker end

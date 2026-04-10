@@ -678,6 +678,12 @@ struct __FinancialFabricate : public MarketInfo {
     std::map<SeqType, double> _exdr_qty;
 
     OnlyEA _fix_symbol_only_for_ea = OnlyEA::FORANLYONE;
+
+    /**
+     * 记录所有账号的余额及冻结金额
+     */
+    double _all_total_cash;
+    double _all_margin;
 }; /* ----------  end of struct __FinancialFabricate  ---------- */
 
 typedef struct __FinancialFabricate FinancialFabricate;

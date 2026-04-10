@@ -210,7 +210,7 @@ int OrderMatcher::AddBotTicket(SeqType ticket, e2::OrdType ordType,
         UtilTime ut;
         const char fmt[] = "%Y-%m-%d %H:%M:%S";
         elog::echo("sym:", symbol, " order_price:", order_price, " - ",
-                  ut.stamptostr(ctime, fmt));
+                   ut.stamptostr(ctime, fmt));
         return -1;
     }
     if (FinFabr->lob == BotLob::giveaway) {
@@ -303,7 +303,8 @@ void OrderMatcher::TopLevelPrice(const std::string& symbol, SeqType val)
     MarketType::const_iterator i = _markets->find(symbol);
     if (i == _markets->end()) return;
     tlp = i->second->top_bid_ask_price();
-    // elog::echo("sym:", symbol, " size:", _markets->size(), " bid:", tlp.first,
+    // elog::echo("sym:", symbol, " size:", _markets->size(), " bid:",
+    // tlp.first,
 
     //           " ask:", tlp.second, " now:", val);
 } /* -----  end of function OrderMatcher::TopLevelPrice  ----- */

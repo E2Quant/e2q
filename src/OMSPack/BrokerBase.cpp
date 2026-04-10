@@ -115,6 +115,8 @@ void BrokerBase::DealCommission(const FIX::SessionID& sid, std::size_t ticket,
     {
         BasicLock _lock(_BMute);
         _traders.at(sid).total_cash -= dc;
+
+        FinFabr->_all_total_cash -= dc;
     }
 
     std::size_t idx = GlobalDBPtr->getId();
@@ -257,6 +259,9 @@ void BrokerBase::SettlInst(OrderLots& lots)
         if (status == FIX::OrdStatus_FILLED) {
             neet_equity = _traders.at(sid).order_cash.at(ticket).equity;
             _traders.at(sid).total_cash += neet_equity;
+
+            FinFabr->_all_total_cash += neet_equity;
+            FinFabr->_all_margin -= neet_equity;
         }
     }
     else {
@@ -287,6 +292,9 @@ void BrokerBase::SettlInst(OrderLots& lots)
             _traders.at(sid).order_cash.at(ticket).margin = neet_equity;
 
             _traders.at(sid).total_cash += (margin - neet_equity);
+
+            FinFabr->_all_total_cash += (margin - neet_equity);
+            FinFabr->_all_margin -= (margin - neet_equity);
         }
     }
 
@@ -324,6 +332,10 @@ void BrokerBase::freeMargin(const FIX::SessionID& sid, std::size_t ticket,
         _traders.at(sid).order_cash.at(ticket) = {0, 0};
 
         _traders.at(sid).total_cash += _margin;
+
+        FinFabr->_all_total_cash += margin;
+        FinFabr->_all_margin -= margin;
+
         return;
     }
 
@@ -331,6 +343,9 @@ void BrokerBase::freeMargin(const FIX::SessionID& sid, std::size_t ticket,
         _traders.at(sid).order_cash.at(ticket).margin -= margin;
 
         _traders.at(sid).total_cash += margin;
+
+        FinFabr->_all_total_cash += margin;
+        FinFabr->_all_margin -= margin;
     }
     else {
         elog::bug("free bug ticket:", ticket, " margin:", margin);
@@ -382,6 +397,9 @@ bool BrokerBase::Margin(const FIX::SessionID& sid, std::size_t ticket,
     }
 
     _traders.at(sid).total_cash -= margin;
+
+    FinFabr->_all_total_cash -= margin;
+    FinFabr->_all_margin += margin;
 
     return ret;
 } /* -----  end of function BrokerBase::Margin  ----- */
@@ -463,6 +481,8 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
         gsql->update_field("credit", inc);
         gsql->update_condition("id", fix_id);
         UpdateCommit(gsql);
+
+        FinFabr->_all_total_cash += cash;
     }
     else {
         // 初始化资金
@@ -511,6 +531,9 @@ double BrokerBase::traders(const FIX::SessionID& id, double cash)
             gsql->insert_field("verid", FinFabr->_QuantVerId);
             gsql->insert_field("ctime", ut.time());
             InsertCommit(gsql);
+
+            FinFabr->_all_total_cash += cash;
+            FinFabr->_all_margin = 0;
         }
 
         sql = elog::format(
@@ -650,6 +673,8 @@ void BrokerBase::AddExdrCash(SeqType ticket, double cash, std::size_t ctime)
                 FinFabr->exdr_cash(it.second.order_cash.at(ticket).qty, cash);
 
             _traders.at(it.first).total_cash += all_cash;
+
+            FinFabr->_all_total_cash += all_cash;
 
             if (pgsql != nullptr) {
                 const char fmt[] =

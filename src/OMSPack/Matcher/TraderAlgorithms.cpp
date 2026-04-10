@@ -42,9 +42,14 @@
  */
 #include "OMSPack/Matcher/TraderAlgorithms.hpp"
 
+#include <cstddef>
+#include <utility>
+
 #include "E2L/E2LType.hpp"
+#include "OMSPack/OrderBook/Order.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 namespace e2q {
 
 /*
@@ -187,6 +192,21 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
     // elog::echo("symbol:", symbol);
 
     std::queue<OrderLots> orders;
+
+    long qty = 0;
+    std::size_t ticket = 0;
+    if (_rd_qty.size() > 0) {
+        auto it = _rd_qty.begin();
+        qty = it->second;
+        ticket = it->first;
+        OrderItem* oi = _orderMatcher->find(symbol, ticket);
+        if (oi != nullptr) {
+            // 外部撮合的分批次 QTY
+            oi->qtyAtive(qty);
+        }
+
+        _rd_qty.erase(it);
+    }
 
     _orderMatcher->match(symbol, orders, market_price, adj_now, now);
 
@@ -488,6 +508,26 @@ void TraderAlgorithms::ExdrChange(SeqType cfi, SeqType ticket, double cash,
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  TraderAlgorithms::DealMatchMsg
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *   有多笔订单的时候，会出错的，现在先处理单笔的情况吧
+ * ============================================
+ */
+void TraderAlgorithms::DealMatchMsg(DealMatchMessage& dmm)
+{
+    //   _dmm = std::move(dmm);
+
+    double _commiss = NUMBERVAL(dmm.commission);
+    RecordDealCommission(dmm.ticket, _commiss);
+    matcher_qty(dmm.ticket, dmm.dqty);
+} /* -----  end of function TraderAlgorithms::DealMatchMsg  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  TraderAlgorithms::RecordDealCommission
  *  ->  void *
  *  Parameters:
@@ -498,15 +538,35 @@ void TraderAlgorithms::ExdrChange(SeqType cfi, SeqType ticket, double cash,
  */
 void TraderAlgorithms::RecordDealCommission(std::size_t ticket, double dc)
 {
-    //    elog::info("RecordDealCommission error ticket:", ticket, " double:",
-    //    dc);
-
     if (_rd_commission.count(ticket) == 0) {
         _rd_commission.insert({ticket, dc});
     }
+    else {
+        _rd_commission[ticket] += dc;
+        elog::info("ticket:", ticket, " deal commission:", dc);
+    }
 
 } /* -----  end of function TraderAlgorithms::RecordDealCommission  ----- */
-
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  TraderAlgorithms::matcher_qty
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void TraderAlgorithms::matcher_qty(SeqType ticket, long qty)
+{
+    if (_rd_qty.count(ticket) == 0) {
+        _rd_qty.insert({ticket, qty});
+    }
+    else {
+        elog::info("ticket:", ticket, " qty:", qty);
+    }
+} /* -----  end of function TraderAlgorighms::matcher_qty  ----- */
 /*
  * ===  FUNCTION  =============================
  *

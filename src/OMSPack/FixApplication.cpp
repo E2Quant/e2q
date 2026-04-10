@@ -749,8 +749,8 @@ void FixApplication::FeedDataHandle()
         Int_e now = dmm.unix_time;
         Int_e price = dmm.dprice;
         Int_e adj_price = dmm.dprice;
-        double _commiss = NUMBERVAL(dmm.commission);
-        GlobalMatcher->RecordDealCommission(dmm.ticket, _commiss);
+
+        GlobalMatcher->DealMatchMsg(dmm);
 
         // match 的时候，要注意 ticket
         // ，否则会乱，不过同时只有一个的话，还行，以后再优化吧
@@ -923,6 +923,11 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
 #endif
         risk = _program->toScript(e2::OMSRisk::I_BROKER, symbol);
 
+        if (side == e2::Side::os_Sell) {
+            // 到时候再想一个好的就去把这些数据传进去
+            risk = 0;
+        }
+
         if (FinFabr->_BookType == e2::BookType::BBook && risk == 0) {
             FIX::SessionID botsid;
 
@@ -970,7 +975,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
     double order_qty = orderQty.getValue();
     e2::OrdType oType = convert(ordType);
     e2::Side oside = convert(side);
-    int risk = -1;
+    int risk = 0;
 
     SeqType ticket = 0;
     SeqType ticket_close = 0;
@@ -1050,9 +1055,10 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
     }
 
     risk = E2LScript(oType, oside, order_qty, sym);
+
     if (risk < 0) {
         // 直接在这儿退出了，不要再分配了
-        elog::info("risk < 0");
+        elog::info("risk < 0 symobl:", symbol);
         rejectOrder(sid, clOrdID, symbol, side, "",
                     (ticket_close > 0 ? ticket_close : ticket), qid, order_qty,
                     order_price);
