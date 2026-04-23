@@ -215,6 +215,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
 
     if (e2q::FixPtr->_fix_symbols.at(symbol).dia != e2q::DoIAction::LIST) {
         llog::bug("symbol is delisting:", symbol,
+                  " dia:", e2q::FixPtr->_fix_symbols.at(symbol).dia,
                   " ticket time:", e2q::ticket_now);
 
         return e2::Bool::B_FALSE;

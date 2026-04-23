@@ -136,7 +136,7 @@ void FixApplication::onLogout(const FIX::SessionID& sid)
         return;
     }
     if (!_is_end) {
-        elog::info("logout:", sid.getTargetCompID());
+        elog::info("[ea_again]:", sid.getTargetCompID());
     }
 
 } /* -----  end of function FixApplication::onLogout  ----- */
@@ -390,8 +390,11 @@ void FixApplication::onMessage(const FIX44::QuoteStatusReport& message,
     message.getFieldIfSet(stat);
 
     if (stat.getValue() == 1) {
-        elog::echo("QuoteStatusReport sid:", sid.getTargetCompID().getValue(),
-                   " size:", SessionSymList.size());
+        // elog::echo("QuoteStatusReport sid:",
+        // sid.getTargetCompID().getValue(),
+        //            " size:", SessionSymList.size());
+
+        elog::echo("[ea_ok:", SessionSymList.size(), "]");
     }
     else {
         if (_is_logout) {

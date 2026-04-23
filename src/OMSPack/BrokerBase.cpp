@@ -333,8 +333,8 @@ void BrokerBase::freeMargin(const FIX::SessionID& sid, std::size_t ticket,
 
         _traders.at(sid).total_cash += _margin;
 
-        FinFabr->_all_total_cash += margin;
-        FinFabr->_all_margin -= margin;
+        FinFabr->_all_total_cash += _margin;
+        FinFabr->_all_margin -= _margin;
 
         return;
     }

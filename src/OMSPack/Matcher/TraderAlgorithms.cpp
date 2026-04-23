@@ -200,9 +200,13 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
         qty = it->second;
         ticket = it->first;
         OrderItem* oi = _orderMatcher->find(symbol, ticket);
+
         if (oi != nullptr) {
             // 外部撮合的分批次 QTY
             oi->qtyAtive(qty);
+            if (qty == 0) {
+                orders.push(oi->Lots());
+            }
         }
 
         _rd_qty.erase(it);
@@ -213,6 +217,7 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
     while (orders.size() > 0) {
         OrderLots ol = orders.front();
         ol.ctime = match_now;
+        // elog::echo("orders exec:", ol.executedQuantity, " tick:", ol.ticket);
         if (ol.executedQuantity == 0 && ol.ticket > 0) {
             std::size_t idx = GlobalDBPtr->getId();
             Pgsql* gsql = GlobalDBPtr->ptr(idx);
@@ -518,11 +523,14 @@ void TraderAlgorithms::ExdrChange(SeqType cfi, SeqType ticket, double cash,
  */
 void TraderAlgorithms::DealMatchMsg(DealMatchMessage& dmm)
 {
-    //   _dmm = std::move(dmm);
-
+    matcher_qty(dmm.ticket, dmm.dqty);
+    if (dmm.side == 'C') {
+        elog::info("cancel order ticket:", dmm.ticket, " code:", dmm.stock);
+        return;
+    }
     double _commiss = NUMBERVAL(dmm.commission);
     RecordDealCommission(dmm.ticket, _commiss);
-    matcher_qty(dmm.ticket, dmm.dqty);
+
 } /* -----  end of function TraderAlgorithms::DealMatchMsg  ----- */
 
 /*

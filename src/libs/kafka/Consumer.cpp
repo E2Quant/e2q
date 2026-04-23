@@ -156,7 +156,8 @@ void KfConsumeCb::SymbolInit(const char* p, int sz)
         // e2l init.cpp 这儿有处理的
         e2q::FinFabr->_ok = e2::InitOk::I_OK;
 
-        elog::info("SymbolInit ok symbols size:", FinFabr->_fix_symbols.size());
+        elog::info("[ea_init]SymbolInit ok symbols size:",
+                   FinFabr->_fix_symbols.size());
         //  转成豪秒
         FinFabr->_offer_time = NUMBERVAL(sinit.OfferTime) * 1000;
 
@@ -316,25 +317,26 @@ void KfConsumeCb::DealMatchMsg(const char* ptr, int sz, int64_t offset)
         return;
     }
 
-    bprinter::TablePrinter tp(&std::cout);
-    tp.AddColumn("stock", 20);
-    tp.AddColumn("side", 10);
-    tp.AddColumn("dprice", 10);
-    tp.AddColumn("dqty", 10);
-    tp.AddColumn("commission", 10);
-    tp.AddColumn("tamount", 10);
-    tp.AddColumn("tdate", 10);
-    tp.AddColumn("ttime", 10);
-    tp.AddColumn("unix_time", 10);
-    tp.AddColumn("ticket", 10);
-    tp.AddColumn("unique_size", 10);
-    tp.AddColumn("unique_id", 20);
+    // bprinter::TablePrinter tp(&std::cout);
+    // tp.AddColumn("stock", 20);
+    // tp.AddColumn("side", 10);
+    // tp.AddColumn("dprice", 10);
+    // tp.AddColumn("dqty", 10);
+    // tp.AddColumn("commission", 10);
+    // tp.AddColumn("tamount", 10);
+    // tp.AddColumn("tdate", 10);
+    // tp.AddColumn("ttime", 10);
+    // tp.AddColumn("unix_time", 10);
+    // tp.AddColumn("ticket", 10);
+    // tp.AddColumn("unique_size", 10);
+    // tp.AddColumn("unique_id", 20);
 
-    tp.PrintHeader();
-    tp << dmm.stock << dmm.side << dmm.dprice << dmm.dqty << dmm.commission
-       << dmm.tamount << dmm.tdate << dmm.ttime << dmm.unix_time << dmm.ticket
-       << dmm.unique_size << dmm.unique_id;
-    tp.PrintFooter();
+    // tp.PrintHeader();
+    // tp << dmm.stock << dmm.side << dmm.dprice << dmm.dqty << dmm.commission
+    //    << dmm.tamount << dmm.tdate << dmm.ttime << dmm.unix_time <<
+    //    dmm.ticket
+    //    << dmm.unique_size << dmm.unique_id;
+    // tp.PrintFooter();
 
     if (_DealCall != nullptr) {
         _DealCall(dmm);
@@ -1008,7 +1010,7 @@ void KafkaFeed::handle(TradType tradcall)
     ex_consume_cb.dealcall(_DealCall);
     ex_consume_cb.handle(tradcall);
 
-    elog::echo(consumer->name(), " Created consumer ");
+    elog::echo(consumer->name(), " Created consume [oms_init]");
 
     /*
      * Consume messages

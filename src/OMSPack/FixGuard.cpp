@@ -439,14 +439,11 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
             "UPDATE fixsession SET login=1 WHERE targetcompid='%s';",
             compid.c_str());
 
-        //        elog::echo(sql);
-
         gsql->update_sql(sql);
         UpdateCommit(gsql);
         GlobalDBPtr->release(idx);
 
-        elog::info("session:", compid,
-                   " empty fix_symbols:", SessionSymList.size());
+        elog::info("session:", compid, " [ea_change]");
         return;
     }
 

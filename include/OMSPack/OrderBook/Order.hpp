@@ -94,6 +94,8 @@ public:
         _lastExecutedPrice = price;
         _lastExecutedQuantity = 0;
         _trade_amount = 0;
+
+        _quantitative = 0;
     } /* constructor */
 
     /* =============  ACCESSORS     =================== */
@@ -136,7 +138,7 @@ public:
      */
     void disable()
     {
-        elog::bug("disable ticket:", _ticket);
+        // elog::bug("disable ticket:", _ticket);
         _quantity = _executedQuantity = _openQuantity = 0;
     }
 
@@ -231,7 +233,14 @@ public:
     }
     void shorted() { _long_short = 1; }
     void cancel() { _lastExecutedQuantity = 0; }
-    void qtyAtive(long qty) { _quantitative = qty; }
+    void qtyAtive(long qty)
+    {
+        if (qty == 0) {
+            _executedQuantity = 0;
+            disable();
+        }
+        _quantitative = qty;
+    }
     long qtyAtive() { return _quantitative; }
     /* =============  OPERATORS     =================== */
     bool operator<(const OrderPending& rhs) const
@@ -374,7 +383,6 @@ public:
           _otime(otime)
     {
         _pending = MALLOC(OrderPending, ticket, price, quantity, type, ctime);
-        _pending->qtyAtive(0);
     }
     ~OrderItem()
     {
@@ -424,7 +432,7 @@ public:
         lots.otime = _otime;
 
         lots.adjprice = NUMBERVAL(_pending->Adj());
-        // elog::info("adj:", lots.adjprice);
+        // elog::info("adj:", lots.adjpriceequity);
         lots.trade_amount = _pending->amount();
         lots.isCancel = false;
         if (_bot) {

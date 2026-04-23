@@ -275,7 +275,7 @@ typedef struct MarketTickMessage MarketTickMessage;
 | :----------- | ------ | ------ | --------- | --------- |
 | Message Type | 0      | 1      | 'D'       | Deal      |
 | stock        | 1      | 10     | Alpha     | 股票名称      |
-| side         | 11     | 1      | Alpha     | 'B', 'S'  |
+| side         | 11     | 1      | Alpha     | 'B', 'S', 'C'  |
 | dprice       | 12     | 6      | Integer64 | 成交均价     |
 | dqty         | 18     | 6      | Integer64 | qty       |
 | commission   | 24     | 6      | Integer64 | commission       |
@@ -294,7 +294,7 @@ typedef struct MarketTickMessage MarketTickMessage;
  */
 struct DealMatchMessage : public BaseMessage {
     char stock[E2QSTOCK_LENGTH] = {0};
-    char side = 'B';           // BID OR ASK  change e2::Side
+    char side = 'B';           // B buy  OR S sell   , C == cancel order
     std::uint64_t dprice = 0;  // last price
     std::uint64_t dqty = 0;
     std::uint64_t commission = 0;  // last price
