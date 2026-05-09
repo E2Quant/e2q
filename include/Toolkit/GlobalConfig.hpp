@@ -119,7 +119,7 @@ inline CustomMsgStore GlobalCustomMsg;
             std::size_t idx = 0;                                              \
             do {                                                              \
                 idx += parse_uint_t(ptr + idx, cmsg.CfiCode);                 \
-                if (cmsg.CfiCode > 0) {                                       \
+                if (cmsg.CfiCode > 0 && cmsg.CfiCode < E2QCfiStart) {         \
                     cmsg.CfiCode += E2QCfiStart;                              \
                 }                                                             \
                 idx += parse_uint_t(ptr + idx, cmsg.index);                   \

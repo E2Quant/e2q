@@ -654,6 +654,43 @@ e2::Int_e VersionId()
 
     return 0;
 } /* -----  end of function VersionId  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  LastVerId
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e LastVerId()
+{
+    char* field = nullptr;
+    char* val = nullptr;
+    e2::Int_e id = 0;
+    std::size_t idx = e2q::GlobalDBPtr->getId();
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
+    if (gsql == nullptr) {
+        e2q::GlobalDBPtr->release(idx);
+        return id;
+    }
+    std::string sql = "SELECT id FROM trade_info ORDER BY id DESC LIMIT 1;";
+
+    bool r = SelectSQL(gsql, sql);
+    if (r && gsql->tuple_size() > 0) {
+        gsql->OneHead(&field, &val);
+        if (val != nullptr) {
+            id = stoi(val);
+        }
+    }
+
+    e2q::GlobalDBPtr->release(idx);
+
+    return VALNUMBER(id);
+} /* -----  end of function LastVerId  ----- */
 /*
  * ===  FUNCTION  =============================
  *

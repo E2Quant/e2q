@@ -209,7 +209,8 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
 
     if (symbol <= 0 || price <= 0 ||
         e2q::FixPtr->_fix_symbols.count(symbol) == 0) {
-        llog::bug("symbol or price not exist!");
+        llog::bug("symbol or price not exist! symbol:", symbol,
+                  " price:", price);
         return e2::Bool::B_FALSE;
     }
 
@@ -235,9 +236,10 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     // 所以先扣一笔资金
     if (expenditure > free_cash) {
         std::string cond = llog::format(
-            "expenditure: %.2f total cash:%.2f, freeze:%.2f number:%ld",
+            "expenditure: %.2f total cash:%.2f, freeze:%.2f number:%ld, "
+            "price:%ld, qty: %ld",
             expenditure, e2q::FixPtr->_cash.TotalCash(number),
-            e2q::FixPtr->_cash.FreezeCash(number), number);
+            e2q::FixPtr->_cash.FreezeCash(number), number, price, qty);
         llog::bug(cond);
         return e2::Bool::B_FALSE;
     }

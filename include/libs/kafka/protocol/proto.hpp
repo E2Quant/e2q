@@ -47,6 +47,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "Toolkit/Norm.hpp"
@@ -446,6 +447,7 @@ typedef struct CustomMessage CustomMessage;
 #define GetMsgData(array_data, cfi, index, value_uint)                    \
     ({                                                                    \
         do {                                                              \
+            elog::info("get cfi:", cfi);                                  \
             for (std::size_t m = 0; m < cmsg.size; m++) {                 \
                 idx += parse_uint_t(ptr + idx, value_uint);               \
                 array_data.push_back(cfi, index, m, (SeqType)value_uint); \
@@ -461,6 +463,7 @@ struct __CustomMsgStore {
     {
         //  _cfi = cfi;
         _index = idx;
+
         BasicLock _lock(_CMute);
         if (_datas.count(cfi) == 0) {
             std::vector<SeqType> v(len);
@@ -486,23 +489,45 @@ struct __CustomMsgStore {
     void push_back(std::uint32_t cfi, std::uint16_t idx, std::size_t pos,
                    SeqType data)
     {
+        if (_datas.count(cfi) == 0) {
+            printf("cfi:%d \n", cfi);
+
+            return;
+        }
+        if (_datas[cfi].count(idx) == 0) {
+            printf("idx:%d \n", idx);
+            return;
+        }
         std::size_t _pos = pos % _datas[cfi][idx].second.size();
         _datas[cfi][idx].second[_pos] = data;
     }
 
     std::uint32_t number(std::uint32_t cfi, std::uint16_t idx)
     {
+        if (_datas.count(cfi) == 0) {
+            printf("cfi:%d \n", cfi);
+
+            return 0;
+        }
+        if (_datas[cfi].count(idx) == 0) {
+            printf("idx:%d \n", idx);
+            return 0;
+        }
         return _datas[cfi][idx].first;
     }
 
     std::size_t size(std::uint32_t cfi, std::uint16_t idx)
     {
         if (_datas.count(cfi) == 0) {
+            printf("cfi:%d \n", cfi);
+
             return 0;
         }
         if (_datas[cfi].count(idx) == 0) {
+            printf("idx:%d \n", idx);
             return 0;
         }
+
         return _datas[cfi][idx].second.size();
     }
 

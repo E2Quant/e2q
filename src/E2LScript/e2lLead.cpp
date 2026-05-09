@@ -156,6 +156,8 @@ void E2LFunList()
 
     AddFun(VersionId, 0, "FVersionId", E2L_RETURN, "();");
 
+    AddFun(LastVerId, 0, "FLastVerId", E2L_RETURN, "();");
+
     AddFun(TradeTime, 4, "FTradeTime", E2L_NORETURN,
            "(open_hour,open_minute,close_hour,close_minute);");
     AddFun(TradeMode, 1, "FTradeMode", E2L_NORETURN,

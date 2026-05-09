@@ -929,7 +929,6 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
     message.getFieldIfSet(fquantId);
     message.getFieldIfSet(sfr);
     message.getFieldIfSet(adjpx);
-
     message.getFieldIfSet(coms);
 
     //    elog::echo("coms:",coms.getValue);
@@ -1232,8 +1231,10 @@ void FixAccount::onMessage(const FIX44::BidResponse& message,
         custem = base64.b64decode(lid.getValue());
         const char* ptr = custem.c_str();
         sz = price.getValue();
+
         if (sz != custem.size()) {
-            elog::info("sz:", sz, " base64 len:", custem.size());
+            elog::bug("sz:", sz, " base64 len:", custem.size());
+            continue;
         }
         PushGCM(ptr, sz);
     }
