@@ -50,6 +50,7 @@
 #include "E2L/E2LType.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
+#include "Toolkit/Util.hpp"
 #include "assembler/BaseType.hpp"
 #include "assembler/CodeGenContext.hpp"
 
@@ -118,14 +119,17 @@ void ScriptThread::init(const char* file, std::string edir)
             break;
         }
         default:
+            llog::bug("_type is error");
             break;
     }
-    if (edir.length() > 0) {
-        _ctx.search_path(edir.c_str());
+    if (GlobalMainArguments.bitcode_func_name.length() == 0) {
+        if (edir.length() > 0) {
+            _ctx.search_path(edir.c_str());
+        }
+        _ctx.toparse(file);
     }
-    _ctx.toparse(file);
 
-    e2lInit();
+    e2lInit(file);
 } /* -----  end of function ScriptThread::init  ----- */
 
 /*
@@ -139,7 +143,7 @@ void ScriptThread::init(const char* file, std::string edir)
  *
  * ============================================
  */
-void ScriptThread::e2lInit()
+void ScriptThread::e2lInit(const char* file)
 {
     createCoreFunctions(_context);
 
@@ -161,17 +165,27 @@ void ScriptThread::e2lInit()
                                 std::get<2>(it), std::get<3>(it));
     }
 
-    if (llvm_ir) {
+    if (llvm_ll) {
         _context.toDebug();
     }
+    if (GlobalMainArguments.bitcode_func_name.length() == 0) {
+        _isgc = _context.generateCode(_ctx.RootBlock());
+        if (_isgc) {
+            _context.runCode();
+        }
+        else {
+            e2q::elog::bug("isgc is error");
+        }
+    }
 
-    _isgc = _context.generateCode(_ctx.RootBlock());
-    if (_isgc) {
-        _context.runCode();
-    }
     else {
-        e2q::elog::bug("isgc is error");
+        _isgc = true;
+        _context.ExternFun();
+
+        _context.LoadFromBC(file,
+                            GlobalMainArguments.bitcode_func_name.c_str());
     }
+
 } /* -----  end of function ScriptThread::e2lInit  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -193,6 +207,10 @@ int ScriptThread::toScript(double argc, double argv)
     }
     else {
         e2q::llog::bug("generateCode is error");
+    }
+
+    if (GlobalMainArguments.bitcode_path.length() > 0) {
+        _context.SaveToBC(GlobalMainArguments.bitcode_path.c_str());
     }
     return ret;
 } /* -----  end of function ScriptThread::toScript  ----- */

@@ -12,6 +12,7 @@
 - 可选择 AB book 方式
 - 利用多进程多线程快速回测各种临界条件
 - Trader 与 OMS 之间采用 FIX Protocol
+- 集群式系统回测: 可以支持 N 个机器共同进行大规模的回测
 
 ![Logo](./e2q_512.png)
 ---
@@ -55,6 +56,53 @@
 - BI 软件系统进行订单分析
 
 [完整可正式使用的案例](https://github.com/E2Quant/e2q_usage)
+
+
+
+### E2Q 生成 IR BC 代码
+> ea.e2
+
+```c++
+#--------
+# Name:function
+#   Parameters:
+# - arg1: xxx
+# - arg2: xxx
+# -> return 
+# Description: 
+#  
+#--------	
+func MyEA(tick_size, thread_id) {
+    hello = 1;
+    return hello;
+}
+#----- func end
+
+```
+
+---
+
+> 生成 IR BC 字节码
+```shell
+ /opt/e2q/build#./e2q -l  -i /opt/e2l_model -p ../cfg/db.properties  -r  0  -e   ./ea.e2 -w ./ea.bc > ea.ll
+
+```
+
+> file 命令查看文件
+```shell
+/opt/e2q/build# file ea.bc
+ea.bc: LLVM IR bitcode
+
+```
+
+> 加载 EA BC文件
+
+```shell
+ /opt/e2q/build#./e2q   -i /opt/e2l_model -p ../cfg/db.properties  -r  0  -e  ./ea.bc -u MyEA
+```
+
+### 支持集群式回测
+![E2Q mind map](https://e2q-doc.readthedocs.io/images/oms_ea_nodes.png "E2Q")
 
 
 ### 文档

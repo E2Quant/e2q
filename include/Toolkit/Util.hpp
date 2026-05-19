@@ -45,6 +45,7 @@
 #ifndef UTIL_INC
 #define UTIL_INC
 
+#include <cstdint>
 #include <fstream>
 #include <tuple>
 #include <utility>
@@ -200,6 +201,8 @@ struct __main_arguments {
     bool is_suspend = false;
     bool ea_or_oms = false;  //
     std::ofstream log_io;
+    std::string bitcode_func_name = "";  // it is bitcode name
+    std::string bitcode_path = "";       //
 }; /* ----------  end of struct __main_arguments  ---------- */
 
 typedef struct __main_arguments main_arguments;

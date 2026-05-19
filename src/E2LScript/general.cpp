@@ -84,11 +84,11 @@ void isDebug(e2::Bool b)
  *
  * ============================================
  */
-void log(e2::Int_e s, const char *_vname, e2::Int_e loc, const char *_path)
+void log(e2::Int_e s, const char* _vname, e2::Int_e loc, const char* _path)
 {
     std::thread::id tid = std::this_thread::get_id();
 
-    char *p = nullptr;
+    char* p = nullptr;
     e2::Bool ret = e2q::log.isDebug(tid);
     if (ret == e2::Bool::B_FALSE) {
         return;
@@ -125,8 +125,8 @@ void log(e2::Int_e s, const char *_vname, e2::Int_e loc, const char *_path)
  *
  * ============================================
  */
-void PrintLine(e2::Int_e s, const char *_vname, e2::Int_e loc,
-               const char *_path)
+void PrintLine(e2::Int_e s, const char* _vname, e2::Int_e loc,
+               const char* _path)
 {
     s = NUMBERVAL(s);
     // std::string msg = "";
@@ -147,7 +147,7 @@ void PrintLine(e2::Int_e s, const char *_vname, e2::Int_e loc,
     if (ret == e2::Bool::B_FALSE) {
         return;
     }
-    char *p = nullptr;
+    char* p = nullptr;
     e2q::log.log(tid, &p);
 
     e2q::LogProto_t lp;
@@ -177,8 +177,8 @@ void PrintLine(e2::Int_e s, const char *_vname, e2::Int_e loc,
  *
  * ============================================
  */
-void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
-               const char *_path)
+void PrintDeci(e2::Int_e val, e2::Int_e deci, const char* _vname, e2::Int_e loc,
+               const char* _path)
 {
     int dec = NUMBERVAL(deci);
 
@@ -189,7 +189,7 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
         return;
     }
 
-    char *p = nullptr;
+    char* p = nullptr;
 
     e2q::log.log(tid, &p);
 
@@ -222,8 +222,8 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char *_vname, e2::Int_e loc,
  *
  * ============================================
  */
-void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
-               const char *_path)
+void PrintTime(e2::Int_e i, const char* _vname, e2::Int_e loc,
+               const char* _path)
 {
     if (i < 1) {
         return;
@@ -243,7 +243,7 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
     if (ret == e2::Bool::B_FALSE) {
         return;
     }
-    char *p = nullptr;
+    char* p = nullptr;
     e2q::log.log(tid, &p);
 
     e2q::LogProto_t lp;
@@ -274,7 +274,7 @@ void PrintTime(e2::Int_e i, const char *_vname, e2::Int_e loc,
  *   如果固定下一个周期还能使用的话，就需要自定义的 id
  * ============================================
  */
-e2::Int_e StoreId(e2::Int_e loc, const char *_path)
+e2::Int_e StoreId(e2::Int_e loc, const char* _path)
 {
     std::thread::id _id;
     AutoInc(_id, 0);
@@ -296,7 +296,7 @@ e2::Int_e StoreId(e2::Int_e loc, const char *_path)
  *
  * ============================================
  */
-e2::Int_e LastStoreId(e2::Int_e loc, const char *_path)
+e2::Int_e LastStoreId(e2::Int_e loc, const char* _path)
 {
     std::thread::id _id;
     AutoInc(_id, 0);
@@ -352,7 +352,7 @@ e2::Int_e fetch(e2::Int_e id)
     try {
         val = e2q::e2l_silk.get(_id, id);
     }
-    catch (std::exception &e) {
+    catch (std::exception& e) {
         std::cout << "e2l_silk " << std::endl;
     }
 
@@ -386,7 +386,7 @@ void store(e2::Int_e id, e2::Int_e val)
             e2q::e2l_silk.update(_id, id, val);
         }
     }
-    catch (std::exception &e) {
+    catch (std::exception& e) {
         std::cout << "e2l_silk 1 " << std::endl;
     }
 } /* -----  end of function store  ----- */

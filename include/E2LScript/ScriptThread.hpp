@@ -78,7 +78,7 @@ public:
     /* =============  MUTATORS      =================== */
     void init(const char* file, std::string edir);
 
-    void e2lInit();
+    void e2lInit(const char* file);
     int toScript(double argc, double argv);
     /**
      * script fixptr 的全局变量

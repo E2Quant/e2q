@@ -125,6 +125,7 @@ void Exchange::InitQVersion()
 Exchange::Exchange(std::string& e2l, std::string& edir)
 {
     _program = std::make_shared<ScriptThread>(e2lType::_OMS);
+
     _program->init(e2l.c_str(), edir);
 
     bool call = _program->CheckCall();

@@ -179,9 +179,11 @@ int e2q_action(int argc, char* argv[])
         -d daemon run \n \
         -e which loading ea e2l script \n \
         -f log directory \n \
-        -l show llvm ir for e2l \n \
+        -l show llvm ll for e2l \n \
+        -w save e2l code to ir path ,def:/usr/local/include/e2l/ea.bc \n \
+        -u use enter name function bitcode file replace e2l script\n \
         -n read number bin history tickets \n \
-        -i e2l import codes directory,def:/usr/local/include/e2/ \n \
+        -i e2l import codes directory,def:/usr/local/include/e2l/ \n \
         -s which loading oms e2l script \n \
         -o only test e2l script \n \
         -g only test e2l script build graph dot \n \
@@ -198,7 +200,7 @@ int e2q_action(int argc, char* argv[])
     e2q::process_debug = false;
 
     //./e2q -e node.e2 -e node2.e2 -e node3.e2
-    while ((h = getopt(argc, argv, "hdlve:s:p:r:a:o:f:i:b:n:")) != -1) {
+    while ((h = getopt(argc, argv, "hdlve:s:p:r:a:o:f:i:b:n:w:u:")) != -1) {
         switch (h) {
             case 'h': {
                 printf(help.c_str(), argv[0]);
@@ -211,7 +213,7 @@ int e2q_action(int argc, char* argv[])
                 break;
 
             case 'l':
-                e2q::llvm_ir = true;
+                e2q::llvm_ll = true;
                 break;
             case 'v': {
                 elog::echo(version::version_full);
@@ -294,6 +296,20 @@ int e2q_action(int argc, char* argv[])
             case 'n': {
                 if (optarg != nullptr) {
                     e2q::GlobalMainArguments.number_for_bin_read = atoi(optarg);
+                }
+                break;
+            }
+            case 'w': {
+                if (optarg != nullptr) {
+                    printf("file:%s\n", optarg);
+                    e2q::GlobalMainArguments.bitcode_path = std::string(optarg);
+                }
+                break;
+            }
+            case 'u': {
+                if (optarg != nullptr) {
+                    e2q::GlobalMainArguments.bitcode_func_name =
+                        std::string(optarg);
                 }
                 break;
             }
