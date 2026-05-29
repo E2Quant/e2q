@@ -647,7 +647,7 @@ std::uint64_t Container::writed(std::size_t id, std::size_t timeframe)
 std::size_t Container::idx(std::size_t stock, std::size_t timeframe)
 {
     if (_cells.count(stock) == 0) {
-        elog::bug("but stock:", stock);
+        elog::bug("bug stock:", stock);
         for (auto it : _cells) {
             elog::info("cells system cfi code:", it.first);
         }
@@ -680,7 +680,7 @@ int Container::read(std::array<SeqType, ohlc_column>& ohlc, std::size_t stock,
     std::size_t m = 0;
 
     if (_cells.count(stock) == 0) {
-        elog::bug("but stock:", stock);
+        elog::bug("bug stock:", stock);
         return ret;
     }
     int rows = 0;

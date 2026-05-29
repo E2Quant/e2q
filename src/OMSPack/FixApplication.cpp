@@ -53,6 +53,7 @@
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "OMSPack/IDGenerator.hpp"
 #include "OMSPack/OrderBook/Order.hpp"
 #include "OMSPack/SessionGlobal.hpp"
@@ -132,7 +133,7 @@ void FixApplication::onLogon(const FIX::SessionID& sid)
 void FixApplication::onLogout(const FIX::SessionID& sid)
 {
     if (SessionSymList.count(sid) == 1 && SessionSymList.at(sid).size() > 0) {
-        elog::info("reset here");
+        // elog::info("reset here");
         return;
     }
     if (!_is_end) {
@@ -648,7 +649,7 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
                                  const FIX::Side& side,
                                  const std::string& message, e2::Int_e ticket,
                                  e2::Int_e quantId, e2::Int_e qty,
-                                 e2::Int_e price)
+                                 e2::Int_e price, RejectType rt)
 {
     FIX::OrderID oid(std::to_string(ticket));
 
@@ -672,11 +673,12 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         stat = e2::OrdStatus::ost_Rejected;
     }
 
-    FIX::Text rejtext;
-    if (message.length() == 0) {
+    FIX::Text rejtext("");
+    if (rt == RejectType::risk_error) {
         // risk == -1
-        rejtext.setValue("risk == -1, process order symbol:" +
-                         symbol.getValue());
+        // elog::info("risk == ", message,
+        //            ", process order symbol:" + symbol.getValue());
+        rejtext.setValue(message);
     }
     else {
         std::size_t idx = GlobalDBPtr->getId();
@@ -716,7 +718,8 @@ void FixApplication::rejectOrder(const FIX::SessionID& sid,
         }
 
         GlobalDBPtr->release(idx);
-        rejtext.setValue(message + " symbol:" + symbol.getValue());
+        // elog::info(message + " symbol:" + symbol.getValue(), " rt:",
+        // (int)rt);
     }
 
     reject.setField(rejtext);
@@ -759,6 +762,7 @@ void FixApplication::FeedDataHandle()
         // ，否则会乱，不过同时只有一个的话，还行，以后再优化吧
         // 注意 手续费
         // 有可能超过余额的情况
+        // eg. qmt
         this->matcher(sym, now, price, adj_price);
     };  // -----  end lambda  -----
 
@@ -799,6 +803,7 @@ void FixApplication::FeedDataHandle()
             //  先这样吧，以后再优化
             if (ticket_now == 0) {
                 global_id_class[0] = this_thread::get_id();
+
 #ifndef KAFKALOG
                 log.init(global_id_class[0]);
 #endif
@@ -819,7 +824,7 @@ void FixApplication::FeedDataHandle()
         }
 
         // 涨跌停，由 kafka 发送价格端来控制，有量的话，就交易,否则不进行交易
-        // 另一种方法是直接 deal match message
+        // 另一种方法是直接 deal match message, eg. qmt
         if (qty > 0) {
             if (FinFabr->_match_trigger == e2::Bool::B_TRUE &&
                 match == MatchType::_not) {
@@ -919,6 +924,9 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
          * 2. {sender compid process } risk
          * bse -> supply and demand schedule (SDS)
          */
+
+        e2l_thread_map.AutoInit(global_id_class[2], 0);
+
         global_id_class[1] = std::this_thread::get_id();
 
 #ifndef KAFKALOG
@@ -1004,7 +1012,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
                   " ticket:", oid.getValue(), " date:", day);
         if (price.getLength() > 0) order_price = price.getValue();
         rejectOrder(sid, clOrdID, symbol, side, "symbol not exist", ticket, qid,
-                    order_qty, order_price);
+                    order_qty, order_price, RejectType::symbol_not_exist);
         return;
     }
     SeqType ctime = FinFabr->_stock.at(sym)[Trading::t_time];
@@ -1019,7 +1027,8 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
             // 不接受新的订单
             elog::info("stop order now");
             rejectOrder(sid, clOrdID, symbol, side, "stop order now", ticket,
-                        qid, order_qty, price.getValue());
+                        qid, order_qty, price.getValue(),
+                        RejectType::stop_order_now);
             return;
         }
 
@@ -1041,19 +1050,21 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
                                               order_qty);
         if (order_qty <= 0) {
             std::string error = "CheckClose order_qty == 0";
+            RejectType rt = RejectType::close_order_qty_empty;
             if (order_qty == -1) {
                 error = "settlement T + x";
+                rt = RejectType::settlement_t_x;
             }
             elog::info(error);
             rejectOrder(sid, clOrdID, symbol, side, error, ticket_close, qid,
-                        order_qty, order_price);
+                        order_qty, order_price, rt);
             return;
         }
     }
     if (order_price <= 0 || order_qty <= 0) {
         elog::info("order_price == 0");
         rejectOrder(sid, clOrdID, symbol, side, "order_price == 0", ticket, qid,
-                    order_qty, order_price);
+                    order_qty, order_price, RejectType::price_qty_emtpy);
         return;
     }
 
@@ -1061,10 +1072,10 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
     if (risk < 0) {
         // 直接在这儿退出了，不要再分配了
-        elog::info("risk < 0 symobl:", symbol);
-        rejectOrder(sid, clOrdID, symbol, side, "",
+        // elog::info("risk < ", risk, " symobl:", symbol);
+        rejectOrder(sid, clOrdID, symbol, side, elog::format("%d", risk),
                     (ticket_close > 0 ? ticket_close : ticket), qid, order_qty,
-                    order_price);
+                    order_price, RejectType::risk_error);
         return;
     }
     /**
@@ -1105,14 +1116,15 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
             rejectOrder(sid, clOrdID, symbol, side, "",
                         (ticket_close > 0 ? ticket_close : ticket), qid,
-                        order_qty, order_price);
+                        order_qty, order_price,
+                        RejectType::process_order_error);
         }
     }
     catch (std::exception& e) {
         rejectOrder(sid, clOrdID, symbol, side,
                     "rejectOrder execption:" + std::string(e.what()),
                     (ticket_close > 0 ? ticket_close : ticket), qid, order_qty,
-                    order_price);
+                    order_price, RejectType::exception_error);
     }
 
 } /* -----  end of function FixApplication::lob  ----- */

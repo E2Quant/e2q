@@ -143,12 +143,17 @@ typedef struct __AutoInc_t AutoInc_t;
 
 inline AutoInc_t e2l_thread_map;
 
-#define AutoInc(_id, num)                       \
-    ({                                          \
-        do {                                    \
-            _id = std::this_thread::get_id();   \
-            e2q::e2l_thread_map.init(_id, num); \
-        } while (0);                            \
+#define AutoInc(_id, num)                         \
+    ({                                            \
+        do {                                      \
+            if (e2q::FixPtr != nullptr) {         \
+                _id = std::this_thread::get_id(); \
+            }                                     \
+            else {                                \
+                _id = e2q::global_id_class[2];    \
+            }                                     \
+            e2q::e2l_thread_map.init(_id, num);   \
+        } while (0);                              \
     })
 
 /**
@@ -190,20 +195,25 @@ private:
 typedef struct __Silk_t Silk_t;
 inline Silk_t e2l_silk;
 
-#define E2LSILK(_bool, _id, id)                 \
-    ({                                          \
-        do {                                    \
-            _id = std::this_thread::get_id();   \
-            if (e2q::e2l_silk.exist(_id)) {     \
-                e2q::e2l_silk.init(_id);        \
-            }                                   \
-            if (e2q::e2l_silk.check(_id, id)) { \
-                _bool = e2::Bool::B_FALSE;      \
-            }                                   \
-            else {                              \
-                _bool = e2::Bool::B_TRUE;       \
-            }                                   \
-        } while (0);                            \
+#define E2LSILK(_bool, _id, id)                   \
+    ({                                            \
+        do {                                      \
+            if (e2q::FixPtr != nullptr) {         \
+                _id = std::this_thread::get_id(); \
+            }                                     \
+            else {                                \
+                _id = e2q::global_id_class[2];    \
+            }                                     \
+            if (e2q::e2l_silk.exist(_id)) {       \
+                e2q::e2l_silk.init(_id);          \
+            }                                     \
+            if (e2q::e2l_silk.check(_id, id)) {   \
+                _bool = e2::Bool::B_FALSE;        \
+            }                                     \
+            else {                                \
+                _bool = e2::Bool::B_TRUE;         \
+            }                                     \
+        } while (0);                              \
     })
 
 struct __BarOHLC_t {

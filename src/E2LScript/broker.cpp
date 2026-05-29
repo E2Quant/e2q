@@ -366,8 +366,29 @@ e2::Int_e TotalCash()
  */
 e2::Int_e TotalMargin()
 {
+    if (e2q::FinFabr == nullptr) {
+        return 0;
+    }
     e2::Int_e margin = e2q::FinFabr->_all_margin;
     return VALNUMBER(margin);
 } /* -----  end of function TotalMargin  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  LimitPriceGap
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e LimitPriceGap()
+{
+    if (e2q::FixPtr == nullptr) {
+        return 0;
+    }
+    return e2q::FixPtr->_cash._price_gap;
+} /* -----  end of function LimitPriceGap  ----- */
 }  // namespace e2l

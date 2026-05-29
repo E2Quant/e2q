@@ -234,7 +234,7 @@ void E2LFunList()
     AddFun(BrokerBook, 1, "FBrokerBook", E2L_NORETURN, "(booktype);");
     AddFun(TotalCash, 0, "FTotalCash", E2L_RETURN, "();");
     AddFun(TotalMargin, 0, "FTotalMargin", E2L_RETURN, "();");
-
+    AddFun(LimitPriceGap, 0, "FLimitPriceGap", E2L_RETURN, "();");
     /**
      * broker end
      */

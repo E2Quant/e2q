@@ -48,7 +48,6 @@
 #include <exception>
 #include <memory>
 #include <string>
-#include <thread>
 
 #include "E2L/E2LType.hpp"
 #include "OMSPack/FixGuard.hpp"
@@ -56,6 +55,7 @@
 #include "OMSPack/OrderBook/OrderMatcher.hpp"
 #include "OMSPack/Quote/FeedData.hpp"
 #include "OMSPack/SessionGlobal.hpp"
+#include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
 
 #if __cplusplus >= 201703L
@@ -227,7 +227,7 @@ FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon)*/
     void rejectOrder(const FIX::SessionID&, const FIX::ClOrdID& clOrdID,
                      const FIX::Symbol& symbol, const FIX::Side& side,
                      const std::string& message, e2::Int_e, e2::Int_e,
-                     e2::Int_e, e2::Int_e);
+                     e2::Int_e, e2::Int_e, RejectType rt);
 
     void acceptOrder(const OrderLots& order)
     {

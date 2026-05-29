@@ -175,7 +175,9 @@ void Exchange::RiskFix(int process, func_type<> child_process)
     FixBeam _fixbeam;
     _fixbeam.shareptr(_resource);
     _beam_data->assign<FixBeam, Func_beam>(_fixbeam);
+    global_id_class[2] = this_thread::get_id();
 
+    e2l_thread_map.AutoInit(global_id_class[2], 0);
     try {
         e2q::FixApplication application(_program);
 

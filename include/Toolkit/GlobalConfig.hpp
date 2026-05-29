@@ -105,7 +105,7 @@ inline bool process_debug;
 inline bool llvm_ll;
 
 // e2::init, fixapplication
-inline std::thread::id global_id_class[2];
+inline std::thread::id global_id_class[3];
 
 #define pg_max_connect 3
 inline std::shared_ptr<PGConnectPool> GlobalDBPtr{nullptr};

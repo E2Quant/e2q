@@ -378,6 +378,11 @@ struct EaTraderInfo : public TraderInfo {
     // all_postion;
     double all_postion = 1.0;
 
+    // 订单报价超出了
+    // 目前用在限额上面
+    // 也有可能是外部撮合金额不够，也可以用到吧
+    e2::Int_e _price_gap = 0;
+
 private:
     using CMute = BasicLock::mutex_type;
     mutable CMute _CMute;
@@ -600,6 +605,19 @@ enum BotLob {
 }; /* ----------  end of enum BotLob  ---------- */
 
 typedef enum BotLob BotLob;
+
+enum __RejectType {
+    symbol_not_exist,
+    stop_order_now,
+    close_order_qty_empty,
+    settlement_t_x,
+    price_qty_emtpy,
+    risk_error,
+    process_order_error,
+    exception_error
+}; /* ----------  end of enum __RejectType  ---------- */
+
+typedef enum __RejectType RejectType;
 
 struct __E2LVersion {
     int maj = 0;

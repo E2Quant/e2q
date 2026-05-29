@@ -510,6 +510,19 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
         "1 )",
         saxm.CfiCode, FinFabr->_QuantVerId);
     if (gsql != nullptr) {
+        std::string check_sql = elog::format(
+            "SELECT id FROM exdr WHERE symbol = %s AND extype=%d AND ymd=%ld "
+            "LIMIT 1;",
+            cfi_str.c_str(), saxm.category, node._ymd);
+
+        bool r = SelectSQL(gsql, check_sql);
+        if (r && gsql->tuple_size() > 0) {
+            GlobalDBPtr->release(gidx);
+
+            elog::bug("exist ymd:", node._ymd);
+
+            return;
+        }
         gsql->insert_table("exdr");
         gsql->insert_field("symbol", cfi_str);
         gsql->insert_field("cash", cash);

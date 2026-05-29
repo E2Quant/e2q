@@ -52,6 +52,7 @@
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/util_inline.hpp"
+#include "Toolkit/GlobalConfig.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/kafka/protocol/proto.hpp"
 
@@ -300,6 +301,7 @@ e2::Int_e LastStoreId(e2::Int_e loc, const char* _path)
 {
     std::thread::id _id;
     AutoInc(_id, 0);
+
     e2::Int_e id = e2q::e2l_thread_map.Id(_id);
     return VALNUMBER(id);
 } /* -----  end of function LastStoreId  ----- */

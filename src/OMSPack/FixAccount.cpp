@@ -99,24 +99,6 @@ FixAccount::FixAccount() {
  *
  * ============================================
  */
-void FixAccount::onMessage(const FIX44::Heartbeat& message,
-                           const FIX::SessionID&)
-{
-    elog::echo("2");
-
-} /* -----  end of function FixAccount::onMessage  ----- */
-
-/*
- * ===  FUNCTION  =============================
- *
- *         Name:  FixAccount::onMessage
- *  ->  void *
- *  Parameters:
- *  - size_t  arg
- *  Description:
- *
- * ============================================
- */
 void FixAccount::onMessage(const FIX44::QuoteCancel&, const FIX::SessionID& sid)
 {
     _fq.quit();
@@ -372,7 +354,7 @@ void FixAccount::onMessage(const FIX44::Quote& message,
 
     std::uint32_t cfiCode = atol(cfi_code.getValue().c_str());
     std::uint64_t unix_time = atoll(funix_time.getValue().c_str());
-    elog::info("Quote cfi:", cfiCode);
+
     std::uint16_t count_down = (std::uint16_t)os.getValue();
 
     if (qt == FIX::QuoteType_TRADEABLE) {
@@ -516,6 +498,24 @@ void FixAccount::History()
     QuoteStatusReport(1);
     GlobalMainArguments.number_for_bin_read = -1;
 } /* -----  end of function FixAccount::History  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  FixAccount::onMessage
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void FixAccount::onMessage(const FIX44::Heartbeat& message,
+                           const FIX::SessionID&)
+{
+    elog::echo("2");
+
+} /* -----  end of function FixAccount::onMessage  ----- */
 
 /*
  * ===  FUNCTION  =============================
@@ -983,6 +983,8 @@ void FixAccount::onMessage(const FIX44::ExecutionReport& message,
         elog::bug("ticket == 0: ", ticket.getValue());
         return;
     }
+    // 清除价格
+    FixPtr->_cash._price_gap = 0;
 
     if (margin > 0) {
         switch (ord_status) {
@@ -1160,6 +1162,9 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
 
     e2::Side _side = e2::Side::os_Buy;
 
+    std::size_t oticket = 0;
+    e2::Int_e closetck = 0;
+
     if (aCxlRejResponseTo.getValue() == '2') {
         // 平仓
         _side = e2::Side::os_Sell;
@@ -1180,7 +1185,9 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
         // 开仓出现的
         // 1,3
         // tk > 0 这儿是 4, buy match出现的
-        RejectOrCancelNewOrder(quantId, key, tk, 0, thread_number, true);
+        oticket = tk;
+        closetck = 0;
+
         // elog::bug("quantid:", quantId, " ticket == 0: ", tk,
         //           " text:", rejtext.getValue());
     }
@@ -1188,11 +1195,24 @@ void FixAccount::onMessage(const FIX44::OrderCancelReject& message,
         // 平仓
         // 2, 4(sell)
 
-        RejectOrCancelNewOrder(quantId, key, 0, tk, thread_number, true);
+        oticket = 0;
+        closetck = tk;
         // elog::bug("quantid:", quantId, "ticket == 0: ", tk,
         //           " text:", rejtext.getValue());
     }
 
+    RejectOrCancelNewOrder(quantId, key, oticket, closetck, thread_number,
+                           true);
+
+    if (rejtext.getLength() > 0) {
+        // risk < 0;
+        elog::bug("quantid:", quantId, " ticket == 0: ", tk,
+                  " limit cash:", rejtext.getValue());
+        FixPtr->_cash._price_gap = atoll(rejtext.getValue().c_str());
+    }
+    else {
+        FixPtr->_cash._price_gap = 0;
+    }
 } /* -----  end of function FixAccount::onMessage  ----- */
 
 /*

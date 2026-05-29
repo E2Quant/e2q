@@ -68,8 +68,8 @@ namespace e2l {
  *
  * ============================================
  */
-void Array(e2::Int_e id, e2::Int_e asize, const char *_vname, e2::Int_e loc,
-           const char *_path)
+void Array(e2::Int_e id, e2::Int_e asize, const char* _vname, e2::Int_e loc,
+           const char* _path)
 {
     id = NUMBERVAL(id);
     if (id <= 0) {
@@ -96,8 +96,8 @@ void Array(e2::Int_e id, e2::Int_e asize, const char *_vname, e2::Int_e loc,
  *
  * ============================================
  */
-void ArrayFixed(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                const char *_path)
+void ArrayFixed(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -116,8 +116,8 @@ void ArrayFixed(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *
  * ============================================
  */
-void ArrayFill(e2::Int_e id, e2::Int_e value, const char *_vname, e2::Int_e loc,
-               const char *_path)
+void ArrayFill(e2::Int_e id, e2::Int_e value, const char* _vname, e2::Int_e loc,
+               const char* _path)
 {
     id = NUMBERVAL(id);
     if (id == 0) {
@@ -141,8 +141,8 @@ void ArrayFill(e2::Int_e id, e2::Int_e value, const char *_vname, e2::Int_e loc,
  *  最新的值添加在最后
  * ============================================
  */
-e2::Bool ArrayAdd(e2::Int_e id, e2::Int_e val, const char *_vname,
-                  e2::Int_e loc, const char *_path)
+e2::Bool ArrayAdd(e2::Int_e id, e2::Int_e val, const char* _vname,
+                  e2::Int_e loc, const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -164,7 +164,7 @@ e2::Bool ArrayAdd(e2::Int_e id, e2::Int_e val, const char *_vname,
  * ============================================
  */
 e2::Bool ArrayUpdate(e2::Int_e id, e2::Int_e index, e2::Int_e x,
-                     const char *_vname, e2::Int_e loc, const char *_path)
+                     const char* _vname, e2::Int_e loc, const char* _path)
 {
     id = NUMBERVAL(id);
     if (id == 0) {
@@ -195,8 +195,8 @@ e2::Bool ArrayUpdate(e2::Int_e id, e2::Int_e index, e2::Int_e x,
  *  跨进程的，只允许读，不能写
  * ============================================
  */
-void ArrayShare(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                const char *_path)
+void ArrayShare(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                const char* _path)
 {
     id = NUMBERVAL(id);
     e2q::e2_share_array.add_proce(id);
@@ -214,8 +214,8 @@ void ArrayShare(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  整体的长度
  * ============================================
  */
-e2::Int_e ArrayLength(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                      const char *_path)
+e2::Int_e ArrayLength(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                      const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -235,8 +235,8 @@ e2::Int_e ArrayLength(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  现在添加了多少个值
  * ============================================
  */
-e2::Int_e ArraySize(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                    const char *_path)
+e2::Int_e ArraySize(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                    const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -259,8 +259,8 @@ e2::Int_e ArraySize(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  最后一个idx 是最新的
  * ============================================
  */
-e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char *_vname,
-                   e2::Int_e loc, const char *_path)
+e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char* _vname,
+                   e2::Int_e loc, const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -270,11 +270,10 @@ e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char *_vname,
     }
     std::size_t idx = (std::size_t)NUMBERVAL(index);
     std::size_t len = e2q::e2_share_array.size(id);
-    if (idx >= len) {
+    if (idx >= len || len == 0) {
         return 0;
     }
     e2::Int_e val = e2q::e2_share_array.get(id, idx);
-
     return val;
 } /* -----  end of function GetArray  ----- */
 
@@ -289,8 +288,8 @@ e2::Int_e ArrayGet(e2::Int_e id, e2::Int_e index, const char *_vname,
  *
  * ============================================
  */
-e2::Int_e ArrayLast(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                    const char *_path)
+e2::Int_e ArrayLast(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                    const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -311,8 +310,8 @@ e2::Int_e ArrayLast(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *
  * ============================================
  */
-e2::Int_e ArrayMax(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                   const char *_path)
+e2::Int_e ArrayMax(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                   const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -331,8 +330,8 @@ e2::Int_e ArrayMax(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *
  * ============================================
  */
-e2::Int_e ArrayMin(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                   const char *_path)
+e2::Int_e ArrayMin(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                   const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -351,8 +350,8 @@ e2::Int_e ArrayMin(e2::Int_e id, const char *_vname, e2::Int_e loc,
  *  id 值与前 P 个 X 值相加
  * ============================================
  */
-e2::Int_e Sum(e2::Int_e id, e2::Int_e p, const char *_vname, e2::Int_e loc,
-              const char *_path)
+e2::Int_e Sum(e2::Int_e id, e2::Int_e p, const char* _vname, e2::Int_e loc,
+              const char* _path)
 {
     id = NUMBERVAL(id);
 
@@ -397,8 +396,8 @@ e2::Int_e Sqrt(e2::Int_e v)
  *  ring loop id
  * ============================================
  */
-e2::Int_e Stdev(e2::Int_e id, const char *_vname, e2::Int_e loc,
-                const char *_path)
+e2::Int_e Stdev(e2::Int_e id, const char* _vname, e2::Int_e loc,
+                const char* _path)
 {
     id = NUMBERVAL(id);
 

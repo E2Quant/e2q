@@ -146,6 +146,7 @@ e2::Int_e SymbolCFICode(e2::Int_e idx)
         }
         m++;
     }
+
     return VALNUMBER(cfi);
 } /* -----  end of function SymbolCFICode  ----- */
 
@@ -362,6 +363,9 @@ e2::Int_e BarNumber(e2::Int_e id, e2::Int_e timeframe)
  */
 e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
+    if (id < 0) {
+        return e2::Bool::B_FALSE;
+    }
     size_t stock = NUMBERVAL(id);
     shift = NUMBERVAL(shift);
     timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
@@ -369,7 +373,6 @@ e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
     if (timeframe == e2::TimeFrames::PERIOD_CURRENT) {
         timeframe = e2q::FixPtr->_current_tf;
     }
-
     std::thread::id pid;
     E2LBAR(pid);
     e2::Bool _bool = e2q::e2l_bar_ohlc.update(pid, stock, timeframe, shift);
@@ -468,6 +471,9 @@ e2::Int_e iHighest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
                    e2::Int_e count, e2::Int_e start)
 {
     id = NUMBERVAL(id);
+    if (id < 0) {
+        return -1;
+    }
     timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
     bt = (e2::BarType)NUMBERVAL(bt);
 
@@ -547,8 +553,8 @@ e2::Int_e iLowest(e2::Int_e id, e2::TimeFrames timeframe, e2::BarType bt,
 e2::Int_e iClose(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
     e2::Int_e ret = 0;
-
     e2::Bool b = Bar(id, timeframe, shift);
+
     if (b == e2::Bool::B_FALSE) {
         return ret;
     }
