@@ -93,25 +93,47 @@ extern std::size_t e2l_thread_num;
 /**
  * check FixPtr is nullptr
  */
-#define FIX_PTR_IS_NULL()                                              \
-    ({                                                                 \
-        do {                                                           \
-            if (FixPtr == nullptr || FixPtr->_fix_cfg.length() == 0) { \
-                elog::bug("FixPtr is null!");                           \
-                return;                                                \
-            }                                                          \
-        } while (0);                                                   \
+#define FIX_PTR_IS_NULL()                              \
+    ({                                                 \
+        do {                                           \
+            if (e2q::FixPtr == nullptr ||              \
+                e2q::FixPtr->_fix_cfg.length() == 0) { \
+                e2q::elog::bug("FixPtr is null!");     \
+                return;                                \
+            }                                          \
+        } while (0);                                   \
     })
 
-#define FIN_FABR_IS_NULL()                                               \
-    ({                                                                   \
-        do {                                                             \
-            if (FinFabr == nullptr || FinFabr->_fix_cfg.length() == 0) { \
-                elog::bug("FinFabr is null!");                            \
-                return;                                                  \
-            }                                                            \
-        } while (0);                                                     \
+#define FIX_PTR_IS_NULL_RETURN()                       \
+    ({                                                 \
+        do {                                           \
+            if (e2q::FixPtr == nullptr ||              \
+                e2q::FixPtr->_fix_cfg.length() == 0) { \
+                return 0;                              \
+            }                                          \
+        } while (0);                                   \
     })
 
+#define FIN_FABR_IS_NULL()                              \
+    ({                                                  \
+        do {                                            \
+            if (e2q::FinFabr == nullptr ||              \
+                e2q::FinFabr->_fix_cfg.length() == 0) { \
+                e2q::elog::bug("FinFabr is null!");     \
+                return;                                 \
+            }                                           \
+        } while (0);                                    \
+    })
+
+#define FIN_FABR_IS_NULL_RETURN()                       \
+    ({                                                  \
+        do {                                            \
+            if (e2q::FinFabr == nullptr ||              \
+                e2q::FinFabr->_fix_cfg.length() == 0) { \
+                e2q::elog::bug("FinFabr is null!");     \
+                return 0;                               \
+            }                                           \
+        } while (0);                                    \
+    })
 }  // namespace e2q
 #endif /* ----- #ifndef EXTERNCLAZZ_INC  ----- */

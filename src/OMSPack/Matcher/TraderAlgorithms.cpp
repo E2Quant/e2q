@@ -46,6 +46,7 @@
 #include <utility>
 
 #include "E2L/E2LType.hpp"
+#include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/OrderBook/Order.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
@@ -604,6 +605,7 @@ void TraderAlgorithms::SessionLogout(const FIX::SessionID& sid)
  */
 double TraderAlgorithms::defDealCommission(double price, long qty)
 {
-    return 3.0;
+    double commission = price * qty * FinFabr->_commission;
+    return commission;
 } /* -----  end of function TraderAlgorithms::defDealCommission  ----- */
 }  // namespace e2q

@@ -189,8 +189,10 @@ void E2LFunList()
     AddFun(OrdersTotal, 0, "FOrdersTotal", E2L_RETURN, "();");
     AddFun(OrdersHistoryTotal, 0, "FOrdersHistoryTotal", E2L_RETURN, "();");
 
-    AddFun(OrderLots, 1, "FOrderLots", E2L_RETURN, "(ticket)");
+    AddFun(OrderLots, 1, "FOrderLots", E2L_RETURN, "(ticket);");
     AddFun(OrderOpenPrice, 2, "FOrderOpenPrice", E2L_RETURN, "(ticket, bool);");
+
+    AddFun(OrderOpenTime, 2, "FOrderOpenTime", E2L_RETURN, "(ticket, ootype);");
 
     /**
      * trade end
@@ -313,7 +315,7 @@ void E2LFunList()
 
     AddFun(iAdjClose, 3, "FAdjClose", E2L_RETURN,
            "(cfi_id, timeframe, shift);");
-
+    AddFun(iOrderPrice, 2, "FOrderPrice", E2L_NORETURN, "(cfi_id, price);");
     AddFun(BarVolumeAppend, 0, "FVolumeAppend", E2L_NORETURN, "();");
     AddFun(BarOnOpen, 0, "FOnOpen", E2L_NORETURN, "();");
     AddFun(BarSize, 2, "FBarSize", E2L_RETURN, "(cfi_id, timeframe);");
@@ -364,7 +366,13 @@ void E2LFunList()
     AddFun(hours, 1, "FHour", E2L_RETURN, "(now);");
     AddFun(minutes, 1, "FMinute", E2L_RETURN, "(now);");
     AddFun(second, 1, "FSecond", E2L_RETURN, "(now);");
-    AddFun(millisecond, 1, "Fmillisecond", E2L_RETURN, "(now);");
+    AddFun(millisecond, 1, "FMillisecond", E2L_RETURN, "(now);");
+    AddFun(ymd, 1, "FYmd", E2L_RETURN, "(now);");
+    AddFun(ymdh, 1, "FYmdh", E2L_RETURN, "(now);");
+    AddFun(ymdhm, 1, "FYmdhm", E2L_RETURN, "(now);");
+    AddFun(ymdhms, 1, "FYmdhms", E2L_RETURN, "(now);");
+    AddFun(ymdw, 1, "FYmdw", E2L_RETURN, "(now);");
+
     /**
      * date time end
      */

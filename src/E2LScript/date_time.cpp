@@ -104,6 +104,15 @@ e2::Int_e Clock()
     return _time;
 } /* -----  end of function Clock  ----- */
 
+e2::Int_e fmtDate(e2::Int_e now, const char* fmt)
+{
+    e2::Int_e y = 0;
+    e2q::UtilTime ut;
+    std::string ys = ut.millitostr(now, fmt);
+    y = atoi(ys.c_str());
+    return VALNUMBER(y);
+}
+
 /*
  * ===  FUNCTION  =============================
  *
@@ -117,12 +126,9 @@ e2::Int_e Clock()
  */
 e2::Int_e year(e2::Int_e now)
 {
-    e2::Int_e y = 0;
-    const char *fmt = "%Y";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    y = atoi(ys.c_str());
-    return VALNUMBER(y);
+    const char* fmt = "%Y";
+
+    return fmtDate(now, fmt);
 } /* -----  end of function year  ----- */
 
 /*
@@ -138,12 +144,9 @@ e2::Int_e year(e2::Int_e now)
  */
 e2::Int_e month(e2::Int_e now)
 {
-    e2::Int_e v = 0;
-    const char *fmt = "%m";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    v = atoi(ys.c_str());
-    return VALNUMBER(v);
+    const char* fmt = "%m";
+    return fmtDate(now, fmt);
+
 } /* -----  end of function month  ----- */
 
 /*
@@ -159,12 +162,9 @@ e2::Int_e month(e2::Int_e now)
  */
 e2::Int_e day(e2::Int_e now)
 {
-    e2::Int_e v = 0;
-    const char *fmt = "%d";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    v = atoi(ys.c_str());
-    return VALNUMBER(v);
+    const char* fmt = "%d";
+    return fmtDate(now, fmt);
+
 } /* -----  end of function day  ----- */
 
 /*
@@ -180,12 +180,9 @@ e2::Int_e day(e2::Int_e now)
  */
 e2::Int_e week(e2::Int_e now)
 {
-    e2::Int_e v = 0;
-    const char *fmt = "%w";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    v = atoi(ys.c_str());
-    return VALNUMBER(v);
+    const char* fmt = "%w";
+    return fmtDate(now, fmt);
+
 } /* -----  end of function week  ----- */
 
 /*
@@ -201,12 +198,9 @@ e2::Int_e week(e2::Int_e now)
  */
 e2::Int_e year_week(e2::Int_e now)
 {
-    e2::Int_e v = 0;
-    const char *fmt = "%U";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    v = atoi(ys.c_str());
-    return VALNUMBER(v);
+    const char* fmt = "%U";
+    return fmtDate(now, fmt);
+
 } /* -----  end of function year_week  ----- */
 
 /*
@@ -222,12 +216,9 @@ e2::Int_e year_week(e2::Int_e now)
  */
 e2::Int_e hours(e2::Int_e now)
 {
-    e2::Int_e v = 0;
-    const char *fmt = "%H";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    v = atoi(ys.c_str());
-    return VALNUMBER(v);
+    const char* fmt = "%H";
+    return fmtDate(now, fmt);
+
 } /* -----  end of function hours  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -242,12 +233,8 @@ e2::Int_e hours(e2::Int_e now)
  */
 e2::Int_e minutes(e2::Int_e now)
 {
-    e2::Int_e v = 0;
-    const char *fmt = "%M";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    v = atoi(ys.c_str());
-    return VALNUMBER(v);
+    const char* fmt = "%M";
+    return fmtDate(now, fmt);
 } /* -----  end of function minutes  ----- */
 /*
  * ===  FUNCTION  =============================
@@ -262,12 +249,8 @@ e2::Int_e minutes(e2::Int_e now)
  */
 e2::Int_e second(e2::Int_e now)
 {
-    e2::Int_e v = 0;
-    const char *fmt = "%s";
-    e2q::UtilTime ut;
-    std::string ys = ut.millitostr(now, fmt);
-    v = atoi(ys.c_str());
-    return VALNUMBER(v);
+    const char* fmt = "%S";
+    return fmtDate(now, fmt);
 
 } /* -----  end of function second  ----- */
 
@@ -286,4 +269,100 @@ e2::Int_e millisecond(e2::Int_e t)
 {
     return VALNUMBER((t % 1000));
 } /* -----  end of function millisecond  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  ymd
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e ymd(e2::Int_e now)
+{
+    const char* fmt = "%Y%m%d";
+
+    return fmtDate(now, fmt);
+}
+/* -----  end of function ymd  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  ymdh
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e ymdh(e2::Int_e now)
+{
+    const char* fmt = "%Y%m%d%H";
+
+    return fmtDate(now, fmt);
+}
+/* -----  end of function ymdh  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  ymdhm
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e ymdhm(e2::Int_e now)
+{
+    const char* fmt = "%Y%m%d%H%M";
+
+    return fmtDate(now, fmt);
+}
+/* -----  end of function ymdhm  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  ymdhms
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e ymdhms(e2::Int_e now)
+{
+    const char* fmt = "%Y%m%d%H%M%S";
+
+    return fmtDate(now, fmt);
+}
+/* -----  end of function ymdhms  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  ymdw
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e ymdw(e2::Int_e now)
+{
+    const char* fmt = "%Y%m%d%W";
+
+    return fmtDate(now, fmt);
+}
+/* -----  end of function ymdw  ----- */
+
 }  // namespace e2l

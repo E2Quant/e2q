@@ -94,9 +94,9 @@ struct __AutoInc_t {
             _autoinc.at(_id)->init();
             _autoinc.at(_id)->_number = num;
         }
-        else {
-            elog::info("bad thread id:", _id);
-        }
+        // else {
+        //     elog::info("bad thread id:", _id);
+        // }
     }
     void runs(std::thread::id _id) { _autoinc.at(_id)->_run_number += 1; }
     e2::Int_e Id(std::thread::id _id)

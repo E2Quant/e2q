@@ -648,12 +648,16 @@ void FixAccount::onMessage(const FIX44::MarketDataSnapshotFullRefresh& message,
                 FixPtr->_fix_symbols[cfiCode].dia == DoIAction::LIST) {
                 // 涨跌板
                 FixPtr->_fix_symbols[cfiCode].dia = DoIAction::THROWOUT;
+
+                elog::info("ticket THROWOUT cfi:", cfiCode);
             }
 
             if (data[Trading::t_qty] > 0 &&
                 FixPtr->_fix_symbols[cfiCode].dia == DoIAction::THROWOUT) {
                 // 涨跌板
                 FixPtr->_fix_symbols[cfiCode].dia = DoIAction::LIST;
+
+                elog::info("ticket list cfi:", cfiCode);
             }
 
             delisting(cfiCode, data[Trading::t_time], sid);

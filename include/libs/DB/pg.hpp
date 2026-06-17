@@ -245,8 +245,14 @@ public:
     void pgConstraints() { PQexec(_conn, "SET CONSTRAINTS ALL DEFERRED;"); };
     void pgcommit() { PQexec(_conn, "COMMIT"); }
 
-    void update_table(std::string table) { _update_sql += table + " SET "; }
+    void update_table(std::string table)
+    {
+        _update_sql = "UPDATE  ";
 
+        _update_sql += table + " SET ";
+    }
+
+    std::string print_update_sql() { return _update_sql; }
     template <typename T>
     void update_field(std::string field, T t, std::size_t deci = 0)
     {

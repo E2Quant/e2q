@@ -41,6 +41,7 @@
  * =====================================================================================
  */
 #include "E2L/E2LType.hpp"
+#include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 namespace e2l {
 
@@ -59,6 +60,7 @@ namespace e2l {
  */
 void Giveaway()
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->lob = e2q::BotLob::giveaway;
 
 } /* -----  end of function Giveaway  ----- */

@@ -84,7 +84,7 @@ Pgsql::Pgsql(std::string file)
  */
 void Pgsql::init()
 {
-    const char *_conninfo = _properties.c_str();
+    const char* _conninfo = _properties.c_str();
 
     _conn = PQconnectdb(_conninfo);
     /* Check to see that the backend connection was successfully made */
@@ -161,7 +161,7 @@ bool Pgsql::end()
  *
  * ============================================
  */
-int Pgsql::PGResult(char **field, char **val)
+int Pgsql::PGResult(char** field, char** val)
 {
     int ret = -1;
     if (_res == nullptr) {
@@ -206,7 +206,7 @@ bool Pgsql::row()
  *
  * ============================================
  */
-void Pgsql::OneHead(char **field, char **val)
+void Pgsql::OneHead(char** field, char** val)
 {
     if (_res == nullptr || _nfields == 0) {
         elog::echo("res is null");
@@ -268,7 +268,7 @@ void Pgsql::insert_return(std::string field)
  *
  * ============================================
  */
-bool Pgsql::delete_commit(std::string sql, const char *file, long lineNumber)
+bool Pgsql::delete_commit(std::string sql, const char* file, long lineNumber)
 {
     std::string _sql = sql + ";";
 
@@ -289,7 +289,7 @@ bool Pgsql::delete_commit(std::string sql, const char *file, long lineNumber)
  *
  * ============================================
  */
-bool Pgsql::select_sql(std::string sql, const char *file, long lineNumber)
+bool Pgsql::select_sql(std::string sql, const char* file, long lineNumber)
 {
     _idx = 0;
     std::string _sql = sql + ";";
@@ -315,7 +315,7 @@ bool Pgsql::select_sql(std::string sql, const char *file, long lineNumber)
  *
  * ============================================
  */
-bool Pgsql::update_commit(const char *file, long lineNumber)
+bool Pgsql::update_commit(const char* file, long lineNumber)
 {
     if (_update_set.length() > 0) {
         _update_sql += _update_set;
@@ -330,10 +330,8 @@ bool Pgsql::update_commit(const char *file, long lineNumber)
     if (ret == false) {
         _command_count = 0;
     }
-    _update_sql = "UPDATE  ";
     _update_set = "";
     _update_condition = "";
-
     return ret;
 } /* -----  end of function Pgsql::update_commit  ----- */
 
@@ -348,7 +346,7 @@ bool Pgsql::update_commit(const char *file, long lineNumber)
  *
  * ============================================
  */
-bool Pgsql::exec(std::string sql, const char *file, long lineNumber)
+bool Pgsql::exec(std::string sql, const char* file, long lineNumber)
 {
     bool ret = false;
     if (_conn == nullptr) {

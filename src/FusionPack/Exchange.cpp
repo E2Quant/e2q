@@ -240,7 +240,7 @@ void Exchange::RiskFix(int process, func_type<> child_process)
 
         GlobalDBPtr->release(gidx);
 
-        elog::info("oms stop");
+        elog::bug("oms stop");
     }
     catch (std::exception& e) {
         elog::bug("error:", e.what());

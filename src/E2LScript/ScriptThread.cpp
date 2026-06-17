@@ -116,6 +116,7 @@ void ScriptThread::init(const char* file, std::string edir)
             FinFabr->_offer_time = 0;
             FinFabr->_fix_symbol_only_for_ea = OnlyEA::FORANLYONE;
             FinFabr->_fix_cfg = "";
+            FinFabr->_commission = 0.00002;
             break;
         }
         default:

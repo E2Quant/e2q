@@ -173,6 +173,8 @@ void mkkf(const char* source)
  */
 void topic_tick(const char* topic)
 {
+    FIN_FABR_IS_NULL();
+
     if (topic == nullptr || e2q::FinFabr == nullptr) {
         llog::bug("source or topic not  nullptr");
         return;
@@ -181,6 +183,7 @@ void topic_tick(const char* topic)
 } /* -----  end of function topic_tick  ----- */
 
 /*
+mount -t proc proc /proc
  * ===  FUNCTION  =============================
  *
  *         Name:  topic_log
@@ -234,6 +237,7 @@ void topic_log(const char* topic)
  */
 void mkcsv(const char* source, const char* symbol)
 {
+    FIN_FABR_IS_NULL();
     if (source == nullptr || symbol == nullptr) {
         llog::bug("path , symbol, code not  nullptr");
         return;
@@ -257,6 +261,7 @@ void mkcsv(const char* source, const char* symbol)
  */
 void mktype(e2::Int_e tb)
 {
+    FIN_FABR_IS_NULL();
     tb = NUMBERVAL(tb);
     e2q::FinFabr->_tick_bar = (e2::MKType)tb;
 } /* -----  end of function mktype  ----- */
@@ -297,6 +302,7 @@ void tframe(e2::Int_e t)
  */
 e2::Int_e deftframe()
 {
+    FIX_PTR_IS_NULL_RETURN();
     return VALNUMBER(e2q::FixPtr->_current_tf);
 } /* -----  end of function deftframe  ----- */
 
@@ -313,6 +319,8 @@ e2::Int_e deftframe()
  */
 e2::Int_e tframelength()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     e2::Int_e ret = e2q::FixPtr->_tf.size();
     return VALNUMBER(ret);
 } /* -----  end of function tframelength  ----- */
@@ -330,6 +338,8 @@ e2::Int_e tframelength()
  */
 e2::Int_e gettframe(e2::Int_e idx)
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     idx = NUMBERVAL(idx);
     idx = idx % e2q::FixPtr->_tf.size();
 
@@ -349,6 +359,8 @@ e2::Int_e gettframe(e2::Int_e idx)
  */
 e2::Int_e index()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     return e2q::FixPtr->_offers;
 } /* -----  end of function index  ----- */
 
@@ -365,6 +377,8 @@ e2::Int_e index()
  */
 void offers(e2::Int_e o)
 {
+    FIX_PTR_IS_NULL();
+
     switch (o) {
         case e2::Offers::OF_Index:
             e2q::FixPtr->_offers = e2::Offers::OF_Index;
@@ -392,6 +406,8 @@ void offers(e2::Int_e o)
  */
 void OfferTime(e2::Int_e t)
 {
+    FIN_FABR_IS_NULL();
+
     t = NUMBERVAL(t);
 
     if (t < 50) {
@@ -416,6 +432,8 @@ void OfferTime(e2::Int_e t)
 void TradeTime(e2::Int_e open_hour, e2::Int_e open_min, e2::Int_e close_hour,
                e2::Int_e close_min)
 {
+    FIN_FABR_IS_NULL();
+
     e2q::TradeTime tt;
     tt.open_hour = NUMBERVAL(open_hour);
     tt.open_min = NUMBERVAL(open_min);
@@ -439,6 +457,7 @@ void TradeTime(e2::Int_e open_hour, e2::Int_e open_min, e2::Int_e close_hour,
  */
 void gmtime()
 {
+    FIX_PTR_IS_NULL();
     e2q::FixPtr->_gmt = 1;
 } /* -----  end of function gmtime  ----- */
 /*
@@ -454,8 +473,9 @@ void gmtime()
  */
 void commission(e2::Int_e cms, const char* ccy)
 {
-    cms = NUMBERVAL(cms);
-    e2q::FinFabr->_commission = cms;
+    FIN_FABR_IS_NULL();
+
+    e2q::FinFabr->_commission = NUMBERVAL(cms);
     e2q::FinFabr->_ccy = std::string(ccy);
 
 } /* -----  end of function commission  ----- */
@@ -473,6 +493,8 @@ void commission(e2::Int_e cms, const char* ccy)
  */
 void QuantId(e2::Int_e id)
 {
+    FIX_PTR_IS_NULL();
+
     std::thread::id _id = std::this_thread::get_id();
     if (e2q::FixPtr->_quantId.count(_id) == 0) {
         e2q::FixPtr->_quantId.insert({_id, {id, 0}});
@@ -508,6 +530,8 @@ void GenerateQuantId() {} /* -----  end of function GenerateQuantId  ----- */
  */
 e2::Int_e CurrentQuantId()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::thread::id _id = std::this_thread::get_id();
     if (e2q::FixPtr->_quantId.count(_id) == 0) {
         return 0;
@@ -530,6 +554,8 @@ e2::Int_e CurrentQuantId()
  */
 void TradeMode(e2::SymbolTradeMode m)
 {
+    FIN_FABR_IS_NULL();
+
     e2::SymbolTradeMode tm = (e2::SymbolTradeMode)NUMBERVAL(m);
     switch (tm) {
         case e2::SymbolTradeMode::M_Disabled:
@@ -563,6 +589,8 @@ void TradeMode(e2::SymbolTradeMode m)
  */
 void QuantVersion(e2::Int_e major, e2::Int_e minor, e2::Int_e patch)
 {
+    FIN_FABR_IS_NULL();
+
     char* field = nullptr;
     char* val = nullptr;
     e2q::FinFabr->_e2l_ver.maj = (int)NUMBERVAL(abs(major));
@@ -668,6 +696,9 @@ e2::Int_e VersionId()
  */
 e2::Int_e LastVerId()
 {
+    if (e2q::GlobalDBPtr == nullptr) {
+        return 0;
+    }
     char* field = nullptr;
     char* val = nullptr;
     e2::Int_e id = 0;
@@ -704,6 +735,8 @@ e2::Int_e LastVerId()
  */
 void LotAndShare(e2::Int_e e)
 {
+    FIN_FABR_IS_NULL();
+
     double lots = (double)NUMBERVAL(e);
 
     e2q::FinFabr->_lot_and_share = lots;

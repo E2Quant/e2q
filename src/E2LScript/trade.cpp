@@ -82,6 +82,9 @@ e2::Bool OrderClose(
         slippage  // slippage  Value of the maximum price slippage in points.
 )
 {
+    if (e2q::FixPtr == nullptr) {
+        return e2::Bool::B_FALSE;
+    }
     ticket = NUMBERVAL(ticket);
     lots = NUMBERVAL(lots);
     if (e2q::GlobalMainArguments.number_for_bin_read >= 0) {
@@ -199,6 +202,9 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
 
 )
 {
+    if (e2q::FixPtr == nullptr) {
+        return e2::Bool::B_FALSE;
+    }
     symbol = NUMBERVAL(symbol);
     qty = NUMBERVAL(qty);
 
@@ -297,6 +303,9 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
  */
 e2::Bool OrderSelect(e2::Int_e index, e2::SelectFlag sel, e2::SelectFlag pool)
 {
+    if (e2q::FixPtr == nullptr) {
+        return e2::Bool::B_FALSE;
+    }
     index = NUMBERVAL(index);
     sel = (e2::SelectFlag)NUMBERVAL(sel);
     pool = (e2::SelectFlag)NUMBERVAL(pool);
@@ -340,6 +349,8 @@ e2::Bool OrderSelect(e2::Int_e index, e2::SelectFlag sel, e2::SelectFlag pool)
  */
 e2::Int_e OrderTicket()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     e2q::SeqType tick = 0;
     std::thread::id _id = std::this_thread::get_id();
 
@@ -428,6 +439,8 @@ e2::Int_e OrderTicket()
  */
 e2::Int_e OrderLots(e2::Int_e ticket)
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::thread::id _id = std::this_thread::get_id();
     ticket = NUMBERVAL(ticket);
 
@@ -464,6 +477,8 @@ e2::Int_e OrderLots(e2::Int_e ticket)
  */
 e2::Int_e OrdersHistoryTotal()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::size_t count = 0;
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
@@ -500,6 +515,8 @@ e2::Int_e OrdersHistoryTotal()
  */
 e2::Int_e OrdersTotal()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::size_t count = 0;
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
@@ -532,6 +549,8 @@ e2::Int_e OrdersTotal()
  */
 void OrderComment(e2::Int_e ticket, e2::Side side, e2::OrderEvent oe)
 {
+    FIX_PTR_IS_NULL();
+
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     ticket = NUMBERVAL(ticket);
@@ -560,6 +579,8 @@ void OrderComment(e2::Int_e ticket, e2::Side side, e2::OrderEvent oe)
  */
 e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {
@@ -591,5 +612,99 @@ e2::Int_e OrderOpenPrice(e2::Int_e ticket, e2::Bool b)
 
     return px;
 } /* -----  end of function OrderOpenPrice  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  OrderOpenTime
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+e2::Int_e OrderOpenTime(e2::Int_e ticket, e2::OOTType oot)
+{
+    FIX_PTR_IS_NULL_RETURN();
+    e2::Int_e ret = 0;
+    std::thread::id _id = std::this_thread::get_id();
+    std::size_t quantid = 0;
+    if (e2q::FixPtr->_quantId.count(_id) == 1) {
+        quantid = e2q::FixPtr->_quantId.at(_id).first;
+    }
+
+    if (e2q::FixPtr->_OrderIds.count(quantid) == 0) {
+        llog::bug("qid: ", quantid, " error");
+
+        return 0;
+    }
+
+    e2::Int_e _ticket = NUMBERVAL(ticket);
+    for (auto it = e2q::FixPtr->_OrderIds[quantid].begin();
+         it != e2q::FixPtr->_OrderIds[quantid].end(); ++it) {
+        if (it->second.ticket == _ticket) {
+            ret = it->second.tdate;
+            // llog::echo("tdate:", ret);
+            break;
+        }
+    }
+    if (ret > 0) {
+        //"%Y-%m-%d %H:%M:%S";
+
+        std::string fmt = "%d";
+        switch (oot) {
+            case e2::OOTType::oo_year:
+                fmt = "%Y";
+                break;
+            case e2::OOTType::oo_month:
+                fmt = "%m";
+                break;
+            case e2::OOTType::oo_day:
+                fmt = "%d";
+                break;
+            case e2::OOTType::oo_hour:
+                fmt = "%H";
+                break;
+            case e2::OOTType::oo_min:
+                fmt = "%M";
+                break;
+            case e2::OOTType::oo_second:
+                fmt = "%S";
+                break;
+            case e2::OOTType::oo_week:
+                fmt = "%W";
+                break;
+
+            case e2::OOTType::oo_ymd:
+                fmt = "%Y%m%d";
+                break;
+            case e2::OOTType::oo_ymdh:
+                fmt = "%Y%m%d%H";
+                break;
+
+            case e2::OOTType::oo_ymdhm:
+                fmt = "%Y%m%d%H%M";
+                break;
+
+            case e2::OOTType::oo_ymdhms:
+                fmt = "%Y%m%d%H%M%S";
+                break;
+
+            case e2::OOTType::oo_ymdw:
+                fmt = "%Y%m%d%W";
+                break;
+
+            default:
+
+                break;
+        }
+
+        e2q::UtilTime ut;
+        std::string ys = ut.millitostr(ret, fmt.c_str());
+        ret = atoi(ys.c_str());
+    }
+    return VALNUMBER(ret);
+} /* -----  end of function OrderOpenTime  ----- */
 
 }  // namespace e2l

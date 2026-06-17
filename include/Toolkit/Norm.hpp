@@ -665,7 +665,7 @@ struct __FinancialFabricate : public MarketInfo {
     std::string _ccy;                 // currency
     e2::MKType _csv_kafka;            // csv or kafka
     e2::MKType _tick_bar;             //  tick or bar
-    e2::Int_e _commission;            // commission
+    double _commission = 0.00002;     // commission
     e2::SymbolTradeMode _trade_mode;  // SymbolTradeMode
 
     // every one quant process order queue

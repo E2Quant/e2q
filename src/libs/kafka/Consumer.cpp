@@ -282,8 +282,9 @@ void KfConsumeCb::MarketIng(const char* p, int sz)
             if (std::find(std::begin(it->second), std::end(it->second),
                           mdoi.CfiCode) != std::end(it->second)) {
                 // 如果是退市，就只发给当前的一个sessionid
-                // elog::echo("delisting:", mdoi.CfiCode,
-                //            " name:", it->first.getTargetCompID().getValue());
+                elog::echo("delisting:", mdoi.CfiCode,
+                           " name:", it->first.getTargetCompID().getValue(),
+                           " DoIAction::THROWOUT");
                 Quote(it->first, mdoi);
                 FinFabr->_fix_symbols[mdoi.CfiCode].dia = DoIAction::THROWOUT;
             }
@@ -957,6 +958,12 @@ void KafkaFeed::handle(TradType tradcall)
     if (!tconf) {
         delete conf;
         elog::bug("tconf");
+        return;
+    }
+
+    if (conf->set("bootstrap.servers", _bokers, errstr) !=
+        RdKafka::Conf::CONF_OK) {
+        elog::bug("Configuration Error: ", errstr, " bokers:", _bokers);
         return;
     }
     /*

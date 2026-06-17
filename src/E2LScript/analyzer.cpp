@@ -44,6 +44,7 @@
 #include <string>
 
 #include "E2L/E2LType.hpp"
+#include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
 #include "E2LScript/util_inline.hpp"
@@ -164,6 +165,8 @@ e2::Int_e analytotal(e2::Int_e analy)
  */
 void Analse(e2::Int_e id, const char* name)
 {
+    FIX_PTR_IS_NULL();
+
     id = NUMBERVAL(id);
     std::thread::id _id = std::this_thread::get_id();
 
@@ -257,6 +260,7 @@ void AnalseDB()
  */
 void AnalseLog(e2::Int_e key, e2::Int_e val, e2::Int_e type, e2::Int_e time)
 {
+    FIX_PTR_IS_NULL();
     std::thread::id _id = std::this_thread::get_id();
     std::size_t quantid = 0;
     if (e2q::FixPtr->_quantId.count(_id) == 1) {

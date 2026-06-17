@@ -65,6 +65,8 @@ namespace e2l {
  */
 e2::Int_e AccountBalance()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::thread::id _id = std::this_thread::get_id();
     std::size_t number = e2q::e2l_thread_map.number(_id);
 
@@ -86,6 +88,8 @@ e2::Int_e AccountBalance()
  */
 e2::Int_e AccountMargin()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     e2::Int_e ret = 0;
     std::thread::id _id = std::this_thread::get_id();
     std::size_t number = e2q::e2l_thread_map.number(_id);
@@ -111,6 +115,8 @@ e2::Int_e AccountMargin()
  */
 e2::Int_e AccountEquity()
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::thread::id _id = std::this_thread::get_id();
     std::size_t number = e2q::e2l_thread_map.number(_id);
 
@@ -172,6 +178,8 @@ e2::Int_e AccountNumber()
  */
 void ThreadPosition(e2::Int_e tid, e2::Int_e position)
 {
+    FIX_PTR_IS_NULL();
+
     e2q::Postion thread_post;
 
     std::size_t num = NUMBERVAL(tid);

@@ -53,6 +53,7 @@
 #include <string>
 #include <vector>
 
+#include "E2LScript/e2lLead.hpp"
 #include "E2Q.hpp"
 #include "Toolkit/DaemonProcess.hpp"
 #include "Toolkit/GlobalConfig.hpp"
@@ -60,6 +61,7 @@
 #include "Toolkit/Util.hpp"
 #include "Toolkit/eLog.hpp"
 #include "ast/ParserCtx.hpp"
+#include "libs/bprinter/table_printer.h"
 using namespace e2q;
 /*
  * ===  FUNCTION  =============================
@@ -72,13 +74,16 @@ using namespace e2q;
  *
  * ============================================
  */
-void only_run(const char* f, bool graph)
+void only_run(const char* f, std::string search_dir, bool graph)
 {
     e2::ParserCtx ctx;
-
+    if (search_dir.length() > 0) {
+        ctx.search_path(search_dir.c_str());
+    }
     int ret = ctx.toparse(f);
 
     if (ret == -1) {
+        elog::bug("ret == -1");
         return;
     }
 
@@ -86,8 +91,15 @@ void only_run(const char* f, bool graph)
     CodeGenContext context;
 
     createCoreFunctions(context);
+    EAE2LFun();
 
     Block* block = ctx.RootBlock();
+
+    for (E2lFun_t it : funList) {
+        context.ExternBuildInt(std::get<0>(it), std::get<1>(it),
+                               std::get<2>(it), std::get<3>(it));
+    }
+
     bool isgc = context.generateCode(block);
 
     if (isgc) {
@@ -96,10 +108,21 @@ void only_run(const char* f, bool graph)
         if (graph) {
             context.setupAndRunPasses();
         }
-        elog::echo("ret:", ret);
+        const std::vector<OperatorDivZero> odz = context.OperatorDZ();
+        bprinter::TablePrinter tp(&std::cout);
+        tp.AddColumn("codeline", 20);
+        tp.AddColumn("path", 80);
+
+        tp.PrintHeader();
+        for (auto dx : odz) {
+            tp << dx.line << dx.path;
+        }
+        tp.PrintFooter();
+
+        e2::llog::echo("ret:", ret);
     }
     else {
-        elog::bug("generateCode is error");
+        e2::llog::bug("generateCode is error");
     }
 
 } /* -----  end of function only_run  ----- */
@@ -321,7 +344,7 @@ int e2q_action(int argc, char* argv[])
     }
 
     if (o != nullptr) {
-        only_run(o, graph);
+        only_run(o, searh_path, graph);
         return 0;
     }
 

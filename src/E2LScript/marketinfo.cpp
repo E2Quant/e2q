@@ -53,6 +53,7 @@
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/DB/pg.hpp"
 namespace e2l {
 
 /*
@@ -68,6 +69,7 @@ namespace e2l {
  */
 void Settlement(e2::Int_e t)
 {
+    FIN_FABR_IS_NULL();
     if (t >= 0) {
         std::size_t _t = NUMBERVAL(t);
 
@@ -125,6 +127,8 @@ void SymbolName(e2::Int_e cfi) {} /* -----  end of function SymbolName  ----- */
  */
 e2::Int_e SymbolCFICode(e2::Int_e idx)
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     std::size_t _id = (std::size_t)NUMBERVAL(idx);
 
     if (e2q::FixPtr == nullptr) {
@@ -164,10 +168,9 @@ e2::Int_e SymbolCFICode(e2::Int_e idx)
  */
 void SymbolSelect(e2::Int_e id)
 {
+    FIX_PTR_IS_NULL();
+
     std::size_t cfi_code = NUMBERVAL(id);
-    if (e2q::FixPtr == nullptr) {
-        return;
-    }
 
     if (std::find(e2q::FixPtr->_symbols.begin(), e2q::FixPtr->_symbols.end(),
                   cfi_code) == e2q::FixPtr->_symbols.end()) {
@@ -189,6 +192,7 @@ void SymbolSelect(e2::Int_e id)
  */
 void SymbolLockForEA()
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_fix_symbol_only_for_ea = e2q::OnlyEA::LOCKFOREA;
 } /* -----  end of function SymbolOnlyForEA  ----- */
 
@@ -205,6 +209,8 @@ void SymbolLockForEA()
  */
 e2::Int_e Delisting(e2::Int_e cficode)
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     e2::Int_e ret = 0;
     size_t _cficode = NUMBERVAL(cficode);
 
@@ -249,9 +255,8 @@ e2::Bool IsSuspended()
  */
 e2::Int_e SymbolCurrent()
 {
-    if (e2q::FixPtr == nullptr) {
-        return 0;
-    }
+    FIX_PTR_IS_NULL_RETURN();
+
     std::size_t m = 0;
     int cficode = 0;
     for (auto it : e2q::FixPtr->_fix_symbols) {
@@ -276,9 +281,8 @@ e2::Int_e SymbolCurrent()
  */
 void BarOnOpen()
 {
-    if (e2q::FixPtr == nullptr) {
-        return;
-    }
+    FIX_PTR_IS_NULL();
+
     e2q::FixPtr->_onOpen = true;
 
 } /* -----  end of function BarOnOpen  ----- */
@@ -296,6 +300,8 @@ void BarOnOpen()
  */
 void BarVolumeAppend()
 {
+    FIX_PTR_IS_NULL();
+
     e2q::FixPtr->_volume_append = true;
 } /* -----  end of function BarVolumeAppend  ----- */
 /*
@@ -311,6 +317,8 @@ void BarVolumeAppend()
  */
 e2::Int_e BarSize(e2::Int_e id, e2::Int_e timeframe)
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     size_t _id = NUMBERVAL(id);
     timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
     if (timeframe == e2::TimeFrames::PERIOD_CURRENT) {
@@ -337,6 +345,8 @@ e2::Int_e BarSize(e2::Int_e id, e2::Int_e timeframe)
  */
 e2::Int_e BarNumber(e2::Int_e id, e2::Int_e timeframe)
 {
+    FIX_PTR_IS_NULL_RETURN();
+
     size_t _id = NUMBERVAL(id);
     timeframe = (e2::TimeFrames)NUMBERVAL(timeframe);
     if (timeframe == e2::TimeFrames::PERIOD_CURRENT) {
@@ -363,6 +373,9 @@ e2::Int_e BarNumber(e2::Int_e id, e2::Int_e timeframe)
  */
 e2::Bool Bar(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 {
+    if (e2q::FixPtr == nullptr) {
+        return e2::Bool::B_FALSE;
+    }
     if (id < 0) {
         return e2::Bool::B_FALSE;
     }
@@ -637,6 +650,41 @@ e2::Int_e iTime(e2::Int_e id, e2::TimeFrames timeframe, e2::Int_e shift)
 
     return ret;
 } /* -----  end of function iTime  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  iOrderPrice
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void iOrderPrice(e2::Int_e id, e2::Int_e price)
+{
+    size_t _stock = NUMBERVAL(id);
+    double _price = NUMBERVAL(price);
+
+    if (e2q::GlobalDBPtr == nullptr) {
+        return;
+    }
+
+    std::size_t idx = e2q::GlobalDBPtr->getId();
+
+    e2q::Pgsql* gsql = e2q::GlobalDBPtr->ptr(idx);
+    if (gsql != nullptr) {
+        gsql->update_table("stockinfo");
+        gsql->update_field("adj_price", _price);
+        gsql->update_condition("symbol", _stock);
+        gsql->update_condition("verid", e2q::FinFabr->_QuantVerId);
+        UpdateCommit(gsql);
+    }
+
+    e2q::GlobalDBPtr->release(idx);
+
+} /* -----  end of function iOrderPrice  ----- */
 
 /*
  * ===  FUNCTION  =============================

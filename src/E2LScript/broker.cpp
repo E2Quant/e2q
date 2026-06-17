@@ -62,6 +62,7 @@ namespace e2l {
  */
 void setCash(e2::Int_e cash)
 {
+    FIX_PTR_IS_NULL();
     double _cash = (double)NUMBERVAL(cash);
     if (_cash <= 0) {
         _cash = 1;
@@ -100,6 +101,7 @@ e2::Int_e getCash()
  */
 void SettlInst(e2::SettleInstMode sim)
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_sim = (e2::SettleInstMode)NUMBERVAL(sim);
 } /* -----  end of function SettlInst  ----- */
 
@@ -116,6 +118,7 @@ void SettlInst(e2::SettleInstMode sim)
  */
 void TIForce(e2::TimeInForce tif)
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_tif = (e2::TimeInForce)NUMBERVAL(tif);
 
 } /* -----  end of function TIForce  ----- */
@@ -132,6 +135,7 @@ void TIForce(e2::TimeInForce tif)
  */
 void MarginRate(e2::Int_e mr)
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_margin_rate = (double)NUMBERVAL(mr);
 
 } /* -----  end of function MarginRate  ----- */
@@ -149,6 +153,7 @@ void MarginRate(e2::Int_e mr)
  */
 void MatchEventInit(e2::MatchEvent me)
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_ME = (e2::MatchEvent)NUMBERVAL(me);
 } /* -----  end of function MatchEventInit  ----- */
 
@@ -165,6 +170,7 @@ void MatchEventInit(e2::MatchEvent me)
  */
 void MatchTrigger(e2::Bool b)
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_match_trigger = b;
 
 } /* -----  end of function MatchTrigger  ----- */
@@ -183,6 +189,7 @@ void EnableExdividend(e2::Bool e)
 {
     // llog::info("e:", e);
 
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_enable_exrd = e;
 } /* -----  end of function EnableExdividend  ----- */
 
@@ -199,6 +206,9 @@ void EnableExdividend(e2::Bool e)
  */
 e2::Int_e ExDivPrice(e2::Int_e cfi)
 {
+    if (e2q::FixPtr == nullptr || e2q::FinFabr == nullptr) {
+        return 0;
+    }
     return e2q::ExdiSymList.getPrice(cfi);
 } /* -----  end of function ExDivPrice  ----- */
 
@@ -216,6 +226,7 @@ e2::Int_e ExDivPrice(e2::Int_e cfi)
 e2::Int_e ExDividendSize(e2::Int_e cfi)
 {
     e2::Int_e ret = 0;
+    FIN_FABR_IS_NULL_RETURN();
 
     if (e2q::FinFabr->_exrd.count(cfi) == 0) {
         return ret;
@@ -239,6 +250,9 @@ e2::Int_e ExDividendSize(e2::Int_e cfi)
 e2::Int_e ExDividendDate(e2::Int_e cfi, e2::Int_e idx)
 {
     e2::Int_e ret = 0;
+
+    FIN_FABR_IS_NULL_RETURN();
+
     std::size_t _idx = NUMBERVAL(idx);
     if (_idx > e2q::FinFabr->_exrd.at(cfi).size()) {
         return ret;
@@ -262,6 +276,7 @@ e2::Int_e ExDividendDate(e2::Int_e cfi, e2::Int_e idx)
  */
 e2::Int_e ExDividendCash(e2::Int_e cfi, e2::Int_e idx)
 {
+    FIN_FABR_IS_NULL_RETURN();
     e2::Int_e ret = 0;
     std::size_t _idx = NUMBERVAL(idx);
     if (_idx > e2q::FinFabr->_exrd.at(cfi).size()) {
@@ -286,6 +301,7 @@ e2::Int_e ExDividendCash(e2::Int_e cfi, e2::Int_e idx)
  */
 e2::Int_e ExDividendShare(e2::Int_e cfi, e2::Int_e idx)
 {
+    FIN_FABR_IS_NULL_RETURN();
     e2::Int_e ret = 0;
     std::size_t _idx = NUMBERVAL(idx);
     if (_idx > e2q::FinFabr->_exrd.at(cfi).size()) {
@@ -309,6 +325,7 @@ e2::Int_e ExDividendShare(e2::Int_e cfi, e2::Int_e idx)
  */
 e2::Int_e ExDividendSplit(e2::Int_e cfi, e2::Int_e idx)
 {
+    FIN_FABR_IS_NULL_RETURN();
     e2::Int_e ret = 0;
     std::size_t _idx = NUMBERVAL(idx);
     if (_idx > e2q::FinFabr->_exrd.at(cfi).size()) {
@@ -332,6 +349,7 @@ e2::Int_e ExDividendSplit(e2::Int_e cfi, e2::Int_e idx)
  */
 void BrokerBook(e2::BookType bt)
 {
+    FIN_FABR_IS_NULL();
     e2q::FinFabr->_BookType = (e2::BookType)NUMBERVAL(bt);
     llog::echo("book Type:", e2q::FinFabr->_BookType);
 } /* -----  end of function BrokerBook  ----- */
@@ -349,6 +367,7 @@ void BrokerBook(e2::BookType bt)
  */
 e2::Int_e TotalCash()
 {
+    FIN_FABR_IS_NULL_RETURN();
     e2::Int_e tcash = e2q::FinFabr->_all_total_cash;
     return VALNUMBER(tcash);
 } /* -----  end of function TotalCash  ----- */
@@ -366,9 +385,7 @@ e2::Int_e TotalCash()
  */
 e2::Int_e TotalMargin()
 {
-    if (e2q::FinFabr == nullptr) {
-        return 0;
-    }
+    FIN_FABR_IS_NULL_RETURN();
     e2::Int_e margin = e2q::FinFabr->_all_margin;
     return VALNUMBER(margin);
 } /* -----  end of function TotalMargin  ----- */
@@ -386,9 +403,7 @@ e2::Int_e TotalMargin()
  */
 e2::Int_e LimitPriceGap()
 {
-    if (e2q::FixPtr == nullptr) {
-        return 0;
-    }
+    FIN_FABR_IS_NULL_RETURN();
     return e2q::FixPtr->_cash._price_gap;
 } /* -----  end of function LimitPriceGap  ----- */
 }  // namespace e2l

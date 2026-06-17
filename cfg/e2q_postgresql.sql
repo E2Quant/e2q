@@ -2,12 +2,15 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.5 (Debian 15.5-0+deb12u1)
--- Dumped by pg_dump version 15.5 (Debian 15.5-0+deb12u1)
+\restrict UeGOHlELTdQxZjXyqZla9Uylq2goncq9Ucf6DFxMDqcV4BYZMcrH10aN1Xafxy2
+
+-- Dumped from database version 18.4 (Debian 18.4-1.pgdg13+1)
+-- Dumped by pg_dump version 18.4 (Debian 18.4-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -2008,6 +2011,182 @@ $$;
 ALTER FUNCTION public.risk_credit_for_total_loop(_verid integer, _init_cash integer) OWNER TO dbuser;
 
 --
+-- Name: risk_drawdown_for_month(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_drawdown_for_month(_verid integer, _init_cash integer) RETURNS TABLE(rday text, return_rates double precision, cumulative_returns double precision, peak_values double precision, drawdown_rates double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+WITH
+    cumulative_returns AS (
+        -- 步骤1：计算累计收益率（毛收益率累乘）
+        SELECT
+            tdays as tradedate,
+            returns_month as return_rate,
+            -- 计算毛收益率（1 + 收益率），然后累乘得到累计净值
+            EXP(
+                SUM(
+                    LN(
+                        1 + COALESCE(returns_month / 100.0, 0)
+                    )
+                ) OVER (
+                    ORDER BY tdays
+                )
+            ) AS cumulative_return
+        FROM risk_returns_for_month (_verid, _init_cash)
+    ),
+    drawdown_calc AS (
+        -- 步骤2：计算每个时间点的历史峰值
+        SELECT
+            (tradedate || '')::TEXT as tradedate,
+            return_rate,
+            cumulative_return,
+            MAX(cumulative_return) OVER (
+                ORDER BY tradedate
+            ) AS peak_value,
+            -- 步骤3：计算回撤率
+            (
+                MAX(cumulative_return) OVER (
+                    ORDER BY tradedate
+                ) - cumulative_return
+            ) / MAX(cumulative_return) OVER (
+                ORDER BY tradedate
+            ) AS drawdown_rate
+        FROM cumulative_returns
+    )
+    -- 步骤4：取最大回撤率
+SELECT
+(tradedate || '')::TEXT as rday, return_rate AS return_rates  ,  cumulative_return as cumulative_returns ,peak_value as peak_values  , drawdown_rate as drawdown_rates
+    -- ROUND((MAX(drawdown_rate) * 100)::numeric, 4) AS max_drawdown_percent,
+    -- (
+    --     SELECT peak_value
+    --     FROM drawdown_calc
+    --     WHERE
+    --         drawdown_rate = (
+    --             SELECT MAX(drawdown_rate)
+    --             FROM drawdown_calc
+    --         )
+    --     LIMIT 1
+    -- ) AS drawdown_start_value
+FROM drawdown_calc;
+END; $$;
+
+
+ALTER FUNCTION public.risk_drawdown_for_month(_verid integer, _init_cash integer) OWNER TO dbuser;
+
+--
+-- Name: risk_drawdown_loop_month(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_drawdown_loop_month(_verid integer, _init_cash integer) RETURNS TABLE(rday text, return_rates double precision, cumulative_returns double precision, peak_values double precision, drawdown_rates double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+WITH
+    cumulative_returns AS (
+        -- 步骤1：计算累计收益率（毛收益率累乘）
+        SELECT
+            tdays as tradedate,
+            returns_month as return_rate,
+            -- 计算毛收益率（1 + 收益率），然后累乘得到累计净值
+            EXP(
+                SUM(
+                    LN(
+                        1 + COALESCE(returns_month / 100.0, 0)
+                    )
+                ) OVER (
+                    ORDER BY tdays
+                )
+            ) AS cumulative_return
+        FROM risk_returns_loop_month (_verid, _init_cash)
+    ),
+    drawdown_calc AS (
+        -- 步骤2：计算每个时间点的历史峰值
+        SELECT
+            (tradedate || '')::TEXT as tradedate,
+            return_rate,
+            cumulative_return,
+            MAX(cumulative_return) OVER (
+                ORDER BY tradedate
+            ) AS peak_value,
+            -- 步骤3：计算回撤率
+            (
+                MAX(cumulative_return) OVER (
+                    ORDER BY tradedate
+                ) - cumulative_return
+            ) / MAX(cumulative_return) OVER (
+                ORDER BY tradedate
+            ) AS drawdown_rate
+        FROM cumulative_returns
+    )
+    -- 步骤4：取最大回撤率
+SELECT
+(tradedate || '')::TEXT as rday, return_rate AS return_rates  ,  cumulative_return as cumulative_returns ,peak_value as peak_values  , drawdown_rate as drawdown_rates
+    -- ROUND((MAX(drawdown_rate) * 100)::numeric, 4) AS max_drawdown_percent,
+    -- (
+    --     SELECT peak_value
+    --     FROM drawdown_calc
+    --     WHERE
+    --         drawdown_rate = (
+    --             SELECT MAX(drawdown_rate)
+    --             FROM drawdown_calc
+    --         )
+    --     LIMIT 1
+    -- ) AS drawdown_start_value
+FROM drawdown_calc;
+END; $$;
+
+
+ALTER FUNCTION public.risk_drawdown_loop_month(_verid integer, _init_cash integer) OWNER TO dbuser;
+
+--
+-- Name: risk_drawdown_max_month(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_drawdown_max_month(_verid integer, _init_cash integer) RETURNS TABLE(max_drawdown_rate numeric)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT ROUND(MAX(loss_rate)::NUMERIC, 5) AS max_drawdown_rate
+    FROM (
+        SELECT
+            a.tdays AS peak_date, a.cumulative_return AS peak_value, b.tdays AS trough_date, b.cumulative_return AS trough_value, (
+                a.cumulative_return - b.cumulative_return
+            ) / a.cumulative_return AS loss_rate
+        FROM (
+                -- 先计算累计收益率
+                SELECT tdays, EXP(
+                        SUM(
+                            LN(1 + COALESCE(returns_month/100.0, 0))
+                        ) OVER (
+                            ORDER BY tdays
+                        )
+                    ) AS cumulative_return
+                FROM risk_returns_loop_month (_verid, _init_cash)
+            ) a
+            JOIN (
+                SELECT tdays, EXP(
+                        SUM(
+                            LN(1 + COALESCE(returns_month/100.0, 0))
+                        ) OVER (
+                            ORDER BY tdays
+                        )
+                    ) AS cumulative_return
+                FROM risk_returns_loop_month (_verid, _init_cash)
+            ) b ON a.tdays < b.tdays -- 只考虑后续日期
+        WHERE
+            a.cumulative_return > b.cumulative_return -- 只考虑下跌情况
+    ) s;
+END; $$;
+
+
+ALTER FUNCTION public.risk_drawdown_max_month(_verid integer, _init_cash integer) OWNER TO dbuser;
+
+--
 -- Name: risk_margin_for_day(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
@@ -2199,6 +2378,82 @@ END; $$;
 
 
 ALTER FUNCTION public.risk_returns_for_month(_verid integer, _init_cash integer) OWNER TO dbuser;
+
+--
+-- Name: risk_returns_loop_day(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_returns_loop_day(_verid integer, _init_cash integer) RETURNS TABLE(tdays text, credits double precision, returns_day double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT rdata.tday as tdays, rdata.credits, (
+            (
+                rdata.credits - lag(rdata.credits,1) OVER (
+                    ORDER BY rdata.tday
+                )
+            ) / lag(rdata.credits,1) OVER (
+                ORDER BY rdata.tday
+            ) * 100.0
+        ) AS returns_day
+    FROM (
+            SELECT * FROM risk_credit_for_day(_verid,_init_cash)
+        ) rdata;
+
+END; $$;
+
+
+ALTER FUNCTION public.risk_returns_loop_day(_verid integer, _init_cash integer) OWNER TO dbuser;
+
+--
+-- Name: risk_returns_loop_month(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_returns_loop_month(_verid integer, _init_cash integer) RETURNS TABLE(tdays text, credits double precision, returns_month double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT
+    rdata.pdays,
+    rdata.credits,
+    (
+        (
+        rdata.credits - lag(rdata.credits,1) OVER (
+            ORDER BY
+            rdata.pdays
+        )
+        ) / lag(rdata.credits,1) OVER (
+        ORDER BY
+            rdata.pdays
+        ) * 100.0
+    ) AS returns_month
+    FROM
+    (
+        SELECT DISTINCT
+        ON (mdatas.pdays) pdays,
+        mdatas.credits
+        FROM
+        (
+            SELECT
+            substring(
+                mdata.tdays
+                FROM
+                0 FOR 8
+            ) AS pdays,
+            mdata.credits
+            FROM
+            (
+                SELECT * FROM risk_returns_for_day(_verid,_init_cash)
+            ) mdata
+        ) mdatas
+    ) rdata;
+
+END; $$;
+
+
+ALTER FUNCTION public.risk_returns_loop_month(_verid integer, _init_cash integer) OWNER TO dbuser;
 
 --
 -- Name: trade_detail(integer); Type: FUNCTION; Schema: public; Owner: dbuser
@@ -2691,7 +2946,7 @@ CREATE SEQUENCE public.analytics_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.analytics_id_seq OWNER TO dbuser;
+ALTER SEQUENCE public.analytics_id_seq OWNER TO dbuser;
 
 --
 -- Name: analytics_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: dbuser
@@ -2800,7 +3055,8 @@ CREATE TABLE public.stockinfo (
     stock character varying(255),
     verid integer,
     ctime integer DEFAULT 0,
-    dtime integer DEFAULT 0
+    dtime integer DEFAULT 0,
+    adj_price double precision DEFAULT 0
 );
 
 
@@ -2846,6 +3102,13 @@ COMMENT ON COLUMN public.stockinfo.ctime IS '上市时间';
 --
 
 COMMENT ON COLUMN public.stockinfo.dtime IS '退市时间';
+
+
+--
+-- Name: COLUMN stockinfo.adj_price; Type: COMMENT; Schema: public; Owner: dbuser
+--
+
+COMMENT ON COLUMN public.stockinfo.adj_price IS '复权价格';
 
 
 --
@@ -3135,16 +3398,16 @@ COMMENT ON COLUMN public.trades.amount IS '为此订单的成交累总金额';
 --
 
 CREATE VIEW public.e2q_cash AS
- SELECT cash_info.quantid,
-    cash_info.name,
-    cash_info.stock,
-    cash_info.verid,
-    cash_info.credit AS init_cash,
-    cash_info.end_credit AS now_cash,
-    (cash_info.end_credit - cash_info.credit) AS diff_cash,
-    (((cash_info.end_credit - cash_info.credit) / cash_info.credit) * (100)::double precision) AS diff_per,
-    cash_info.day,
-    cash_info.end_day
+ SELECT quantid,
+    name,
+    stock,
+    verid,
+    credit AS init_cash,
+    end_credit AS now_cash,
+    (end_credit - credit) AS diff_cash,
+    (((end_credit - credit) / credit) * (100)::double precision) AS diff_per,
+    day,
+    end_day
    FROM ( SELECT t.quantid,
             s.stock,
             s.verid,
@@ -3198,22 +3461,22 @@ CREATE VIEW public.e2q_cash AS
                           GROUP BY trade_report.sessionid) trp)))) cash_info;
 
 
-ALTER TABLE public.e2q_cash OWNER TO dbuser;
+ALTER VIEW public.e2q_cash OWNER TO dbuser;
 
 --
 -- Name: e2q_cash_se; Type: VIEW; Schema: public; Owner: dbuser
 --
 
 CREATE VIEW public.e2q_cash_se AS
- SELECT cash_data.quantid,
-    cash_data.name,
-    cash_data.stock,
-    cash_data.tid,
-    cash_data.credit,
-    cash_data.verid,
-    cash_data.symbol,
-    cash_data.day,
-    cash_data.stat
+ SELECT quantid,
+    name,
+    stock,
+    tid,
+    credit,
+    verid,
+    symbol,
+    day,
+    stat
    FROM ( SELECT t.quantid,
             s.stock,
             t.id AS tid,
@@ -3264,10 +3527,10 @@ CREATE VIEW public.e2q_cash_se AS
             public.stockinfo s,
             public.trade_report r
           WHERE ((t.symbol = s.id) AND (s.symbol > 0) AND (r.ticket = t.tid) AND (r.side <> 4))) cash_data
-  ORDER BY cash_data.quantid, cash_data.tid;
+  ORDER BY quantid, tid;
 
 
-ALTER TABLE public.e2q_cash_se OWNER TO dbuser;
+ALTER VIEW public.e2q_cash_se OWNER TO dbuser;
 
 --
 -- Name: exdr; Type: TABLE; Schema: public; Owner: dbuser
@@ -3388,7 +3651,7 @@ CREATE VIEW public.e2q_history AS
   ORDER BY buy.id;
 
 
-ALTER TABLE public.e2q_history OWNER TO dbuser;
+ALTER VIEW public.e2q_history OWNER TO dbuser;
 
 --
 -- Name: e2q_postion; Type: VIEW; Schema: public; Owner: dbuser
@@ -3407,7 +3670,7 @@ CREATE VIEW public.e2q_postion AS
   ORDER BY l.ctime DESC;
 
 
-ALTER TABLE public.e2q_postion OWNER TO dbuser;
+ALTER VIEW public.e2q_postion OWNER TO dbuser;
 
 --
 -- Name: trade_info; Type: TABLE; Schema: public; Owner: dbuser
@@ -3484,7 +3747,7 @@ CREATE VIEW public.e2q_profit AS
   WHERE (t.id = a.verid);
 
 
-ALTER TABLE public.e2q_profit OWNER TO dbuser;
+ALTER VIEW public.e2q_profit OWNER TO dbuser;
 
 --
 -- Name: e2q_risk_performance; Type: VIEW; Schema: public; Owner: dbuser
@@ -3507,17 +3770,17 @@ CREATE VIEW public.e2q_risk_performance AS
   ORDER BY ana.ctime DESC;
 
 
-ALTER TABLE public.e2q_risk_performance OWNER TO dbuser;
+ALTER VIEW public.e2q_risk_performance OWNER TO dbuser;
 
 --
 -- Name: e2q_risk_profit; Type: VIEW; Schema: public; Owner: dbuser
 --
 
 CREATE VIEW public.e2q_risk_profit AS
- SELECT p.quantid,
-    to_timestamp(((p.ctime / 1000))::double precision) AS pday,
-    p.amount,
-    p.buy_amount,
+ SELECT quantid,
+    to_timestamp(((ctime / 1000))::double precision) AS pday,
+    amount,
+    buy_amount,
     ( SELECT stockinfo.stock
            FROM public.stockinfo
           WHERE (stockinfo.id = p.symbol)
@@ -3527,11 +3790,11 @@ CREATE VIEW public.e2q_risk_profit AS
           WHERE (stockinfo.id = p.symbol)
          LIMIT 1) AS verid,
         CASE
-            WHEN (p.side = 2) THEN (p.amount - p.buy_amount)
+            WHEN (side = 2) THEN (amount - buy_amount)
             ELSE (0)::double precision
         END AS profit,
         CASE
-            WHEN (p.side = 2) THEN (trunc(((((p.amount - p.buy_amount) / p.buy_amount) * (100)::double precision))::numeric, 3))::double precision
+            WHEN (side = 2) THEN (trunc(((((amount - buy_amount) / buy_amount) * (100)::double precision))::numeric, 3))::double precision
             ELSE (0)::double precision
         END AS profit_pre
    FROM ( SELECT data.symbol,
@@ -3558,7 +3821,7 @@ CREATE VIEW public.e2q_risk_profit AS
                   ORDER BY trades.symbol, trades.id) data) p;
 
 
-ALTER TABLE public.e2q_risk_profit OWNER TO dbuser;
+ALTER VIEW public.e2q_risk_profit OWNER TO dbuser;
 
 --
 -- Name: e2q_risk_profit_count; Type: VIEW; Schema: public; Owner: dbuser
@@ -3567,49 +3830,89 @@ ALTER TABLE public.e2q_risk_profit OWNER TO dbuser;
 CREATE VIEW public.e2q_risk_profit_count AS
  SELECT count(
         CASE
-            WHEN (profits.profit <= ('-20.0'::numeric)::double precision) THEN profits.profit
+            WHEN (profit <= ('-20.0'::numeric)::double precision) THEN profit
             ELSE NULL::double precision
         END) AS "profit<=-20.0",
     count(
         CASE
-            WHEN ((profits.profit > ('-20.0'::numeric)::double precision) AND (profits.profit <= ('-10.0'::numeric)::double precision)) THEN profits.profit
+            WHEN ((profit > ('-20.0'::numeric)::double precision) AND (profit <= ('-10.0'::numeric)::double precision)) THEN profit
             ELSE NULL::double precision
         END) AS "-20.0<profit<=-10.0",
     count(
         CASE
-            WHEN ((profits.profit > ('-10.0'::numeric)::double precision) AND (profits.profit <= ('-5.0'::numeric)::double precision)) THEN profits.profit
+            WHEN ((profit > ('-10.0'::numeric)::double precision) AND (profit <= ('-5.0'::numeric)::double precision)) THEN profit
             ELSE NULL::double precision
         END) AS "-10.0<profit<=-5.0",
     count(
         CASE
-            WHEN ((profits.profit > ('-5.0'::numeric)::double precision) AND (profits.profit <= (0)::double precision)) THEN profits.profit
+            WHEN ((profit > ('-5.0'::numeric)::double precision) AND (profit <= (0)::double precision)) THEN profit
             ELSE NULL::double precision
         END) AS "-5.0<profit<=0",
     count(
         CASE
-            WHEN ((profits.profit > (0)::double precision) AND (profits.profit <= (5.0)::double precision)) THEN profits.profit
+            WHEN ((profit > (0)::double precision) AND (profit <= (5.0)::double precision)) THEN profit
             ELSE NULL::double precision
         END) AS "0<profit<=5.0",
     count(
         CASE
-            WHEN ((profits.profit > (5.0)::double precision) AND (profits.profit <= (10.0)::double precision)) THEN profits.profit
+            WHEN ((profit > (5.0)::double precision) AND (profit <= (10.0)::double precision)) THEN profit
             ELSE NULL::double precision
         END) AS "5.0<profit<=10.0",
     count(
         CASE
-            WHEN ((profits.profit > (10.0)::double precision) AND (profits.profit <= (30.0)::double precision)) THEN profits.profit
+            WHEN ((profit > (10.0)::double precision) AND (profit <= (30.0)::double precision)) THEN profit
             ELSE NULL::double precision
         END) AS "10.0<profit<=30.0",
     count(
         CASE
-            WHEN ((profits.profit > (30.0)::double precision) AND (profits.profit <= (80.0)::double precision)) THEN profits.profit
+            WHEN ((profit > (30.0)::double precision) AND (profit <= (50.0)::double precision)) THEN profit
             ELSE NULL::double precision
-        END) AS "30.0<profit<=80.0",
+        END) AS "30.0<profit<=50.0",
     count(
         CASE
-            WHEN (profits.profit > (80.0)::double precision) THEN profits.profit
+            WHEN ((profit > (50.0)::double precision) AND (profit <= (80.0)::double precision)) THEN profit
             ELSE NULL::double precision
-        END) AS "80.0<profit"
+        END) AS "50.0<profit<=80.0",
+    count(
+        CASE
+            WHEN ((profit > (80.0)::double precision) AND (profit <= (100.0)::double precision)) THEN profit
+            ELSE NULL::double precision
+        END) AS "80.0<profit<=100.0",
+    count(
+        CASE
+            WHEN ((profit > (100.0)::double precision) AND (profit <= (120.0)::double precision)) THEN profit
+            ELSE NULL::double precision
+        END) AS "100.0<profit<=120.0",
+    count(
+        CASE
+            WHEN ((profit > (120.0)::double precision) AND (profit <= (140.0)::double precision)) THEN profit
+            ELSE NULL::double precision
+        END) AS "120.0<profit<=140.0",
+    count(
+        CASE
+            WHEN ((profit > (140.0)::double precision) AND (profit <= (160.0)::double precision)) THEN profit
+            ELSE NULL::double precision
+        END) AS "140.0<profit<=160.0",
+    count(
+        CASE
+            WHEN ((profit > (160.0)::double precision) AND (profit <= (180.0)::double precision)) THEN profit
+            ELSE NULL::double precision
+        END) AS "160.0<profit<=180.0",
+    count(
+        CASE
+            WHEN ((profit > (180.0)::double precision) AND (profit <= (200.0)::double precision)) THEN profit
+            ELSE NULL::double precision
+        END) AS "180.0<profit<=200.0",
+    count(
+        CASE
+            WHEN ((profit > (200.0)::double precision) AND (profit <= (220.0)::double precision)) THEN profit
+            ELSE NULL::double precision
+        END) AS "200.0<profit<=220.0",
+    count(
+        CASE
+            WHEN (profit > (220.0)::double precision) THEN profit
+            ELSE NULL::double precision
+        END) AS "220.0<profit"
    FROM ( SELECT (((datas.credits - (( SELECT ((data_0.number)::numeric * 1000000.0) AS cash
                    FROM ( SELECT DISTINCT account.verid,
                             count(account.id) AS number
@@ -3631,15 +3934,15 @@ CREATE VIEW public.e2q_risk_profit_count AS
                   ORDER BY account.verid) datas) profits;
 
 
-ALTER TABLE public.e2q_risk_profit_count OWNER TO dbuser;
+ALTER VIEW public.e2q_risk_profit_count OWNER TO dbuser;
 
 --
 -- Name: e2q_risk_profit_count_list; Type: VIEW; Schema: public; Owner: dbuser
 --
 
 CREATE VIEW public.e2q_risk_profit_count_list AS
- SELECT datas.credits,
-    (((datas.credits - (( SELECT ((data_0.number)::numeric * 1000000.0) AS cash
+ SELECT credits,
+    (((credits - (( SELECT ((data_0.number)::numeric * 1000000.0) AS cash
            FROM ( SELECT DISTINCT account.verid,
                     count(account.id) AS number
                    FROM public.account
@@ -3652,16 +3955,16 @@ CREATE VIEW public.e2q_risk_profit_count_list AS
                   WHERE (account.verid = datas.verid)
                   GROUP BY account.verid) data_1
          LIMIT 1))::double precision) * (100.0)::double precision) AS profit,
-    datas.verid
+    verid
    FROM ( SELECT sum(account.credit) AS credits,
             account.verid
            FROM public.account
           GROUP BY account.verid
           ORDER BY account.verid) datas
-  ORDER BY datas.credits;
+  ORDER BY credits;
 
 
-ALTER TABLE public.e2q_risk_profit_count_list OWNER TO dbuser;
+ALTER VIEW public.e2q_risk_profit_count_list OWNER TO dbuser;
 
 --
 -- Name: e2q_risk_profit_count_row; Type: VIEW; Schema: public; Owner: dbuser
@@ -3675,19 +3978,19 @@ CREATE VIEW public.e2q_risk_profit_count_row AS
      CROSS JOIN LATERAL json_each_text(r.line) json_each_text(key, value));
 
 
-ALTER TABLE public.e2q_risk_profit_count_row OWNER TO dbuser;
+ALTER VIEW public.e2q_risk_profit_count_row OWNER TO dbuser;
 
 --
 -- Name: e2q_symbol_pool; Type: VIEW; Schema: public; Owner: dbuser
 --
 
 CREATE VIEW public.e2q_symbol_pool AS
- SELECT data.quantid,
-    data.count,
-    data.verid,
-    data.stock,
-    data.trader_number,
-    (data.count - data.trader_number) AS trading_number
+ SELECT quantid,
+    count,
+    verid,
+    stock,
+    trader_number,
+    (count - trader_number) AS trading_number
    FROM ( SELECT ings.quantid,
             ings.count,
             ings.verid,
@@ -3715,18 +4018,18 @@ CREATE VIEW public.e2q_symbol_pool AS
                   GROUP BY tr.quantid, si.verid, si.stock, tr.side) ings) data;
 
 
-ALTER TABLE public.e2q_symbol_pool OWNER TO dbuser;
+ALTER VIEW public.e2q_symbol_pool OWNER TO dbuser;
 
 --
 -- Name: e2q_symbol_status; Type: VIEW; Schema: public; Owner: dbuser
 --
 
 CREATE VIEW public.e2q_symbol_status AS
- SELECT data.id,
-    data.stock,
-    data.sday,
-    data.status,
-    data.verid
+ SELECT id,
+    stock,
+    sday,
+    status,
+    verid
    FROM ( SELECT stockinfo.id,
             stockinfo.stock,
             to_char(to_timestamp((stockinfo.ctime)::double precision), 'YYYY-MM-DD HH:MI:SS'::text) AS sday,
@@ -3747,7 +4050,7 @@ CREATE VIEW public.e2q_symbol_status AS
           WHERE (stockinfo.symbol > 0)) data;
 
 
-ALTER TABLE public.e2q_symbol_status OWNER TO dbuser;
+ALTER VIEW public.e2q_symbol_status OWNER TO dbuser;
 
 --
 -- Name: e2q_trade_detail; Type: VIEW; Schema: public; Owner: dbuser
@@ -3783,7 +4086,54 @@ CREATE VIEW public.e2q_trade_detail AS
   ORDER BY buy.ctime;
 
 
-ALTER TABLE public.e2q_trade_detail OWNER TO dbuser;
+ALTER VIEW public.e2q_trade_detail OWNER TO dbuser;
+
+--
+-- Name: quotes; Type: TABLE; Schema: public; Owner: dbuser
+--
+
+CREATE TABLE public.quotes (
+    code text,
+    active1 bigint,
+    price double precision,
+    last_close double precision,
+    open double precision,
+    high double precision,
+    low double precision,
+    servertime text,
+    vol bigint,
+    cur_vol bigint,
+    amount double precision,
+    s_vol bigint,
+    b_vol bigint,
+    bid1 double precision,
+    ask1 double precision,
+    bid_vol1 bigint,
+    ask_vol1 bigint,
+    bid2 double precision,
+    ask2 double precision,
+    bid_vol2 bigint,
+    ask_vol2 bigint,
+    bid3 double precision,
+    ask3 double precision,
+    bid_vol3 bigint,
+    ask_vol3 bigint,
+    bid4 double precision,
+    ask4 double precision,
+    bid_vol4 bigint,
+    ask_vol4 bigint,
+    bid5 double precision,
+    ask5 double precision,
+    bid_vol5 bigint,
+    ask_vol5 bigint,
+    active2 bigint,
+    volume bigint,
+    utime bigint,
+    verid bigint
+);
+
+
+ALTER TABLE public.quotes OWNER TO dbuser;
 
 --
 -- Name: e2q_trading; Type: VIEW; Schema: public; Owner: dbuser
@@ -3791,35 +4141,32 @@ ALTER TABLE public.e2q_trade_detail OWNER TO dbuser;
 
 CREATE VIEW public.e2q_trading AS
  SELECT buy.id,
-    ( SELECT stockinfo.verid
-           FROM public.stockinfo
-          WHERE (buy.symbol = stockinfo.id)
-         LIMIT 1) AS verid,
-    ( SELECT stockinfo.symbol
-           FROM public.stockinfo
-          WHERE (stockinfo.id = buy.symbol)
-         LIMIT 1) AS symbol,
-    ( SELECT stockinfo.stock
-           FROM public.stockinfo
-          WHERE (stockinfo.id = buy.symbol)
-         LIMIT 1) AS stock,
+    sk.verid,
+    sk.symbol,
+    sk.stock,
     buy.price AS open_price,
+    COALESCE(( SELECT quotes.price
+           FROM public.quotes
+          WHERE ((quotes.verid = sk.verid) AND (quotes.code = (sk.stock)::text))
+         LIMIT 1), (0)::double precision) AS price,
     buy.qty AS open_qty,
     to_char(to_timestamp(((buy.ctime / 1000))::double precision), 'YYYY/MM/DD'::text) AS open_time,
     (buy.ticket)::text AS ticket,
     buy.amount,
     (buy.quantid)::text AS quantid,
     ana.name,
-    ana.argv
+    ana.argv,
+    round(((((sk.adj_price - buy.adjpx) / buy.adjpx) * (100.0)::double precision))::numeric, 3) AS profit
    FROM public.trades buy,
-    public.analse ana
+    public.analse ana,
+    public.stockinfo sk
   WHERE ((buy.side = 1) AND (buy.stat = 2) AND (NOT (buy.ticket IN ( SELECT trades.closetck
            FROM public.trades
-          WHERE ((trades.side = 2) AND (trades.stat = 2))))) AND (ana.quantid = buy.quantid))
+          WHERE ((trades.side = 2) AND (trades.stat = 2))))) AND (ana.quantid = buy.quantid) AND (sk.id = buy.symbol))
   ORDER BY buy.ctime;
 
 
-ALTER TABLE public.e2q_trading OWNER TO dbuser;
+ALTER VIEW public.e2q_trading OWNER TO dbuser;
 
 --
 -- Name: exdr_id_seq; Type: SEQUENCE; Schema: public; Owner: dbuser
@@ -3894,7 +4241,7 @@ CREATE SEQUENCE public.ohlc_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.ohlc_id_seq OWNER TO dbuser;
+ALTER SEQUENCE public.ohlc_id_seq OWNER TO dbuser;
 
 --
 -- Name: ohlc_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: dbuser
@@ -4055,7 +4402,7 @@ CREATE SEQUENCE public.trades_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.trades_id_seq OWNER TO dbuser;
+ALTER SEQUENCE public.trades_id_seq OWNER TO dbuser;
 
 --
 -- Name: trades_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: dbuser
@@ -4310,6 +4657,13 @@ CREATE INDEX ticket_1748400505161_index ON public.trades USING btree (ticket);
 
 
 --
+-- Name: verid_1780469364352_index; Type: INDEX; Schema: public; Owner: dbuser
+--
+
+CREATE INDEX verid_1780469364352_index ON public.quotes USING btree (verid);
+
+
+--
 -- Name: account account_sessionid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
 --
 
@@ -4390,20 +4744,8 @@ ALTER TABLE ONLY public.trades
 
 
 --
--- Name: TABLE analselog; Type: ACL; Schema: public; Owner: dbuser
---
-
-GRANT SELECT ON TABLE public.analselog TO web_anon;
-
-
---
--- Name: TABLE stockinfo; Type: ACL; Schema: public; Owner: dbuser
---
-
-GRANT SELECT ON TABLE public.stockinfo TO web_anon;
-
-
---
 -- PostgreSQL database dump complete
 --
+
+\unrestrict UeGOHlELTdQxZjXyqZla9Uylq2goncq9Ucf6DFxMDqcV4BYZMcrH10aN1Xafxy2
 
