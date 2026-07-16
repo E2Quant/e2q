@@ -447,6 +447,46 @@ void TradeTime(e2::Int_e open_hour, e2::Int_e open_min, e2::Int_e close_hour,
 /*
  * ===  FUNCTION  =============================
  *
+ *         Name:  PendingExpirationTime
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void PendingExpirationTime(e2::Int_e second)
+{
+    FIN_FABR_IS_NULL();
+    e2q::FinFabr->_pending_expiration_time = NUMBERVAL(second);
+    if (e2q::FinFabr->_pending_expiration_time < 0) {
+        e2q::FinFabr->_pending_expiration_time = 0;
+    }
+
+} /* -----  end of function PendingExpirationTime  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  SwapRate
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void SwapRate(e2::Int_e rate)
+{
+    FIN_FABR_IS_NULL();
+    e2q::FinFabr->_order_swap_rate = (double)NUMBERVAL(rate);
+    if (e2q::FinFabr->_order_swap_rate < 0) {
+        e2q::FinFabr->_order_swap_rate = 0;
+    }
+} /* -----  end of function SwapRate  ----- */
+/*
+ * ===  FUNCTION  =============================
+ *
  *         Name:  gmtime
  *  ->  void *
  *  Parameters:
@@ -857,7 +897,7 @@ void ConfigShow()
         tp << "topic" << e2q::FinFabr->_topic;
         tp << "trade time" << tread_time;
         tp << "ccy" << e2q::FinFabr->_ccy;
-        tp << "commission" << e2q::FinFabr->_commission;
+        tp << "commission" << llog::format("%.5f", e2q::FinFabr->_commission);
         tp << "trade mode" << e2q::FinFabr->_trade_mode;
         tp << "lot and share"
            << llog::format("%.5f", e2q::FinFabr->_lot_and_share);

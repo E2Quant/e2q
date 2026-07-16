@@ -206,7 +206,7 @@ private:
     void SymbolExrd(const char* p, int sz);
     void MarketIng(const char* p, int sz);
     void CustomMsg(const char* p, int sz, int64_t);
-    void StopOrder();
+    void StatusOrder(bool);
     void ExitOrder();
 
     void Header(const RdKafka::Headers* headers);

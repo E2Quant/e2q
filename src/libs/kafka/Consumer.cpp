@@ -604,7 +604,7 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
 /*
  * ===  FUNCTION  =============================
  *
- *         Name:  KfConsumeCb::StopOrder
+ *         Name:  KfConsumeCb::Statusorder
  *  ->  void *
  *  Parameters:
  *  - size_t  arg
@@ -612,14 +612,20 @@ void KfConsumeCb::SymbolExrd(const char* p, int sz)
  *  ','  size==1
  * ============================================
  */
-void KfConsumeCb::StopOrder()
+void KfConsumeCb::StatusOrder(bool b)
 {
     // 晚一点再发布，免得还有事情没有处理完成
     TSleep(FinFabr->_offer_time);
-    FinFabr->_StopOrder = true;
+    FinFabr->_StopOrder = !b;
 
     FIX::ClOrdID cl0id;
-    cl0id.setValue("1");
+    if (b) {
+        cl0id.setValue("1");
+    }
+    else {
+        cl0id.setValue("0");
+    }
+
     FIX::Side side = convert(e2::Side::os_Buy);
 
     FIX44::OrderStatusRequest osr(cl0id, side);
@@ -636,7 +642,7 @@ void KfConsumeCb::StopOrder()
             elog::bug(e.what());
         }
     }
-} /* -----  end of function KfConsumeCb::StopOrder  ----- */
+} /* -----  end of function KfConsumeCb::StatusOrder  ----- */
 
 /*
  * ===  FUNCTION  =============================
@@ -708,7 +714,10 @@ void KfConsumeCb::Events(const char* p, int sz, int64_t now_offset)
             TicketMsg(p + 1, sz, _lastoffset);
             break;
         case e2l_pro_t::SUSPEND:
-            StopOrder();
+            StatusOrder(false);
+            break;
+        case e2l_pro_t::RUN:
+            StatusOrder(true);
             break;
         case e2l_pro_t::MARKETING:
             MarketIng(p + 1, sz);

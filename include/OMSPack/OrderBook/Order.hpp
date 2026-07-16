@@ -242,6 +242,13 @@ public:
         _quantitative = qty;
     }
     long qtyAtive() { return _quantitative; }
+    void swap_fee(std::uint32_t overnight)
+
+    {
+        _order_swap_fee = overnight * (FinFabr->_order_swap_rate * _quantity *
+                                       _price / FinFabr->_lot_and_share);
+    }
+    double swap_fee() { return _order_swap_fee; }
     /* =============  OPERATORS     =================== */
     bool operator<(const OrderPending& rhs) const
     {
@@ -323,6 +330,17 @@ private:
 
     std::size_t _time;  // market time
 
+    // swap value of the currently  order.
+    //
+    // swap fee = (position size * swap rate * pip value) /
+    // FinFabr->_lot_and_share
+    //
+    // Position Size: Number of lots (e.g., 1.0 for one standard
+    // lot).
+    // Swap Rate: The value from your MT4 Specification tab.
+    // Pip Value: The standard value of one pip for your asset pair
+    // (e.g., $10 per lot for EUR/USD).
+    double _order_swap_fee = 0;
 }; /* -----  end of class OrderPending  ----- */
 
 struct OrderLots {
@@ -349,6 +367,7 @@ struct OrderLots {
     // 在这儿记录手续费
     double commission = 0;
 
+    double order_swap_fee = 0;
     bool isFilled;
     bool isCancel;
     e2::Int_e quantId;
@@ -430,6 +449,7 @@ public:
         lots.price = NUMBERVAL(_pending->getPrice());
         lots.ctime = _time;
         lots.otime = _otime;
+        lots.order_swap_fee = _pending->swap_fee();
 
         lots.adjprice = NUMBERVAL(_pending->Adj());
         // elog::info("adj:", lots.adjpriceequity);

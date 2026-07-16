@@ -403,7 +403,7 @@ e2::Int_e TotalMargin()
  */
 e2::Int_e LimitPriceGap()
 {
-    FIN_FABR_IS_NULL_RETURN();
+    FIX_PTR_IS_NULL_RETURN();
     return e2q::FixPtr->_cash._price_gap;
 } /* -----  end of function LimitPriceGap  ----- */
 }  // namespace e2l

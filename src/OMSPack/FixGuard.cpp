@@ -469,6 +469,11 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
     dbs.setValue(FinFabr->_margin_rate);
     mq.setField(dbs);
 
+    // order swap rate
+    FIX::DefOfferSize rate;
+    rate.setValue(FinFabr->_order_swap_rate);
+    mq.setField(rate);
+
     /**
      * 每笔报价时间的间隔
      */

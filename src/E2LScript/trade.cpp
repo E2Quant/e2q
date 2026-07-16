@@ -536,6 +536,25 @@ e2::Int_e OrdersTotal()
     }
     return VALNUMBER(count);
 } /* -----  end of function OrdersTotal  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  OrderSwap
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *  return order swap rate
+ * ============================================
+ */
+e2::Int_e OrderSwap()
+{
+    FIX_PTR_IS_NULL_RETURN();
+
+    e2::Int_e ret = VALNUMBER(e2q::FixPtr->_order_swap_rate);
+    return ret;
+} /* -----  end of function OrderSwap  ----- */
 /*
  * ===  FUNCTION  =============================
  *

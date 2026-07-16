@@ -780,7 +780,7 @@ e2::Int_e ExdiSplit(e2::Int_e id)
  *  Parameters:
  *  - size_t  arg
  *  Description:
- *
+ *  单个组的数据有多少个值
  * ============================================
  */
 e2::Int_e CustomDataSize(e2::Int_e cfi, e2::Int_e idx)
@@ -800,7 +800,8 @@ e2::Int_e CustomDataSize(e2::Int_e cfi, e2::Int_e idx)
  *  Parameters:
  *  - Number_t  arg
  *  Description:
- *
+ *  记录当前是第N 组数据
+ *  过往的数据会覆盖
  * ============================================
  */
 e2::Int_e CustomDataNumber(e2::Int_e cfi, e2::Int_e idx)
@@ -811,6 +812,27 @@ e2::Int_e CustomDataNumber(e2::Int_e cfi, e2::Int_e idx)
     std::uint32_t len = e2q::GlobalCustomMsg.number(cfi, idx);
     return VALNUMBER(len);
 } /* -----  end of function CustomDataNumber  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  CustomDataPush
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void CustomDataPush(e2::Int_e cfi, e2::Int_e idx, e2::Int_e pos, e2::Int_e data)
+{
+    cfi = NUMBERVAL(cfi);
+    idx = NUMBERVAL(idx);
+    data = NUMBERVAL(data);
+    std::size_t _pos = (std::size_t)NUMBERVAL(pos);
+    e2q::GlobalCustomMsg.push_back(cfi, idx, _pos, data);
+
+} /* -----  end of function CustomDataPush  ----- */
 /*
  * ===  FUNCTION  =============================
  *
@@ -828,7 +850,7 @@ e2::Int_e CustomDataGet(e2::Int_e cfi, e2::Int_e idx, e2::Int_e pos)
     idx = NUMBERVAL(idx);
     pos = NUMBERVAL(pos);
 
-    std::size_t val = e2q::GlobalCustomMsg.get(cfi, idx, pos);
+    e2::Int_e val = e2q::GlobalCustomMsg.get(cfi, idx, pos);
     return val;
 
 } /* -----  end of function CustomDataGet  ----- */

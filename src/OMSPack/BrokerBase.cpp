@@ -261,7 +261,15 @@ void BrokerBase::SettlInst(OrderLots& lots)
             _traders.at(sid).total_cash += neet_equity;
 
             FinFabr->_all_total_cash += neet_equity;
-            FinFabr->_all_margin -= neet_equity;
+
+            if (_traders.at(sid).order_cash.count(lots.TradeTicket) == 1) {
+                margin =
+                    _traders.at(sid).order_cash.at(lots.TradeTicket).equity;
+                FinFabr->_all_margin -= margin;
+            }
+            else {
+                elog::bug("bug close ticket:", lots.TradeTicket);
+            }
         }
     }
     else {

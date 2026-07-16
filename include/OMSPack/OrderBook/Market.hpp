@@ -112,6 +112,7 @@ protected:
 private:
     /* =============  METHODS       =================== */
 
+    bool PendingEvent(e2q::OrderPending*, std::size_t order_start_time);
     void MDebug(std::string& desz, const OrderPending*);
 
     void md_log(const e2q::OrderPending*);

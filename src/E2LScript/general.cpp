@@ -182,6 +182,13 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char* _vname, e2::Int_e loc,
                const char* _path)
 {
     int dec = NUMBERVAL(deci);
+    int n = snprintf(NULL, 0, "%s", _vname);
+    if (_vname == nullptr || n < 1) {
+        if (_path != nullptr) {
+            llog::bug(llog::format("%lld vname is null path:%s", loc, _path));
+        }
+        return;
+    }
 
     std::thread::id tid = std::this_thread::get_id();
     e2::Bool ret = e2q::log.isDebug(tid);
@@ -229,8 +236,9 @@ void PrintTime(e2::Int_e i, const char* _vname, e2::Int_e loc,
     if (i < 1) {
         return;
     }
-    if (_vname == nullptr) {
-        llog::bug("%d vname is null ", loc);
+    int n = snprintf(NULL, 0, "%s", _vname);
+    if (_vname == nullptr || n < 1) {
+        llog::bug(llog::format("%d vname is null path:%s", loc, _path));
         return;
     }
 

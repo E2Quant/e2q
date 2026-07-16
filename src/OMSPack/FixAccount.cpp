@@ -42,6 +42,7 @@
  */
 #include "OMSPack/FixAccount.hpp"
 
+#include <quickfix/fix44/OrderStatusRequest.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -219,6 +220,11 @@ void FixAccount::onMessage(const FIX44::MassQuote& msg, const FIX::SessionID&)
     FIX::DefBidSize dbs;
     msg.getFieldIfSet(dbs);
     FixPtr->_margin_rate = dbs.getValue();
+
+    // order swap rate
+    FIX::DefOfferSize rate;
+    msg.getFieldIfSet(rate);
+    FixPtr->_order_swap_rate = rate.getValue();
 
     int count = 0, pids = 0, num;
     if (!msg.hasGroup(nqs)) {
@@ -1278,8 +1284,18 @@ void FixAccount::onMessage(const FIX44::BidResponse& message,
 void FixAccount::onMessage(const FIX44::OrderStatusRequest& message,
                            const FIX::SessionID&)
 {
+    FIX::ClOrdID cl0id;
+
+    message.getFieldIfSet(cl0id);
+
+    if (cl0id == "0") {
+        GlobalMainArguments.is_suspend = true;
+    }
+    else {
+        GlobalMainArguments.is_suspend = false;
+    }
     // elog::echo("suspended ");
-    GlobalMainArguments.is_suspend = true;
+
 } /* -----  end of function FixAccount::onMessage  ----- */
 
 /*

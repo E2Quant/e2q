@@ -163,6 +163,9 @@ void E2LFunList()
     AddFun(TradeMode, 1, "FTradeMode", E2L_NORETURN,
            "(USymbolTradeMode::M_CloseOnly);");
 
+    AddFun(PendingExpirationTime, 1, "FPendingExpirationTime", E2L_NORETURN,
+           "(second);");
+    AddFun(SwapRate, 1, "FSwapRate", E2L_NORETURN, "(rate);");
     AddFun(gmtime, 0, "FGmt", E2L_NORETURN, "();");
 
     AddFun(LotAndShare, 1, "FLotAndShare", E2L_NORETURN, "(lot);");
@@ -194,6 +197,7 @@ void E2LFunList()
 
     AddFun(OrderOpenTime, 2, "FOrderOpenTime", E2L_RETURN, "(ticket, ootype);");
 
+    AddFun(OrderSwap, 0, "FOrderSwap", E2L_RETURN, "();");
     /**
      * trade end
      */
@@ -333,6 +337,8 @@ void E2LFunList()
            "(cfi_id, idx);");
     AddFun(CustomDataGet, 3, "FCustomDataGet", E2L_RETURN,
            "(cfi_id, idx, pos);");
+    AddFun(CustomDataPush, 4, "FCustomDataPush", E2L_NORETURN,
+           "(cfi_id, idx, pos,data);");
 
     AddFun(SymbolLockForEA, 0, "FSymbolLockForEA", E2L_NORETURN, "();");
     AddFun(Delisting, 1, "FDelisting", E2L_RETURN, "(cfi_id);");

@@ -57,6 +57,7 @@ namespace e2q {
 enum e2l_pro_t {
     INIT = 'I',
     XDXR = 'X',
+    RUN = 'R',
     SUSPEND = 'S',
     TICK = 'T',
     MARKETING = 'M',
@@ -429,8 +430,9 @@ typedef enum CmType CmType;
 | cficode      | 1      | 4      | Integer   |  cfi code      |
 | index        | 5      | 2      | Integer16 | value deci     |
 | size         | 7      | 2      | Integer16 | value deci     |
-| type         | 9      | 1      | Alpha     | CmType         |
-| value        | 10     | 2,4,8..| I16,32,64 | data list      |
+| type         | 9      | 1      | Alpha     |'n'Negative,'p'Positive|
+| sign         | 10     | 1      | Alpha     | data list      |
+| value        | 11     | 2,4,8..| I16,32,64 | data list      |
 | Aligned      |listsize| 1      | Alpha    RecordDealCommission | aligned_t |
 
 */
@@ -447,9 +449,13 @@ typedef struct CustomMessage CustomMessage;
 #define GetMsgData(array_data, cfi, index, value_uint)                    \
     ({                                                                    \
         do {                                                              \
-            elog::info("get cfi:", cfi);                                  \
             for (std::size_t m = 0; m < cmsg.size; m++) {                 \
+                char sign = *(ptr + idx);                                 \
+                idx++;                                                    \
                 idx += parse_uint_t(ptr + idx, value_uint);               \
+                if (sign == 'n') {                                        \
+                    value_uint = 0 - value_uint;                          \
+                }                                                         \
                 array_data.push_back(cfi, index, m, (SeqType)value_uint); \
                 if (idx >= (std::size_t)sz) {                             \
                     break;                                                \
@@ -461,9 +467,6 @@ typedef struct CustomMessage CustomMessage;
 struct __CustomMsgStore {
     void init(std::uint32_t cfi, std::uint16_t idx, std::size_t len)
     {
-        //  _cfi = cfi;
-        _index = idx;
-
         BasicLock _lock(_CMute);
         if (_datas.count(cfi) == 0) {
             std::vector<SeqType> v(len);
@@ -486,6 +489,7 @@ struct __CustomMsgStore {
             _datas[cfi][idx].first++;
         }
     }
+
     void push_back(std::uint32_t cfi, std::uint16_t idx, std::size_t pos,
                    SeqType data)
     {
@@ -502,6 +506,7 @@ struct __CustomMsgStore {
         _datas[cfi][idx].second[_pos] = data;
     }
 
+    // 记录当前是第N 组数据
     std::uint32_t number(std::uint32_t cfi, std::uint16_t idx)
     {
         if (_datas.count(cfi) == 0) {
@@ -516,6 +521,7 @@ struct __CustomMsgStore {
         return _datas[cfi][idx].first;
     }
 
+    // 单个组的数据有多少个值
     std::size_t size(std::uint32_t cfi, std::uint16_t idx)
     {
         if (_datas.count(cfi) == 0) {
@@ -547,13 +553,12 @@ struct __CustomMsgStore {
 
 private:
     // 不够好用，以后再优化吧
-    // cfi -> key ->value []
+    // cfi ->  idx -> {index , value []}
     std::map<
         std::uint32_t,
         std::map<std::uint16_t, std::pair<std::uint32_t, std::vector<SeqType>>>>
         _datas;
 
-    std::uint16_t _index = 0;
     using CMute = BasicLock::mutex_type;
     mutable CMute _CMute;
 }; /* ----------  end of struct __CustomMsgStore  ---------- */

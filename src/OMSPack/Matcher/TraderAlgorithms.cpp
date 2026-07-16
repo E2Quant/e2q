@@ -251,6 +251,9 @@ std::vector<OrderLots> TraderAlgorithms::matcher(std::string symbol,
                 _rd_commission.erase(ol.ticket);
             }
 
+            // commission + order_swap_fee;
+            ol.commission += ol.order_swap_fee;
+
             _broker.DealCommission(ol.owner, ol.ticket, ol.commission);
             ol.isCancel = false;
         }

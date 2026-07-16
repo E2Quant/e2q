@@ -44,9 +44,12 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 
 #include "E2L/E2LType.hpp"
+#include "E2LScript/ExternClazz.hpp"
+#include "OMSPack/OrderBook/Order.hpp"
 #include "assembler/BaseType.hpp"
 namespace e2q {
 
@@ -171,8 +174,8 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
     long ask_qty = 0;
     long bid_qty = 0;
     double price = 0;
-    // double adjprice = 0;
-    // OrderLots lots;
+    bool lot_ticket = false;
+
     while (true) {
         bempty = _bidOrders.empty();
         aempty = _askOrders.empty();
@@ -180,61 +183,31 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
             // elog::echo("bid ask is empty");
             break;
         }
-
-        // 订单可以过夜不?
-        // 先默认删除订单，否则订单会不小心
-        // 在策略的后面几天才成交，这样就会出错了
-        if (bempty && !aempty) {
-            spread_ask = _askOrders.spread();
-            if (spread_ask != nullptr) {
-                // if (FinFabr->_settlement == 0 ||
-                //     order_start_time > spread_ask->market_time()) {
-#ifdef DEBUG
-                elog::info(spread_ask->isBot(),
-                           " ask opqty:", spread_ask->getOpenQuantity(),
-                           " leaveqty:", spread_ask->getLeavesQty(),
-                           " tick:", spread_ask->getTicket(),
-                           " order_start_time:", order_start_time,
-                           " spred_ask:", spread_ask->market_time());
-#endif
-                spread_ask->cancel();
-                spread_ask->Closeed();
-                if (!spread_ask->isBot()) {
-                    Lots.push(make(spread_ask->getTicket()));
-                }
-                //   }
-            }
-            continue;
-        }
-        if (!bempty && aempty) {
-            spread_bid = _bidOrders.spread();
-            if (spread_bid != nullptr) {
-                // if (FinFabr->_settlement == 0 ||
-                //     order_start_time > spread_bid->market_time()) {
-#ifdef DEBUG
-                elog::info(spread_bid->isBot(),
-                           " bid opqty:", spread_bid->getOpenQuantity(),
-                           " leaveqty:", spread_bid->getLeavesQty(),
-                           " tick:", spread_bid->getTicket(),
-                           " order_start_time:", order_start_time,
-                           " spred_ask:", spread_bid->market_time());
-#endif
-                spread_bid->cancel();
-                spread_bid->Closeed();
-                if (!spread_bid->isBot()) {
-                    Lots.push(make(spread_bid->getTicket()));
-                }
-                // }
-            }
-            continue;
-        }
-
         spread_bid = _bidOrders.spread();
         spread_ask = _askOrders.spread();
 
         if (spread_ask == nullptr || spread_bid == nullptr) {
             // elog::bug("ask or bid level  empty ");
-            continue;
+            break;
+        }
+
+        if (bempty && !aempty) {
+            lot_ticket = PendingEvent(spread_ask, order_start_time);
+            if (lot_ticket) {
+                Lots.push(make(spread_ask->getTicket()));
+            }
+            // use  break ,wait  next level  price
+
+            break;
+        }
+        if (!bempty && aempty) {
+            lot_ticket = PendingEvent(spread_bid, order_start_time);
+            if (lot_ticket) {
+                Lots.push(make(spread_bid->getTicket()));
+            }
+            // use  break ,wait  next level  price
+
+            break;
         }
 
         /**
@@ -257,20 +230,18 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
             price = mprice;
         }
 
-        if (ordtype == e2::OrdType::ot_limit) {
-            if (spread_bid->getPrice() < price) {
-                elog::bug("price null eq, tick:", spread_bid->getTicket(),
-                          " , bid:", spread_bid->getPrice(),
-                          ", tick:", spread_ask->getTicket(),
-                          " ask:", spread_ask->getPrice());
+        if (ordtype == e2::OrdType::ot_limit &&
+            spread_bid->getPrice() < price) {
+            // #ifdef DEBUG
 
-                /**
-                 * disable order;
-                 */
-                spread_ask->disable();
-                spread_bid->disable();
-                break;
-            }
+            elog::bug("price null eq, tick:", spread_bid->getTicket(),
+                      " , bid:", spread_bid->getPrice(),
+                      ", tick:", spread_ask->getTicket(),
+                      " ask:", spread_ask->getPrice());
+            // #endif
+
+            // use  break ,wait  next level ask price
+            break;
         }
         quantity = 0;
         if (spread_ask->qtyAtive() > 0) {
@@ -314,6 +285,71 @@ bool Market::match(std::queue<OrderLots>& Lots, e2::Int_e mprice,
     return Lots.size() != 0;
 } /* -----  end of function Market::match  ----- */
 
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Market::PendingEvent
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+bool Market::PendingEvent(e2q::OrderPending* spread,
+                          std::size_t order_start_time)
+{
+    bool ret = false;
+    std::uint32_t day_second = 24 * 60 * 60;
+    std::uint32_t expiration_time = 0;
+    std::uint32_t day_start =
+        spread->market_time() - spread->market_time() % day_second;
+
+    if (FinFabr->_pending_expiration_time > 0) {
+        expiration_time = day_start + FinFabr->_pending_expiration_time;
+
+        if (expiration_time < order_start_time) {
+            // expiration timeout ,so close pending order
+#ifdef DEBUG
+            elog::info(spread->isBot(),
+                       " ask opqty:", spread->getOpenQuantity(),
+                       " leaveqty:", spread->getLeavesQty(),
+                       " tick:", spread->getTicket(),
+                       " order_start_time:", order_start_time,
+                       " spred_ask:", spread->market_time());
+#endif
+            spread->cancel();
+            spread->Closeed();
+            if (!spread->isBot()) {
+                ret = true;
+            }
+        }
+    }
+    else {
+        // FinFabr->_pending_expiration_time == 0
+        // order is all time in pending , add order swap
+
+        if (!spread->isBot()) {
+#ifdef DEBUG
+
+            elog::info(spread->isBot(),
+                       " ask opqty:", spread->getOpenQuantity(),
+                       " leaveqty:", spread->getLeavesQty(),
+                       " tick:", spread->getTicket(),
+                       " order_start_time:", order_start_time,
+                       " spred_ask:", spread->market_time());
+#endif
+
+            std::uint32_t now_day =
+                order_start_time - order_start_time % day_second;
+            std::uint32_t overnight =
+                std::round((now_day - day_start) / day_second);
+            spread->swap_fee(overnight);
+        }
+    }
+
+    return ret;
+} /* -----  end of function Market::PendingEvent  ----- */
 /*
  * ===  FUNCTION  =============================
  *

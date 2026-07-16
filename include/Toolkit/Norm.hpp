@@ -489,7 +489,11 @@ struct __MarketInfo {
     std::vector<TradeTime> _tradetime;  // trade time
     e2::InitOk _ok;                     // init ok
     e2::Int_e _offer_time = 0;          //  每笔报价时间的间隔,如果没有默认100
-
+    e2::Int_e _pending_expiration_time = 24 * 60 * 60;
+    /**
+     * order swap rate
+     */
+    double _order_swap_rate = 0.0;
     std::string log_topic = "";  // log kafka topic
                                  //
     std::string _source;         // csv is file dir, kafka is host:port //
