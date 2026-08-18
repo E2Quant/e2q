@@ -135,6 +135,7 @@ void E2LFunList()
     AddFun(mkkf, 1, "FMkkf", E2L_NORETURN, "(source);");
     AddFun(topic_tick, 1, "FTopicTick", E2L_NORETURN, "(topic);");
     AddFun(topic_log, 1, "FTopicLog", E2L_NORETURN, "(log);");
+    AddFun(topic_process_status, 1, "FTopicProcess", E2L_NORETURN, "(topic);");
 
     AddFun(tframe, 1, "FTFrame", E2L_NORETURN, "(frame);");
     AddFun(deftframe, 0, "FDefTFrame", E2L_RETURN, "();");

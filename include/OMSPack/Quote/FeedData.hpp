@@ -47,7 +47,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <string>
 
 #include "E2LScript/ExternClazz.hpp"
 #include "OMSPack/Quote/Tunnel.hpp"

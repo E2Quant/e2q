@@ -46,9 +46,11 @@
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/Norm.hpp"
 #include "assembler/BaseType.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 #include "quickfix/Exceptions.h"
 #include "quickfix/FixFields.h"
 #include "quickfix/FixValues.h"
@@ -444,6 +446,10 @@ void FixGuard::MassQuote(const FIX::SessionID& session)
         GlobalDBPtr->release(idx);
 
         elog::info("session:", compid, " [ea_change]");
+        if (globle_psc != nullptr) {
+            globle_psc->status(ProcessStatusKind::_EA_CHANGING);
+        }
+
         return;
     }
 

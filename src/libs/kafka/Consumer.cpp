@@ -61,6 +61,7 @@
 
 #include "E2L/E2LType.hpp"
 #include "E2LScript/ExternClazz.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Norm.hpp"
@@ -156,8 +157,6 @@ void KfConsumeCb::SymbolInit(const char* p, int sz)
         // e2l init.cpp 这儿有处理的
         e2q::FinFabr->_ok = e2::InitOk::I_OK;
 
-        elog::info("[ea_init]SymbolInit ok symbols size:",
-                   FinFabr->_fix_symbols.size());
         //  转成豪秒
         FinFabr->_offer_time = NUMBERVAL(sinit.OfferTime) * 1000;
 
@@ -168,6 +167,12 @@ void KfConsumeCb::SymbolInit(const char* p, int sz)
              it++) {
             // FixGuard
             MassQuote(it->first);
+        }
+
+        elog::info("[ea_init]SymbolInit ok symbols size:",
+                   FinFabr->_fix_symbols.size());
+        if (globle_psc != nullptr) {
+            globle_psc->status(ProcessStatusKind::_EA_INIT);
         }
     }
 
@@ -318,31 +323,30 @@ void KfConsumeCb::DealMatchMsg(const char* ptr, int sz, int64_t offset)
         return;
     }
 
-    // bprinter::TablePrinter tp(&std::cout);
-    // tp.AddColumn("stock", 20);
-    // tp.AddColumn("side", 10);
-    // tp.AddColumn("dprice", 10);
-    // tp.AddColumn("dqty", 10);
-    // tp.AddColumn("commission", 10);
-    // tp.AddColumn("tamount", 10);
-    // tp.AddColumn("tdate", 10);
-    // tp.AddColumn("ttime", 10);
-    // tp.AddColumn("unix_time", 10);
-    // tp.AddColumn("ticket", 10);
-    // tp.AddColumn("unique_size", 10);
-    // tp.AddColumn("unique_id", 20);
-
-    // tp.PrintHeader();
-    // tp << dmm.stock << dmm.side << dmm.dprice << dmm.dqty << dmm.commission
-    //    << dmm.tamount << dmm.tdate << dmm.ttime << dmm.unix_time <<
-    //    dmm.ticket
-    //    << dmm.unique_size << dmm.unique_id;
-    // tp.PrintFooter();
-
     if (_DealCall != nullptr) {
         _DealCall(dmm);
     }
     else {
+        // bprinter::TablePrinter tp(&std::cout);
+        // tp.AddColumn("stock", 20);
+        // tp.AddColumn("side", 10);
+        // tp.AddColumn("dprice", 10);
+        // tp.AddColumn("dqty", 10);
+        // tp.AddColumn("commission", 10);
+        // tp.AddColumn("tamount", 10);
+        // tp.AddColumn("tdate", 10);
+        // tp.AddColumn("ttime", 10);
+        // tp.AddColumn("unix_time", 10);
+        // tp.AddColumn("ticket", 10);
+        // tp.AddColumn("unique_size", 10);
+        // tp.AddColumn("unique_id", 20);
+
+        // tp.PrintHeader();
+        // tp << dmm.stock << dmm.side << dmm.dprice << dmm.dqty <<
+        // dmm.commission
+        //    << dmm.tamount << dmm.tdate << dmm.ttime << dmm.unix_time
+        //    << dmm.ticket << dmm.unique_size << dmm.unique_id;
+        // tp.PrintFooter();
         elog::bug("deal call");
     }
 
@@ -731,6 +735,8 @@ void KfConsumeCb::Events(const char* p, int sz, int64_t now_offset)
         case e2l_pro_t::DEAL:
             DealMatchMsg(p + 1, sz, _lastoffset);
             break;
+        case e2l_pro_t::PROCESS:
+            break;
         default:
             std::string error = elog::format("%s sz:%d\n", p, sz);
             elog::bug("bad data! error:", error);
@@ -1040,6 +1046,9 @@ void KafkaFeed::handle(TradType tradcall)
     ex_consume_cb.handle(tradcall);
 
     elog::echo(consumer->name(), " Created consume [oms_init]");
+    if (globle_psc != nullptr) {
+        globle_psc->status(ProcessStatusKind::_OMS_INIT);
+    }
 
     /*
      * Consume messages

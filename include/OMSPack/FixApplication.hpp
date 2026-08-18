@@ -50,6 +50,7 @@
 #include <string>
 
 #include "E2L/E2LType.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "OMSPack/FixGuard.hpp"
 #include "OMSPack/OrderBook/Order.hpp"
 #include "OMSPack/OrderBook/OrderMatcher.hpp"

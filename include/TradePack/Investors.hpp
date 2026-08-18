@@ -44,7 +44,6 @@
 
 #ifndef INVESTORS_INC
 #define INVESTORS_INC
-#include <memory>
 #include <string>
 #include <vector>
 

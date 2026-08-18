@@ -98,9 +98,9 @@ void FeedBalance::obtain()
     _ohlc.market(tf, FixPtr->_offers, FixPtr->_tradetime);
     _data_ptr->assign<OHLCBeam, Func_beam>(_ohlc);
 
-    AnalyBeam _analy;
-    _analy.shareptr(_resource);
-    _data_ptr->assign<AnalyBeam, Func_beam>(_analy);
+    // AnalyBeam _analy;
+    // _analy.shareptr(_resource);
+    // _data_ptr->assign<AnalyBeam, Func_beam>(_analy);
 
 } /* -----  end of function FeedBalance::obtain  ----- */
 

@@ -145,7 +145,6 @@ private:
     std::map<std::size_t, double> _rd_commission;
 
     std::map<std::size_t, long> _rd_qty;
-    // DealMatchMessage _dmm;
 }; /* -----  end of class TraderAlgorithms  ----- */
 
 }  // namespace e2q

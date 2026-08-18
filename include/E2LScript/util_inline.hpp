@@ -61,12 +61,16 @@
 #include <utility>
 #include <vector>
 
+#include "ControlPack/Beam.hpp"
+#include "Coordinate/Trigger.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "FeedPack/Container.hpp"
 #include "MessagePack/RingLoop.hpp"
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
 #include "Toolkit/UtilTime.hpp"
+#include "Toolkit/eLog.hpp"
+#include "VirtualPack/Resource.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/DB/pg.hpp"
 #include "libs/kafka/producer.hpp"
@@ -724,7 +728,7 @@ inline ExdiType ExdiSymList;
 
 // 二进制记录日是志
 
-struct LogProto_t {
+struct LogProto_t : public ProducerBase {
     void data(char* ptr)
     {
         idx = 0;
@@ -788,24 +792,6 @@ struct LogProto_t {
         idx += (std::size_t)path_size;
     }
     std::size_t size() { return idx; }
-
-    RdKafka::Headers* header(std::thread::id _id)
-    {
-        std::stringstream ssId;
-        RdKafka::Headers* headers = RdKafka::Headers::create();
-        /*
-         * Produce message
-         */
-
-        ssId.str("");
-        ssId.clear();
-
-        ssId << _id;
-
-        headers->add("thread_id", ssId.str());
-
-        return headers;
-    }
 
 private:
     std::size_t idx = 0;
@@ -957,12 +943,13 @@ struct LogProtoPtr_t : public LogProtoBin_t {
     std::size_t len() { return elm_size; }
     void exist()
     {
-        // for (auto it : _data) {
-        //     //     free(it.second.ldata);
-        //     //    it.second.ldata = nullptr;
-
-        //     elog::info("use size:", it.second.count);
-        // }
+        for (auto it : _data) {
+            if (it.second.ldata != nullptr) {
+                free(it.second.ldata);
+                it.second.ldata = nullptr;
+                elog::info("use size:", it.second.count);
+            }
+        }
 #ifdef KAFKALOG
         Producer::exist();
 #else
@@ -1028,5 +1015,154 @@ inline LogProtoPtr_t log;
         } while (0);                         \
     })
 #endif
+
+struct PSF_t : public ProducerBase {
+    void data(char* ptr)
+    {
+        idx = 0;
+        _ptr = ptr;
+        *(_ptr + idx) = e2l_pro_t::PROCESS;
+        idx++;
+    };
+    void kind(ProcessStatusKind k)
+    {
+        std::uint16_t k16 = (std::uint16_t)k;
+        idx += serialize_uint_t((_ptr + idx), k16);
+    };
+    void index(std::uint32_t l) { idx += serialize_uint_t((_ptr + idx), l); };
+
+private:
+    std::size_t idx = 0;
+    char* _ptr;
+}; /* ----------  end of struct PSF_t  ---------- */
+
+typedef struct PSF_t PSF_t;
+/*
+ * ================================
+ *        Class:  ProcessStatusCon
+ *  Description:  e2q 进程的信号
+ * ================================
+ */
+class ProcessStatusCon : public ConnectBeamClass<ConnectSignal> {
+public:
+    /* =============  LIFECYCLE     =================== */
+    ProcessStatusCon() {}; /* constructor */
+
+    /* =============  ACCESSORS     =================== */
+    /* =============  MUTATORS      =================== */
+    void resource() {}
+    void callback(std::shared_ptr<e2q::ConnectSignal> beam)
+    {
+        if (beam == nullptr || beam->id != SigId::_process_status) {
+            return;
+        }
+        elog::echo("connect");
+        _beam = std::move(beam);
+    }
+
+    void status(ProcessStatusKind k) { _beam->stash(_con_fun, k); };
+    /* =============  OPERATORS     =================== */
+
+protected:
+    /* =============  METHODS       =================== */
+
+    /* =============  DATA MEMBERS  =================== */
+
+private:
+    /* =============  METHODS       =================== */
+
+    /* =============  DATA MEMBERS  =================== */
+    std::shared_ptr<e2q::ConnectSignal> _beam;
+    e2q::bridge::StashType<ProcessStatusKind, ProcessStatusKind> _con_fun =
+        [](ProcessStatusKind x) { return x; };
+}; /* -----  end of class ProcessStatusCon  ----- */
+
+inline std::shared_ptr<e2q::ProcessStatusCon> globle_psc = nullptr;
+
+inline Producer globle_producer;
+/*
+ * ================================
+ *        Class:  ProcessStatusFun
+ *  Description:
+ * ================================
+ */
+class ProcessStatusFun : public FuncBeamClass<FuncSignal> {
+public:
+    /* =============  LIFECYCLE     =================== */
+    ProcessStatusFun() {}; /* constructor */
+    /* =============  ACCESSORS     =================== */
+
+    /* =============  MUTATORS      =================== */
+    // void resource() {}
+
+    void callback(std::shared_ptr<e2q::FuncSignal> beam)
+    {
+        if (beam == nullptr || beam->id != SigId::_process_status) {
+            return;
+        }
+        elog::echo("ProcessStatusFun");
+        e2q::bridge::ReceiveType<ProcessStatusKind> tfun =
+            [this](ProcessStatusKind p) {
+                // elog::echo("ps fun p:", p);
+                PSF_t psf_t;
+                psf_t.data(_data);
+                psf_t.kind(p);
+                psf_t.index(0);
+                globle_producer.data(_data, _psc_size, psf_t.header(_tid));
+            };
+        beam->receive(tfun);
+    }
+    bool run()
+    {
+        ret = FinFabr->_process_topic.length() > 0;
+        if (ret) {
+            _tid = std::this_thread::get_id();
+            _data = (char*)calloc(_psc_size, sizeof(char*));
+
+            globle_producer.init(FinFabr->_source, FinFabr->_process_topic);
+        }
+
+        return ret;
+    }
+    void stop()
+    {
+        if (ret) {
+            // elog::echo("process status fun stop");
+            if (_data != nullptr) {
+                PSF_t psf_t;
+                psf_t.data(_data);
+                psf_t.kind(ProcessStatusKind::_OMS_STOP);
+                psf_t.index(0);
+
+                globle_producer.data(_data, _psc_size, psf_t.header(_tid));
+
+                free(_data);
+                _data = nullptr;
+                globle_producer.exist();
+            }
+        }
+    }
+    /* =============  OPERATORS     =================== */
+
+protected:
+    /* =============  METHODS       =================== */
+
+    /* =============  DATA MEMBERS  =================== */
+
+private:
+    /* =============  METHODS       =================== */
+
+    /* =============  DATA MEMBERS  =================== */
+    std::thread::id _tid;
+
+    bool ret = false;
+
+    std::size_t _psc_size =
+        fldsiz(PushProcessStatus, MsgType) + fldsiz(PushProcessStatus, pkind) +
+        fldsiz(PushProcessStatus, pindex) + fldsiz(PushProcessStatus, Aligned);
+
+    char* _data = nullptr;
+}; /* -----  end of class ProcessStatusFun  ----- */
+
 }  // namespace e2q
 #endif /* ----- #ifndef UTIL_INLINE_INC  ----- */

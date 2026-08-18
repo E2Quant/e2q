@@ -204,8 +204,9 @@ using BasicLock = std::lock_guard<std::mutex>;
  */
 
 enum __SigId {
-    _feedId = 0,  // feed pack
-    _strategy_id  // strategy pack
+    _feedId = 0,     // feed pack
+    _strategy_id,    // strategy pack
+    _process_status  // process status
 }; /* ----------  end of enum SigId  ---------- */
 
 typedef enum __SigId SigId;
@@ -664,6 +665,7 @@ struct __FinancialFabricate : public MarketInfo {
     std::uint8_t _settlement =
         1;  // T+0 T+1 ... fix UnderlyingSettlementType(975)
 
+    std::string _process_topic = "";
     std::string _desc;
     std::string _topic;               // kafka topic
     std::string _ccy;                 // currency

@@ -156,7 +156,7 @@ void Producer::data(std::pair<std::thread::id, std::string> msg,
     std::thread::id _id;
     std::stringstream ssId;
     std::string line;
-    RdKafka::Headers *headers = RdKafka::Headers::create();
+    RdKafka::Headers* headers = RdKafka::Headers::create();
     /*
      * Produce message
      */
@@ -177,17 +177,17 @@ void Producer::data(std::string line, std::string topic_str)
 {
     data(line.c_str(), line.size(), topic_str, nullptr);
 }
-void Producer::data(const char *line, std::size_t size)
+void Producer::data(const char* line, std::size_t size)
 {
     data(line, size, log_topic, NULL);
 }
-void Producer::data(const char *line, std::size_t size,
-                    RdKafka::Headers *headers)
+void Producer::data(const char* line, std::size_t size,
+                    RdKafka::Headers* headers)
 {
     data(line, size, log_topic, headers);
 }
-void Producer::data(const char *line, std::size_t size, std::string topic_str,
-                    RdKafka::Headers *headers)
+void Producer::data(const char* line, std::size_t size, std::string topic_str,
+                    RdKafka::Headers* headers)
 {
     int32_t partition = RdKafka::Topic::PARTITION_UA;
 
@@ -197,13 +197,13 @@ void Producer::data(const char *line, std::size_t size, std::string topic_str,
     }
 
     BasicLock _lock(_kMute);
-    //    elog::info(line + "  " + topic_str);
+    //   elog::info(std::string(line) + "  " + topic_str);
     RdKafka::ErrorCode resp = producer->produce(
         topic_str, partition, RdKafka::Producer::RK_MSG_COPY /* Copy payload
                                                               */
         ,
         /* Value */
-        const_cast<char *>(line), size,
+        const_cast<char*>(line), size,
         /* Key */
         NULL, 0,
         /* Timestamp (defaults to now) */

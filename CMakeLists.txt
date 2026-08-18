@@ -159,6 +159,23 @@ endif()
 # libe2 e2language library
 #---------------------------
 #set(CMAKE_PREFIX_PATH /usr/local/lib)
+
+find_package(LLVM REQUIRED CONFIG COMPONENTS Passes)
+include(LLVMConfig)                                                                                                                                                                                      
+llvm_map_components_to_libnames(                                                                                           
+    LLVM_LIBRARIES                                                                                                         
+                                                                                                                           
+    Interpreter                                                                                                            
+    MCJIT                                                                                                                  
+    native                                                                                                                 
+    X86                                                                                                                    
+    ARM                                                                                                                    
+    AArch64                                                                                                                
+    ipo                                                                                                                    
+                                                                                                                           
+    Passes                                                                                                                 
+    )  
+
 find_library(E2_LIBRARY NAMES e2 libe2.${LIB_EXT} HINTS "/usr/local/lib")
 
 if(NOT E2_LIBRARY)
@@ -300,4 +317,5 @@ target_link_libraries(${PROJECT_NAME}
     rdkafka++
 
     ${HUB_LIBS}
+    ${LLVM_LIBRARIES}
     )

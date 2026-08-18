@@ -46,11 +46,16 @@
 #include <memory>
 #include <string>
 
+#include "ControlPack/Beam.hpp"
+#include "Coordinate/Trigger.hpp"
 #include "E2LScript/ExternClazz.hpp"
+#include "E2LScript/util_inline.hpp"
 #include "OMSPack/Matcher/TraderAlgorithms.hpp"
 #include "OMSPack/SessionGlobal.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "Toolkit/Util.hpp"
 #include "libs/DB/pg.hpp"
+#include "libs/kafka/protocol/proto.hpp"
 #include "quickfix/Dictionary.h"
 #include "quickfix/SessionID.h"
 
@@ -175,6 +180,25 @@ void Exchange::RiskFix(int process, func_type<> child_process)
     FixBeam _fixbeam;
     _fixbeam.shareptr(_resource);
     _beam_data->assign<FixBeam, Func_beam>(_fixbeam);
+
+    ProcessStatusFun psf;
+
+    if (psf.run()) {
+        _beam_data->assign<ProcessStatusFun, Func_beam>(std::move(psf));
+
+        std::shared_ptr<e2q::FuncSignal> csignal =
+            std::make_shared<e2q::FuncSignal>(_shu_ptr);
+        csignal->id = SigId::_process_status;
+
+        psf.callback(csignal);
+
+        std::shared_ptr<e2q::ConnectSignal> tsignal =
+            std::make_shared<e2q::ConnectSignal>(_shu_ptr);
+        tsignal->id = SigId::_process_status;
+        globle_psc = std::make_shared<ProcessStatusCon>();
+        globle_psc->callback(tsignal);
+    }
+
     global_id_class[2] = this_thread::get_id();
 
     e2l_thread_map.AutoInit(global_id_class[2], 0);
@@ -245,6 +269,11 @@ void Exchange::RiskFix(int process, func_type<> child_process)
     catch (std::exception& e) {
         elog::bug("error:", e.what());
     }
+
+    // if (globle_psc != nullptr) {
+    //     globle_psc->status(ProcessStatusKind::_OMS_STOP);
+    // }
+    psf.stop();
     if (GlobalMainArguments.log_io.is_open()) {
         GlobalMainArguments.log_io.close();
     }
@@ -356,7 +385,6 @@ FIX::SessionSettings Exchange::ExSetting(int process)
             "%d;",
             process);
     }
-
     //  elog::echo(sql);
     r = SelectSQL(pg, sql);
 

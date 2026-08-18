@@ -116,7 +116,7 @@ e2::Bool OrderClose(
 
     if (oi.closeTck > 0 || stoppx <= 0) {
         // 防止 传入 平仓的 ticket ID
-        // llog::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
+        llog::bug("it'is close ticket:", ticket, " stoppx:", stoppx);
         return e2::Bool::B_FALSE;
     }
 
@@ -137,10 +137,12 @@ e2::Bool OrderClose(
         return e2::Bool::B_FALSE;
     }
     if (oi.trading == e2q::TradeStatus::CLOSEING) {
+        llog::bug("trading == e2q::TradeStatus::CLOSEING");
         return e2::Bool::B_FALSE;
     }
 
     if (oi.openqty == 0) {
+        llog::bug("oi.openqty == 0");
         return e2::Bool::B_FALSE;
     }
     /* if (oi.ordtype == e2::OrdType::ot_stop || */
@@ -221,7 +223,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     }
 
     if (e2q::FixPtr->_fix_symbols.at(symbol).dia != e2q::DoIAction::LIST) {
-        llog::bug("symbol is delisting:", symbol,
+        llog::bug("symbol is delisting:e2q::TradeStatus::CLOSEING", symbol,
                   " dia:", e2q::FixPtr->_fix_symbols.at(symbol).dia,
                   " ticket time:", e2q::ticket_now);
 
@@ -243,7 +245,7 @@ e2::Bool OrderSend(e2::Int_e symbol,    // symbol  Symbol for trading.
     if (expenditure > free_cash) {
         std::string cond = llog::format(
             "expenditure: %.2f total cash:%.2f, freeze:%.2f number:%ld, "
-            "price:%ld, qty: %ld",
+            "price:%lu, qty: %lu",
             expenditure, e2q::FixPtr->_cash.TotalCash(number),
             e2q::FixPtr->_cash.FreezeCash(number), number, price, qty);
         llog::bug(cond);

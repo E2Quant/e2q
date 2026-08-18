@@ -64,7 +64,8 @@ enum e2l_pro_t {
     CUSTOM = 'C',
     EXIT = 'E',
     LOG = 'L',
-    DEAL = 'D'
+    DEAL = 'D',
+    PROCESS = 'P'
 }; /* ----------  end of enum e2l_pro_t  ---------- */
 
 typedef enum e2l_pro_t E2l_pro_t;
@@ -292,7 +293,7 @@ typedef struct MarketTickMessage MarketTickMessage;
 
  */
 /**
- * 单独的撮合价格
+ * 单独的撮合价格, 外部 目前基本上是 qmt 在使用的
  */
 struct DealMatchMessage : public BaseMessage {
     char stock[E2QSTOCK_LENGTH] = {0};
@@ -384,32 +385,6 @@ typedef struct DealMatchMessage DealMatchMessage;
 // symbol...
 using deal_match_type = func_type<DealMatchMessage&>;
 
-/*--
- *
- *主要设计为人为控制订单信号
- *
-| Name         | Offset | Length | Value     | Notes       |
-| :----------- | ------ | ------ | --------- | --------- |
-| Message Type | 0      | 1      | 'D'       | Deal      |
-| stock        | 1      | 10     | Alpha     | 股票名称      |
-| side         | 11     | 1      | Alpha     | 'B', 'S'  |
-| dprice       | 12     | 6      | Integer64 | 成交均价     |
-| dqty         | 18     | 6      | Integer64 | qty       |
-| commission   | 24     | 6      | Integer64 | commission       |
-| tamount      | 30     | 6      | Integer64 | 成交额   |
-| tdate        | 36     | 6      | Integer32 | trade date       |
-| ttime        | 42     | 6      | Integer32 | trade time       |
-| unix_time    | 48     | 8      | Integer64 | unix_time |
-| ticket       | 54     | 8      | Integer64 | 当前一笔的ticket |
-| unique_size  | 62     | 6      | Integer16 | size   |
-| unique_id    | 68     | 256    | Alpha     | unique value   |
-| Aligned      | 324    | 1      | Alpha     | Aligned_t |
- */
-
-struct __PortableSignalsMessage {
-}; /* ----------  end of struct PortableSignalsMessage  ---------- */
-
-typedef struct __PortableSingleMessage PortableSingleMessage;
 /**
  * 定义数据
  *
@@ -430,7 +405,7 @@ typedef enum CmType CmType;
 | cficode      | 1      | 4      | Integer   |  cfi code      |
 | index        | 5      | 2      | Integer16 | value deci     |
 | size         | 7      | 2      | Integer16 | value deci     |
-| type         | 9      | 1      | Alpha     |'n'Negative,'p'Positive|
+| type         | 9      | 1      | Alpha     |'n'Negative,'p'Positive, 符号位|
 | sign         | 10     | 1      | Alpha     | data list      |
 | value        | 11     | 2,4,8..| I16,32,64 | data list      |
 | Aligned      |listsize| 1      | Alpha    RecordDealCommission | aligned_t |
@@ -601,6 +576,36 @@ struct E2LScriptLogMessage {
 }; /* ----------  end of struct E2LScriptLogMessage  ---------- */
 
 typedef struct E2LScriptLogMessage E2LScriptLogMessage;
+
+/*
+| Name         | Offset | Length | Value     | Notes          |
+| :----------- | ------ | ------ | --------- | -------------- |
+| Message Type | 0      | 1      | 'P'       | Process Status |
+| kind         | 1      | 2      | Integer16 |  Status Kind   |
+| index        | 3      | 2      | Integer32 | index          |
+| Aligned      | 5      | 1      | Alpha     | aligned_t      |
+*/
+
+enum __ProcessStatusKind {
+    _PRO_START = 0,
+    _OMS_INIT ,  // oms_init
+    _EA_INIT,
+    _EA_RUN,
+    _EA_CHANGING,
+    _EA_CHANGED,
+    _OMS_STOP,
+    _PRO_STOP
+}; /* ----------  end of enum __ProcessStatusKind  ---------- */
+
+typedef enum __ProcessStatusKind ProcessStatusKind;
+
+struct PushProcessStatus : public BaseMessage {
+    std::uint16_t pkind;
+    std::uint32_t pindex;
+
+}; /* ----------  end of struct __PushProcessStatus  ---------- */
+
+typedef struct PushProcessStatus PushProcessStatus;
 
 }  // namespace e2q
 #endif /* ----- #ifndef PROTO_INC  ----- */

@@ -47,7 +47,6 @@
 #include <cstddef>
 #include <experimental/type_traits>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -57,8 +56,7 @@
 namespace e2q {
 
 template <class...>
-struct type_list {
-};
+struct type_list {};
 
 struct visitor_tample {
 }; /* ----------  end of struct visitor_tample  ---------- */

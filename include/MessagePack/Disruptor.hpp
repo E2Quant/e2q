@@ -64,7 +64,7 @@ typedef std::function<void(SeqType start, SeqType end)> wait_for_t;
 
 class eof : public std::exception {
 public:
-    virtual const char *what() const noexcept { return "eof"; }
+    virtual const char* what() const noexcept { return "eof"; }
 };
 
 /*
@@ -114,7 +114,7 @@ typedef std::shared_ptr<Sequence> SequecePtr;
 class Barrier {
 public:
     /* =============  LIFECYCLE     =================== */
-    Barrier(){}; /* constructor */
+    Barrier() {}; /* constructor */
 
     /* =============  ACCESSORS     =================== */
 
@@ -153,7 +153,7 @@ private:
 class Mutex {
 public:
     /* =============  LIFECYCLE     =================== */
-    Mutex(){}; /* constructor */
+    Mutex() {}; /* constructor */
 
     /* =============  ACCESSORS     =================== */
     void lock();
@@ -196,8 +196,8 @@ class Lock {
 public:
     using mutex_type = Mutex;
     /* =============  LIFECYCLE     =================== */
-    Lock(){}; /* constructor */
-    explicit Lock(Mutex &m_) : m(m_) { m.lock(); }
+    Lock() {}; /* constructor */
+    explicit Lock(Mutex& m_) : m(m_) { m.lock(); }
 
     ~Lock() { m.unlock(); }
     /* =============  ACCESSORS     =================== */
@@ -215,7 +215,7 @@ private:
     /* =============  METHODS       =================== */
 
     /* =============  DATA MEMBERS  =================== */
-    Mutex &m;
+    Mutex& m;
 
 }; /* -----  end of class Lock  ----- */
 
@@ -236,7 +236,7 @@ using LockMutex = Lock<Mutex>;
 class Disruptor : public SilkPermit<SeqType, LockMutex> {
 public:
     /* =============  LIFECYCLE     =================== */
-    Disruptor(){}; /* constructor */
+    Disruptor() {}; /* constructor */
     Disruptor(const Mulberry<SeqType> mul) : SilkPermit(mul)
     {
         _trigger = std::make_shared<Trigger>();
@@ -276,7 +276,7 @@ public:
         }
     }
 
-    Disruptor(const Disruptor &_other) { *this = _other; };
+    Disruptor(const Disruptor& _other) { *this = _other; };
     ~Disruptor() {}
     /* =============  ACCESSORS     =================== */
 
@@ -287,13 +287,13 @@ public:
     /**
      * 不支持修改某一个数据
      */
-    void push(size_t row, size_t column, SeqType &data) = delete;
+    void push(size_t row, size_t column, SeqType& data) = delete;
 
     void follows(const SequecePtr seq);
     std::size_t distance();
     void from(const std::shared_ptr<Disruptor> _other);
 
-    void from(const Disruptor &_other);
+    void from(const Disruptor& _other);
     const SequecePtr me();
     void wait_for(wait_for_t);
 
@@ -326,14 +326,14 @@ public:
      * ============================================
      */
     template <typename std::size_t Nc, size_t Nr>
-    std::vector<int> deposit(std::array<std::array<SeqType, Nc>, Nr> &data)
+    std::vector<int> deposit(std::array<std::array<SeqType, Nc>, Nr>& data)
     {
         std::vector<int> ret = insert(data);
 
         return ret;
     }
     template <typename std::size_t Nc>
-    int deposit(const std::array<SeqType, Nc> &data)
+    int deposit(const std::array<SeqType, Nc>& data)
     {
         int ret = insert(data);
         return ret;
@@ -398,13 +398,13 @@ private:
 class ThreadDisruptor : public Disruptor {
 public:
     /* =============  LIFECYCLE     =================== */
-    ThreadDisruptor(){}; /* constructor */
-    ThreadDisruptor(const Mulberry<SeqType> mul) : Disruptor(mul){};
+    ThreadDisruptor() {}; /* constructor */
+    ThreadDisruptor(const Mulberry<SeqType> mul) : Disruptor(mul) {};
     ThreadDisruptor(const Mulberry<SeqType> mul, trigger_ptr tg)
         : Disruptor(mul, tg)
     {
     }
-    ThreadDisruptor(const ThreadDisruptor &_other) : Disruptor(_other) {}
+    ThreadDisruptor(const ThreadDisruptor& _other) : Disruptor(_other) {}
 
     /* =============  ACCESSORS     =================== */
 
@@ -419,12 +419,12 @@ public:
      *
      * ============================================
      */
-    void push(size_t row, size_t column, const SeqType &data)
+    void push(size_t row, size_t column, const SeqType& data)
     {
         SilkPermit::push(row, column, data);
     }
     template <typename std::size_t Nc>
-    void push(std::size_t row, const std::array<SeqType, Nc> &data)
+    void push(std::size_t row, const std::array<SeqType, Nc>& data)
     {
         SilkPermit::push(row, data);
     } /* -----  end of function push  ----- */

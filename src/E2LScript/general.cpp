@@ -185,7 +185,7 @@ void PrintDeci(e2::Int_e val, e2::Int_e deci, const char* _vname, e2::Int_e loc,
     int n = snprintf(NULL, 0, "%s", _vname);
     if (_vname == nullptr || n < 1) {
         if (_path != nullptr) {
-            llog::bug(llog::format("%lld vname is null path:%s", loc, _path));
+            llog::bug(llog::format("%u vname is null path:%s", loc, _path));
         }
         return;
     }
@@ -238,7 +238,7 @@ void PrintTime(e2::Int_e i, const char* _vname, e2::Int_e loc,
     }
     int n = snprintf(NULL, 0, "%s", _vname);
     if (_vname == nullptr || n < 1) {
-        llog::bug(llog::format("%d vname is null path:%s", loc, _path));
+        llog::bug(llog::format("%u vname is null path:%s", loc, _path));
         return;
     }
 

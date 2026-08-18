@@ -44,6 +44,7 @@
 
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <string>
@@ -136,8 +137,12 @@ void FixApplication::onLogout(const FIX::SessionID& sid)
         // elog::info("reset here");
         return;
     }
+    // 下一次改成 kafka single
     if (!_is_end) {
         elog::info("[ea_again]:", sid.getTargetCompID());
+        if (globle_psc != nullptr) {
+            globle_psc->status(ProcessStatusKind::_EA_CHANGED);
+        }
     }
 
 } /* -----  end of function FixApplication::onLogout  ----- */
@@ -396,6 +401,9 @@ void FixApplication::onMessage(const FIX44::QuoteStatusReport& message,
         //            " size:", SessionSymList.size());
 
         elog::echo("[ea_ok:", SessionSymList.size(), "]");
+        if (globle_psc != nullptr) {
+            globle_psc->status(ProcessStatusKind::_EA_RUN);
+        }
     }
     else {
         if (_is_logout) {
@@ -932,13 +940,13 @@ int FixApplication::E2LScript(e2::OrdType ordType, e2::Side side,
 #ifndef KAFKALOG
         log.init(global_id_class[1]);
 #endif
-        risk = _program->toScript(e2::OMSRisk::I_BROKER, symbol);
-
         if (side == e2::Side::os_Sell) {
             // 到时候再想一个好的就去把这些数据传进去
             risk = 0;
         }
-
+        else {
+            risk = _program->toScript(e2::OMSRisk::I_BROKER, symbol);
+        }
         if (FinFabr->_BookType == e2::BookType::BBook && risk == 0) {
             FIX::SessionID botsid;
 
@@ -1072,7 +1080,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
 
     if (risk < 0) {
         // 直接在这儿退出了，不要再分配了
-        // elog::info("risk < ", risk, " symobl:", symbol);
+        elog::info("risk < ", risk, " symobl:", symbol);
         rejectOrder(sid, clOrdID, symbol, side, elog::format("%d", risk),
                     (ticket_close > 0 ? ticket_close : ticket), qid, order_qty,
                     order_price, RejectType::risk_error);
@@ -1102,6 +1110,7 @@ void FixApplication::lob(const FIX::SessionID& sid, const FIX::Symbol& symbol,
                 order->hasMargin(margin);
             }
         }
+
         // 这儿的 risk 和上面的可能需要优化一下
         // 现在先这样吧，留以后再说
         if (risk == 0 && margin != -1) {

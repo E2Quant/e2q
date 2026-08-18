@@ -46,10 +46,8 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <iostream>
 #include <iterator>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <thread>
 
@@ -58,6 +56,7 @@
 #include "E2LScript/e2lLead.hpp"
 #include "E2LScript/foreign.hpp"
 #include "Toolkit/GlobalConfig.hpp"
+#include "Toolkit/Util.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/bprinter/table_printer.h"
 #include "utility/Log.hpp"
@@ -200,6 +199,7 @@ void topic_log(const char* topic)
         llog::bug("source or topic not  nullptr");
         return;
     }
+
 #ifdef KAFKALOG
 
     std::string host = "";
@@ -218,12 +218,35 @@ void topic_log(const char* topic)
     auto log_fun = [](std::string host, std::string topic) {
         e2q::log.init(host, topic);
     };  // -----  end lambda  -----
+    THREAD_FUN(log_fun, host, str_topic);
 
-    std::thread log_thread(log_fun, host, str_topic);
-    log_thread.detach();
 #endif
 
 } /* -----  end of function topic_log  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  topic_process_status
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void topic_process_status(const char* topic)
+{
+    FIN_FABR_IS_NULL();
+    if (topic == nullptr) {
+        llog::bug("source or topic not  nullptr");
+        return;
+    }
+
+    e2q::FinFabr->_process_topic = std::string(topic);
+
+} /* -----  end of function topic_process_status  ----- */
+
 /*
  * ===  FUNCTION  =============================
  *

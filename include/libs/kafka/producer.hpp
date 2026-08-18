@@ -84,14 +84,14 @@ inline void pro_sigterm(int sig) { pro_run = 0; }
  * in the produce() call. */
 class MyHashPartitionerCb : public RdKafka::PartitionerCb {
 public:
-    int32_t partitioner_cb(const RdKafka::Topic *topic, const std::string *key,
-                           int32_t partition_cnt, void *msg_opaque)
+    int32_t partitioner_cb(const RdKafka::Topic* topic, const std::string* key,
+                           int32_t partition_cnt, void* msg_opaque)
     {
         return djb_hash(key->c_str(), key->size()) % partition_cnt;
     }
 
 private:
-    static inline unsigned int djb_hash(const char *str, size_t len)
+    static inline unsigned int djb_hash(const char* str, size_t len)
     {
         unsigned int hash = 5381;
         for (size_t i = 0; i < len; i++) hash = ((hash << 5) + hash) + str[i];
@@ -101,7 +101,7 @@ private:
 
 class ExampleEventCb : public RdKafka::EventCb {
 public:
-    void event_cb(RdKafka::Event &event)
+    void event_cb(RdKafka::Event& event)
     {
         switch (event.type()) {
             case RdKafka::Event::EVENT_ERROR:
@@ -163,10 +163,10 @@ public:
     void data(std::pair<std::thread::id, std::string>);
     void data(std::pair<std::thread::id, std::string>, std::string);
     void data(std::string, std::string);
-    void data(const char *data, std::size_t size);
-    void data(const char *data, std::size_t size, RdKafka::Headers *headers);
-    void data(const char *data, std::size_t size, std::string,
-              RdKafka::Headers *headers);
+    void data(const char* data, std::size_t size);
+    void data(const char* data, std::size_t size, RdKafka::Headers* headers);
+    void data(const char* data, std::size_t size, std::string,
+              RdKafka::Headers* headers);
 
     void exist();
     /* =============  OPERATORS     =================== */
@@ -183,18 +183,63 @@ private:
     // std::condition_variable cv;
     // std::mutex guard;
 
-    RdKafka::Conf *conf = nullptr;
-    RdKafka::Conf *tconf = nullptr;
+    RdKafka::Conf* conf = nullptr;
+    RdKafka::Conf* tconf = nullptr;
 
     std::atomic_bool _active{true};
     std::queue<std::pair<std::thread::id, std::string>> _arg;
 
     // std::atomic_bool _init{false};
     std::string log_topic = "";
-    RdKafka::Producer *producer = nullptr;
+    RdKafka::Producer* producer = nullptr;
     using EMute = BasicLock::mutex_type;
     mutable EMute _kMute;
 }; /* -----  end of class Producer  ----- */
+
+/*
+ * ================================
+ *        Class:  ProducerBase
+ *  Description:
+ * ================================
+ */
+class ProducerBase {
+public:
+    /* =============  LIFECYCLE     =================== */
+    ProducerBase() {}; /* constructor */
+
+    /* =============  ACCESSORS     =================== */
+
+    /* =============  MUTATORS      =================== */
+    RdKafka::Headers* header(std::thread::id _id)
+    {
+        std::stringstream ssId;
+        RdKafka::Headers* headers = RdKafka::Headers::create();
+        /*
+         * Produce message
+         */
+
+        ssId.str("");
+        ssId.clear();
+
+        ssId << _id;
+
+        headers->add("thread_id", ssId.str());
+
+        return headers;
+    }
+    /* =============  OPERATORS     =================== */
+
+protected:
+    /* =============  METHODS       =================== */
+
+    /* =============  DATA MEMBERS  =================== */
+
+private:
+    /* =============  METHODS       =================== */
+
+    /* =============  DATA MEMBERS  =================== */
+
+}; /* -----  end of class ProducerBase  ----- */
 
 }  // namespace e2q
 #endif /* ----- #ifndef Producer_INC  ----- */

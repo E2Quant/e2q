@@ -44,7 +44,6 @@
 
 #ifndef SHUTTLEHEADER_INC
 #define SHUTTLEHEADER_INC
-#include <iostream>
 namespace e2q {
 
 /*
