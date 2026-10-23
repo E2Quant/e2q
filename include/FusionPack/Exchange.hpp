@@ -73,7 +73,8 @@ namespace e2q {
 class Exchange {
 public:
     /* =============  LIFECYCLE     =================== */
-    Exchange(std::string &e2l, std::string &edir); /* constructor */
+    Exchange(const std::string& e2l_script,
+             const std::vector<std::string>& ldir); /* constructor */
 
     /* =============  ACCESSORS     =================== */
 

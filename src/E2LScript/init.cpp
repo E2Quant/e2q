@@ -57,6 +57,7 @@
 #include "E2LScript/foreign.hpp"
 #include "Toolkit/GlobalConfig.hpp"
 #include "Toolkit/Util.hpp"
+#include "Toolkit/UtilTime.hpp"
 #include "assembler/BaseType.hpp"
 #include "libs/bprinter/table_printer.h"
 #include "utility/Log.hpp"
@@ -518,11 +519,34 @@ void SwapRate(e2::Int_e rate)
  *
  * ============================================
  */
-void gmtime()
+e2::Int_e gmtime()
+{
+    e2q::UtilTime ut;
+
+    long gmt = ut.offset_gmt();
+    if (gmt > 0) {
+        gmt = gmt / (60 * 60);
+    }
+
+    return VALNUMBER(gmt);
+} /* -----  end of function gmtime  ----- */
+
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  EnableGmt
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+void EnableGmt()
 {
     FIX_PTR_IS_NULL();
     e2q::FixPtr->_gmt = 1;
-} /* -----  end of function gmtime  ----- */
+} /* -----  end of function EnableGmt  ----- */
 /*
  * ===  FUNCTION  =============================
  *

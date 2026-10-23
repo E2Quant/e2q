@@ -53,7 +53,6 @@
 #include <utility>
 
 #include "E2L/E2LType.hpp"
-#include "E2L/general.hpp"
 #include "E2LScript/ExternClazz.hpp"
 #include "E2LScript/util_inline.hpp"
 
@@ -104,7 +103,8 @@ StrategyBase::StrategyBase(_Resource_ptr ptr,
  *
  * ============================================
  */
-void StrategyBase::ProgramInit(std::string& file, std::string& edir)
+void StrategyBase::ProgramInit(const std::string& file,
+                               const std::vector<std::string>& edir)
 {
     Int_e argc = 0;
 

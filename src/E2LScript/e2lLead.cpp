@@ -167,7 +167,9 @@ void E2LFunList()
     AddFun(PendingExpirationTime, 1, "FPendingExpirationTime", E2L_NORETURN,
            "(second);");
     AddFun(SwapRate, 1, "FSwapRate", E2L_NORETURN, "(rate);");
-    AddFun(gmtime, 0, "FGmt", E2L_NORETURN, "();");
+    AddFun(gmtime, 0, "FGmt", E2L_RETURN, "();");
+
+    AddFun(EnableGmt, 0, "FEnableGmt", E2L_NORETURN, "()'");
 
     AddFun(LotAndShare, 1, "FLotAndShare", E2L_NORETURN, "(lot);");
     AddFun(CurrentLS, 0, "FCurrentLS", E2L_RETURN, "();");

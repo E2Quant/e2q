@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict UeGOHlELTdQxZjXyqZla9Uylq2goncq9Ucf6DFxMDqcV4BYZMcrH10aN1Xafxy2
+\restrict 0JWrOUAhfDMKMx9ELyTTY973vNRA2oTA8euDXLsvzok5BL1W56HMKncUvgbUIbM
 
 -- Dumped from database version 18.4 (Debian 18.4-1.pgdg13+1)
 -- Dumped by pg_dump version 18.4 (Debian 18.4-1.pgdg13+1)
@@ -2304,6 +2304,37 @@ $$;
 ALTER FUNCTION public.risk_margin_for_total_loop(_verid integer, _init_cash integer) OWNER TO dbuser;
 
 --
+-- Name: risk_profit_limit_cash(integer); Type: FUNCTION; Schema: public; Owner: dbuser
+--
+
+CREATE FUNCTION public.risk_profit_limit_cash(_init_cash integer) RETURNS TABLE(read_profit double precision, verid integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT (
+            (
+                data.allprofit - data.allmargin
+            ) / _init_cash * 100.0
+          ) as read_profit, 
+          data.verid
+    FROM (
+            SELECT sum(tr.margin) as allmargin, sum(tr.profit) as allprofit, st.verid
+            from
+                trade_report tr, trades td, stockinfo st
+            WHERE
+                tr.ticket = td.id
+                and td.symbol = st.id
+            GROUP BY
+                st.verid
+        ) data
+    ORDER by read_profit;
+END; $$;
+
+
+ALTER FUNCTION public.risk_profit_limit_cash(_init_cash integer) OWNER TO dbuser;
+
+--
 -- Name: risk_returns_for_day(integer, integer); Type: FUNCTION; Schema: public; Owner: dbuser
 --
 
@@ -2785,24 +2816,9 @@ ALTER TABLE public.analselog ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 CREATE TABLE public.analytics (
     "Start" integer,
     "End" integer,
-    "Duration" integer,
-    "ExposureTime" numeric,
-    "EquityFinal" bigint,
-    "EquityPeak" bigint,
-    "Return" bigint,
-    "BuyAndHold" bigint,
-    "ReturnAnn" bigint,
-    "VolatilityAnn" bigint,
-    "SharpeRatio" bigint,
-    "SortinoRatio" bigint,
-    "CalmarRatio" bigint,
-    "MaxDrawdown" bigint,
-    "AvgDrawdown" bigint,
-    "MaxDrawdownDuration" bigint,
-    "AvgDrawdownDuration" bigint,
-    "Alpha" bigint,
-    "Beta" bigint,
-    id bigint NOT NULL
+    id bigint NOT NULL,
+    summary json,
+    verid integer
 );
 
 
@@ -2830,108 +2846,17 @@ COMMENT ON COLUMN public.analytics."End" IS 'end time';
 
 
 --
--- Name: COLUMN analytics."Duration"; Type: COMMENT; Schema: public; Owner: dbuser
+-- Name: COLUMN analytics.summary; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
-COMMENT ON COLUMN public.analytics."Duration" IS 'Duration days';
-
-
---
--- Name: COLUMN analytics."ExposureTime"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."ExposureTime" IS 'Exposure Time [%]                       94.27';
+COMMENT ON COLUMN public.analytics.summary IS 'summary';
 
 
 --
--- Name: COLUMN analytics."EquityFinal"; Type: COMMENT; Schema: public; Owner: dbuser
+-- Name: COLUMN analytics.verid; Type: COMMENT; Schema: public; Owner: dbuser
 --
 
-COMMENT ON COLUMN public.analytics."EquityFinal" IS 'Equity Final [$]                     68935.12';
-
-
---
--- Name: COLUMN analytics."EquityPeak"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."EquityPeak" IS 'Equity Peak [$]                      68991.22';
-
-
---
--- Name: COLUMN analytics."Return"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."Return" IS 'Return [%]                             589.35';
-
-
---
--- Name: COLUMN analytics."BuyAndHold"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."BuyAndHold" IS 'Buy & Hold Return [%]                  703.46';
-
-
---
--- Name: COLUMN analytics."ReturnAnn"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."ReturnAnn" IS 'Return (Ann.) [%]                       25.42';
-
-
---
--- Name: COLUMN analytics."VolatilityAnn"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."VolatilityAnn" IS 'Volatility (Ann.) [%]                   38.43';
-
-
---
--- Name: COLUMN analytics."SharpeRatio"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."SharpeRatio" IS 'Sharpe Ratio                             0.66';
-
-
---
--- Name: COLUMN analytics."SortinoRatio"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."SortinoRatio" IS 'Sortino Ratio                            1.30';
-
-
---
--- Name: COLUMN analytics."CalmarRatio"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."CalmarRatio" IS 'Calmar Ratio                             0.77';
-
-
---
--- Name: COLUMN analytics."MaxDrawdown"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."MaxDrawdown" IS 'Max. Drawdown [%]                      -33.08';
-
-
---
--- Name: COLUMN analytics."AvgDrawdown"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."AvgDrawdown" IS 'Avg. Drawdown [%]                       -5.58';
-
-
---
--- Name: COLUMN analytics."MaxDrawdownDuration"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."MaxDrawdownDuration" IS 'Max. Drawdown Duration      688 days 00:00:00';
-
-
---
--- Name: COLUMN analytics."AvgDrawdownDuration"; Type: COMMENT; Schema: public; Owner: dbuser
---
-
-COMMENT ON COLUMN public.analytics."AvgDrawdownDuration" IS 'Avg. Drawdown Duration       41 days 00:00:00';
+COMMENT ON COLUMN public.analytics.verid IS 'version';
 
 
 --
@@ -4412,6 +4337,71 @@ ALTER SEQUENCE public.trades_id_seq OWNED BY public.trades.id;
 
 
 --
+-- Name: ctrl_config; Type: TABLE; Schema: trade_status; Owner: dbuser
+--
+
+CREATE TABLE trade_status.ctrl_config (
+    id integer NOT NULL,
+    ctime integer,
+    skfolio json,
+    ea_code_union json,
+    ea_run json,
+    benchmark json
+);
+
+
+ALTER TABLE trade_status.ctrl_config OWNER TO dbuser;
+
+--
+-- Name: TABLE ctrl_config; Type: COMMENT; Schema: trade_status; Owner: dbuser
+--
+
+COMMENT ON TABLE trade_status.ctrl_config IS '当前一个次回测的参数记录';
+
+
+--
+-- Name: COLUMN ctrl_config.skfolio; Type: COMMENT; Schema: trade_status; Owner: dbuser
+--
+
+COMMENT ON COLUMN trade_status.ctrl_config.skfolio IS '配置 skfolio json';
+
+
+--
+-- Name: COLUMN ctrl_config.ea_code_union; Type: COMMENT; Schema: trade_status; Owner: dbuser
+--
+
+COMMENT ON COLUMN trade_status.ctrl_config.ea_code_union IS 'ea 的 union 变量';
+
+
+--
+-- Name: COLUMN ctrl_config.ea_run; Type: COMMENT; Schema: trade_status; Owner: dbuser
+--
+
+COMMENT ON COLUMN trade_status.ctrl_config.ea_run IS 'ea run 的变量';
+
+
+--
+-- Name: COLUMN ctrl_config.benchmark; Type: COMMENT; Schema: trade_status; Owner: dbuser
+--
+
+COMMENT ON COLUMN trade_status.ctrl_config.benchmark IS '当前一次回测或者模拟';
+
+
+--
+-- Name: ctrl_config_id_seq; Type: SEQUENCE; Schema: trade_status; Owner: dbuser
+--
+
+ALTER TABLE trade_status.ctrl_config ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME trade_status.ctrl_config_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: symbol_risk; Type: TABLE; Schema: trade_status; Owner: dbuser
 --
 
@@ -4421,7 +4411,9 @@ CREATE TABLE trade_status.symbol_risk (
     start_time timestamp without time zone,
     now_time timestamp without time zone,
     risk double precision,
-    verid integer
+    verid integer,
+    tolist smallint DEFAULT 0,
+    cid integer
 );
 
 
@@ -4467,6 +4459,20 @@ COMMENT ON COLUMN trade_status.symbol_risk.risk IS 'value';
 --
 
 COMMENT ON COLUMN trade_status.symbol_risk.verid IS 'public trade_info id';
+
+
+--
+-- Name: COLUMN symbol_risk.tolist; Type: COMMENT; Schema: trade_status; Owner: dbuser
+--
+
+COMMENT ON COLUMN trade_status.symbol_risk.tolist IS '0 self._tolist -1 delist';
+
+
+--
+-- Name: COLUMN symbol_risk.cid; Type: COMMENT; Schema: trade_status; Owner: dbuser
+--
+
+COMMENT ON COLUMN trade_status.symbol_risk.cid IS 'ctrl_config id';
 
 
 --
@@ -4593,6 +4599,14 @@ ALTER TABLE ONLY public.trades
 
 
 --
+-- Name: ctrl_config ctrl_config_pkey; Type: CONSTRAINT; Schema: trade_status; Owner: dbuser
+--
+
+ALTER TABLE ONLY trade_status.ctrl_config
+    ADD CONSTRAINT ctrl_config_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: symbol_risk symbol_risk_pkey; Type: CONSTRAINT; Schema: trade_status; Owner: dbuser
 --
 
@@ -4696,6 +4710,14 @@ ALTER TABLE ONLY public.analselog
 
 
 --
+-- Name: analytics analytics_verid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
+--
+
+ALTER TABLE ONLY public.analytics
+    ADD CONSTRAINT analytics_verid_fkey FOREIGN KEY (verid) REFERENCES public.trade_info(id);
+
+
+--
 -- Name: exdr exdr_symbol_fkey; Type: FK CONSTRAINT; Schema: public; Owner: dbuser
 --
 
@@ -4744,8 +4766,16 @@ ALTER TABLE ONLY public.trades
 
 
 --
+-- Name: symbol_risk ctrl_id; Type: FK CONSTRAINT; Schema: trade_status; Owner: dbuser
+--
+
+ALTER TABLE ONLY trade_status.symbol_risk
+    ADD CONSTRAINT ctrl_id FOREIGN KEY (cid) REFERENCES trade_status.ctrl_config(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict UeGOHlELTdQxZjXyqZla9Uylq2goncq9Ucf6DFxMDqcV4BYZMcrH10aN1Xafxy2
+\unrestrict 0JWrOUAhfDMKMx9ELyTTY973vNRA2oTA8euDXLsvzok5BL1W56HMKncUvgbUIbM
 

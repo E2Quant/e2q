@@ -69,8 +69,12 @@ namespace e2q {
  *
  * ============================================
  */
-Fusion::Fusion()
+Fusion::Fusion(const std::string& e2l_script,
+               const std::vector<std::string>& ldir)
 {
+    _script_enter = std::move(e2l_script);
+    _script_libs = std::move(ldir);
+
     elog::echo("version:", version::version_full);
 
 } /* -----  end of function Fusion::Fusion  ----- */
@@ -86,15 +90,14 @@ Fusion::Fusion()
  *
  * ============================================
  */
-void Fusion::oms(std::string e2l_script, std::string &edir, int process,
-                 func_type<> child_process)
+void Fusion::oms(int process, func_type<> child_process)
 {
     if (_Properties.length() > 0) {
         GlobalDBPtr =
             std::make_shared<PGConnectPool>(pg_max_connect, _Properties);
     }
 
-    Exchange ex(e2l_script, edir);
+    Exchange ex(_script_enter, _script_libs);
     ex.RiskFix(process, child_process);
 } /* -----  end of function Fusion::oms  ----- */
 
@@ -109,15 +112,14 @@ void Fusion::oms(std::string e2l_script, std::string &edir, int process,
  *
  * ============================================
  */
-void Fusion::ea(std::string e2l_script, std::string &edir, size_t n,
-                std::size_t quantId_start)
+void Fusion::ea(size_t n, std::size_t quantId_start)
 {
     if (_Properties.length() > 0) {
         GlobalDBPtr = std::make_shared<PGConnectPool>(1, _Properties);
     }
 
     MachineOS mos;
-    mos.enter(e2l_script, edir, n, quantId_start);
+    mos.enter(_script_enter, _script_libs, n, quantId_start);
 } /* -----  end of function Fusion::ea  ----- */
 
 /*
@@ -131,7 +133,7 @@ void Fusion::ea(std::string e2l_script, std::string &edir, size_t n,
  *
  * ============================================
  */
-void Fusion::properties(std::string &path)
+void Fusion::properties(std::string& path)
 {
     std::ifstream stream(path.c_str());
     if (path.length() == 0) {
@@ -166,7 +168,7 @@ void Fusion::properties(std::string &path)
  *
  * ============================================
  */
-void Fusion::enter(const char *e2l_script)
+void Fusion::enter(const char* e2l_script)
 {
     if (e2l_script == nullptr) {
         elog::bug("path is not found");

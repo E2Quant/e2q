@@ -43,9 +43,11 @@
 
 #include "E2Q.hpp"
 
+#include <filesystem>
 #include <string>
+#include <utility>
 
-#include "E2LScript/util_inline.hpp"
+#include "Toolkit/UtilTime.hpp"
 
 namespace e2q {
 /*
@@ -75,13 +77,14 @@ E2Q::E2Q() {} /* -----  end of function E2Q:E2Q  ----- */
 void E2Q::exchange(int pros, func_type<> child_process)
 {
     elog::echo("server is run!");
+
     if (db_path.length() == 0) {
         elog::echo("properties is empty");
     }
-    e2q::Fusion fusion;
+    e2q::Fusion fusion(e2l_path, lib_dir);
     fusion.properties(db_path);
 
-    fusion.oms(e2l_path, esearch_dir, pros, child_process);
+    fusion.oms(pros, child_process);
 } /* -----  end of function E2Q::exchange  ----- */
 
 /*
@@ -102,9 +105,9 @@ void E2Q::trader(size_t n, std::size_t quant_start, int run)
     if (db_path.length() == 0) {
         elog::echo("properties is empty");
     }
-    e2q::Fusion fusion;
+    e2q::Fusion fusion(e2l_path, lib_dir);
     fusion.properties(db_path);
-    fusion.ea(e2l_path, esearch_dir, n, quant_start);
+    fusion.ea(n, quant_start);
 
 } /* -----  end of function E2Q::trader  ----- */
 
@@ -122,6 +125,7 @@ void E2Q::trader(size_t n, std::size_t quant_start, int run)
 void E2Q::setCfg(std::string& e2l, std::string& db)
 {
     e2l_path = e2l;
+
     db_path = db;
 } /* -----  end of function E2Q:setCfg  ----- */
 
@@ -147,7 +151,7 @@ void E2Q::log_dir(std::string& dir)
 /*
  * ===  FUNCTION  =============================
  *
- *         Name:  E2Q::search_dir
+ *         Name:  E2Q::lib_dirs
  *  ->  void *
  *  Parameters:
  *  - size_t  arg
@@ -155,9 +159,9 @@ void E2Q::log_dir(std::string& dir)
  *
  * ============================================
  */
-void E2Q::search_dir(std::string& dir)
+void E2Q::lib_dirs(const std::vector<std::string>& dir)
 {
-    esearch_dir = dir;
-} /* -----  end of function E2Q::search_dir  ----- */
+    lib_dir = std::move(dir);
+} /* -----  end of function E2Q::lib_dirs  ----- */
 }  // namespace e2q
 

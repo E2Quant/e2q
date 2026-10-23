@@ -90,8 +90,9 @@ MachineOS::MachineOS()
  *
  * ============================================
  */
-void MachineOS::enter(std::string& e2l_script, std::string& edir,
-                      size_t node_idx, std::size_t quantId_start)
+void MachineOS::enter(const std::string& e2l_script,
+                      const std::vector<std::string>& lib_dirs, size_t node_idx,
+                      std::size_t quantId_start)
 {
     _node = node_idx;
     GlobalProcessId = node_idx;
@@ -110,7 +111,7 @@ void MachineOS::enter(std::string& e2l_script, std::string& edir,
      */
     quantId_start += node_idx;
     StrategyBase _sbase(this->_resource, this->_beam_data, quantId_start);
-    _sbase.ProgramInit(e2l_script, edir);
+    _sbase.ProgramInit(e2l_script, lib_dirs);
 
     FIX_PTR_IS_NULL();
 

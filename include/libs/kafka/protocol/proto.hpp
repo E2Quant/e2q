@@ -588,11 +588,12 @@ typedef struct E2LScriptLogMessage E2LScriptLogMessage;
 
 enum __ProcessStatusKind {
     _PRO_START = 0,
-    _OMS_INIT ,  // oms_init
+    _OMS_INIT,  // oms_init
     _EA_INIT,
     _EA_RUN,
     _EA_CHANGING,
     _EA_CHANGED,
+    _OMS_MATCHER,
     _OMS_STOP,
     _PRO_STOP
 }; /* ----------  end of enum __ProcessStatusKind  ---------- */
@@ -600,8 +601,8 @@ enum __ProcessStatusKind {
 typedef enum __ProcessStatusKind ProcessStatusKind;
 
 struct PushProcessStatus : public BaseMessage {
-    std::uint16_t pkind;
-    std::uint32_t pindex;
+    ProcessStatusKind pkind;
+    std::uint64_t pindex;
 
 }; /* ----------  end of struct __PushProcessStatus  ---------- */
 

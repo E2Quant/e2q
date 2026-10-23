@@ -45,7 +45,9 @@
 #ifndef PG_INC
 #define PG_INC
 
+#include <concepts>
 #include <cstdint>
+#include <type_traits>
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 // define something for Windows (32-bit and 64-bit, this part is common)
 #ifdef _WIN64
@@ -175,6 +177,7 @@ public:
         std::string val = fmt(t, deci);
         insert_query(field, val);
     }
+
     void insert_query(std::string field, std::string val)
 
     {
@@ -355,6 +358,10 @@ private:
     /* =============  METHODS       =================== */
     void exit_nicely();
     bool exec(std::string, const char* file, long lineNumber);
+
+    std::string fmt(std::string s, std::size_t deci = 0)
+    { /* 仅 std::string 可调用 */ return s; }
+
     template <typename T>
     std::string fmt(T t, std::size_t deci = 0)
     {

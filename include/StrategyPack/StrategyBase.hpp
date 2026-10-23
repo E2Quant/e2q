@@ -73,7 +73,7 @@ public:
     /* ====================  ACCESSORS =======================================
      */
 
-    void ProgramInit(std::string &file, std::string &);
+    void ProgramInit(const std::string& file, const std::vector<std::string>&);
 
     /* ====================  MUTATORS =======================================
      */

@@ -50,6 +50,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -60,6 +61,7 @@
 #include "Toolkit/Norm.hpp"
 #include "Toolkit/Util.hpp"
 #include "Toolkit/eLog.hpp"
+#include "assembler/CodeGenContext.hpp"
 #include "ast/ParserCtx.hpp"
 #include "libs/bprinter/table_printer.h"
 using namespace e2q;
@@ -74,11 +76,14 @@ using namespace e2q;
  *
  * ============================================
  */
-void only_run(const char* f, std::string search_dir, bool graph)
+void only_run(const char* f, const std::vector<std::string>& search_dir,
+              bool graph)
 {
     e2::ParserCtx ctx;
-    if (search_dir.length() > 0) {
-        ctx.search_path(search_dir.c_str());
+    if (search_dir.size() > 0) {
+        for (auto it : search_dir) {
+            ctx.project(it);
+        }
     }
     int ret = ctx.toparse(f);
 
@@ -92,7 +97,6 @@ void only_run(const char* f, std::string search_dir, bool graph)
 
     createCoreFunctions(context);
     EAE2LFun();
-
     Block* block = ctx.RootBlock();
 
     for (E2lFun_t it : funList) {
@@ -108,18 +112,21 @@ void only_run(const char* f, std::string search_dir, bool graph)
         if (graph) {
             context.setupAndRunPasses();
         }
+
         const std::vector<OperatorDivZero> odz = context.OperatorDZ();
-        bprinter::TablePrinter tp(&std::cout);
-        tp.AddColumn("codeline", 20);
-        tp.AddColumn("path", 80);
+        if (odz.size() > 0) {
+            bprinter::TablePrinter tp(&std::cout);
+            tp.AddColumn("codeline", 20);
+            tp.AddColumn("path", 80);
 
-        tp.PrintHeader();
-        for (auto dx : odz) {
-            tp << dx.line << dx.path;
+            tp.PrintHeader();
+            for (auto dx : odz) {
+                tp << dx.line << dx.path;
+            }
+            tp.PrintFooter();
+
+            e2::llog::echo("ret:", ret);
         }
-        tp.PrintFooter();
-
-        e2::llog::echo("ret:", ret);
     }
     else {
         e2::llog::bug("generateCode is error");
@@ -178,7 +185,7 @@ int e2q_action(int argc, char* argv[])
     char* f = nullptr;
     char* i = nullptr;
 
-    std::string searh_path = "";
+    std::vector<std::string> searh_path;
     int index;
 
     int run = 0;  // 第几次运行进程
@@ -305,7 +312,7 @@ int e2q_action(int argc, char* argv[])
             case 'i': {
                 i = optarg;
                 if (i != nullptr) {
-                    searh_path = std::string(i);
+                    searh_path.push_back(std::string(i));
                 }
                 break;
             }
@@ -414,8 +421,15 @@ int e2q_action(int argc, char* argv[])
     if (e2q::GlobalMainArguments.log_dir.length() > 0) {
         _e2q.log_dir(e2q::GlobalMainArguments.log_dir);
     }
-    if (searh_path.length() > 0) {
-        _e2q.search_dir(searh_path);
+
+    for (std::size_t idx = 0; idx < proce; idx++) {
+        std::string e_path =
+            std::filesystem::path(eas_el[idx]).parent_path().string();
+        searh_path.push_back(e_path);
+    }
+
+    if (searh_path.size() > 0) {
+        _e2q.lib_dirs(searh_path);
     }
 
     if (proce == 1 && oms_el.size() == 0) {

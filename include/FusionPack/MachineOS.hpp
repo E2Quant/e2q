@@ -83,7 +83,8 @@ public:
     /* =============  ACCESSORS     =================== */
 
     /* =============  MUTATORS      =================== */
-    void enter(std::string &, std::string &, size_t, std::size_t);
+    void enter(const std::string&, const std::vector<std::string>& ldir, size_t,
+               std::size_t);
     /* =============  OPERATORS     =================== */
 
 protected:

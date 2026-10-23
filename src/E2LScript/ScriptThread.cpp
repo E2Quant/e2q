@@ -92,7 +92,8 @@ std::shared_ptr<FinancialFabricate> FinFabr = nullptr;
  *
  * ============================================
  */
-void ScriptThread::init(const char* file, std::string edir)
+void ScriptThread::init(const char* file,
+                        const std::vector<std::string>& lib_dirs)
 {
     if (file == nullptr) {
         llog::bug("e2 language file is empty");
@@ -124,8 +125,10 @@ void ScriptThread::init(const char* file, std::string edir)
             break;
     }
     if (GlobalMainArguments.bitcode_func_name.length() == 0) {
-        if (edir.length() > 0) {
-            _ctx.search_path(edir.c_str());
+        if (lib_dirs.size() > 0) {
+            for (auto edir : lib_dirs) {
+                _ctx.project(edir);
+            }
         }
         _ctx.toparse(file);
     }

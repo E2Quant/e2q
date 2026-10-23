@@ -76,7 +76,7 @@ public:
     size_t MemSize();
     bool CheckCall();
     /* =============  MUTATORS      =================== */
-    void init(const char* file, std::string edir);
+    void init(const char* file, const std::vector<std::string>&);
 
     void e2lInit(const char* file);
     int toScript(double argc, double argv);

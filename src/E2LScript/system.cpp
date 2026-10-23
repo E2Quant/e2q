@@ -194,7 +194,13 @@ void SymbolUnion()
 void ApiList()
 {
     std::string arg = "";
+    std::cout << "{";
+    bool first = false;
     for (e2q::E2lFun_t it : e2q::funList) {
+        if (first) {
+            std::cout << ",";
+        }
+        first = true;
         for (std::size_t m = 0; m < std::get<1>(it); m++) {
             if (arg.length() == 0) {
                 arg = "a";
@@ -209,10 +215,11 @@ void ApiList()
                   << std::get<4>(it)
                   << "\"],\"description\": "
                      "\"e2l's "
-                  << std::get<2>(it) << "\"}," << std::endl;
+                  << std::get<2>(it) << "\"}" << std::endl;
 
         arg = "";
     }
+    std::cout << "}" << std::endl;
 
 } /* -----  end of function ApiList  ----- */
 }  // namespace e2l

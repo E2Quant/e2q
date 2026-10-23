@@ -1,7 +1,13 @@
 # CMakeLists files in this project can
 # refer to the root source directory of the project as ${HELLO_SOURCE_DIR} and
 # to the root binary directory of the project as ${HELLO_BINARY_DIR}.
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.28)
+
+#if(APPLE)
+#    set(CMAKE_C_COMPILER   "$ENV{HOMEBREW_PREFIX}/opt/llvm/bin/clang")
+#    set(CMAKE_CXX_COMPILER "$ENV{HOMEBREW_PREFIX}/opt/llvm/bin/clang++")
+#endif()
+
 project(e2q)
 
 add_definitions('-g')
@@ -11,8 +17,8 @@ add_definitions('-std=c++20')
 
 # Set project version
 set(E2Q_VERSION_MAJOR "1")
-set(E2Q_VERSION_MINOR "0")
-set(E2Q_VERSION_PATCH "0")
+set(E2Q_VERSION_MINOR "2")
+set(E2Q_VERSION_PATCH "2")
 set(E2Q_VERSION_EXTRA "")
 set(E2Q_VERSION "${E2Q_VERSION_MAJOR}.${E2Q_VERSION_MINOR}")
 set(E2Q_VERSION_FULL "${E2Q_VERSION_MAJOR}.${E2Q_VERSION_MINOR}.${E2Q_VERSION_PATCH}${E2Q_VERSION_EXTRA}")
@@ -56,15 +62,15 @@ file(GLOB SOURCES
 # LLVM
 set(LLVM_DIR "" CACHE STRING "")
 if(NOT ${LLVM_DIR} STREQUAL "")
-    # use llvm dir cmake -DDEBUG=ON -DUSE_CCACHE=ON -DKAFKALOG=ON -DUSE_TALIB=ON -DUSE_ZTS=ON -DLLVM_DIR=/opt/homebrew/Cellar/llvm@14/14.0.6/include/ -DCMAKE_EXPORT_COMPILE_COMMANDS=1 ../
+
     include_directories(
         ${PROJECT_SOURCE_DIR}/src
         ${LLVM_DIR}
-    )
+        )
 else()
     include_directories(
         ${PROJECT_SOURCE_DIR}/src
-    )
+        )
 
 endif() 
 
@@ -101,7 +107,7 @@ if (DEFINED ENV{LIBRDKAFKA_INCLUDE_DIR})
 else ()
     find_file(LIBRDKAFKA_HEADER
         NAMES rdkafka.h
-        HINTS /usr/include/librdkafka /usr/local/include/librdkafka /opt/homebrew/include/librdkafka)
+        HINTS /usr/include/librdkafka /usr/local/include/librdkafka /opt/homebrew/include/librdkafka /opt/homebrew/opt/librdkafka/lib)
 
     cmake_path(GET LIBRDKAFKA_HEADER PARENT_PATH LIBRDKAFKA_INCLUDE_DIR)
     cmake_path(GET LIBRDKAFKA_INCLUDE_DIR PARENT_PATH LIBRDKAFKA_INCLUDE_DIR)
@@ -161,10 +167,20 @@ endif()
 #set(CMAKE_PREFIX_PATH /usr/local/lib)
 
 find_package(LLVM REQUIRED CONFIG COMPONENTS Passes)
-include(LLVMConfig)                                                                                                                                                                                      
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")                                                                       
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")                                                                   
+                                                                                                                           
+message(STATUS "Found LLVM Major Version: ${LLVM_VERSION_MAJOR}")                                                          
+                                                                                                                           
+add_definitions(-D__clang_major__=${LLVM_VERSION_MAJOR})  
+
+include(LLVMConfig)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
+
 llvm_map_components_to_libnames(                                                                                           
     LLVM_LIBRARIES                                                                                                         
-                                                                                                                           
+
     Interpreter                                                                                                            
     MCJIT                                                                                                                  
     native                                                                                                                 
@@ -172,7 +188,7 @@ llvm_map_components_to_libnames(
     ARM                                                                                                                    
     AArch64                                                                                                                
     ipo                                                                                                                    
-                                                                                                                           
+
     Passes                                                                                                                 
     )  
 
@@ -206,18 +222,6 @@ endif()
 set(BIN2H_HEADER_FILE  ${PROJECT_SOURCE_DIR}/include/E2LScript/BIN2E_HEAD_FILE.hpp )
 set(BIN2H_SOURCE_FILE  ${PROJECT_SOURCE_DIR}/src/E2LScript/BIN2E_HEAD_FILE.cpp )
 
-
-#---------------------------
-# PostgreSQL library
-#---------------------------
-
-find_package(PostgreSQL REQUIRED)
-if(PostgreSQL_FOUND)
-
-    message ("Looking PostgreSQL found")
-else()
-    message (FATAL_ERROR "Cannot find PostgreSQL: sudo apt-get install -y libpq-dev libpq5")
-endif()
 #---------------------------
 # pkg-config library
 #---------------------------
@@ -226,6 +230,21 @@ if(PkgConfig_FOUND)
     message ("Looking PkgConfig found")
 else()
     message (FATAL_ERROR "Cannot find PkgConfig: sudo apt-get install pkg-config")
+endif()
+
+
+#---------------------------
+# PostgreSQL library
+#---------------------------
+if(APPLE)
+    set(PostgreSQL_ROOT "/opt/homebrew/opt/postgresql@18/lib/postgresql") 
+endif()
+
+find_package(PostgreSQL REQUIRED)
+if(PostgreSQL_FOUND)
+    message ("Looking PostgreSQL found")
+else()
+    message (FATAL_ERROR "Cannot find PostgreSQL: sudo apt-get install -y libpq-dev libpq5")
 endif()
 
 #---------------------------
@@ -258,7 +277,7 @@ foreach(HUB_VAR ${HUB_VARS})
         message("CMAKE_ARGS: ${HUB_VAR} ${hub_lib}") 
 
         set(HUB_LIBS ${HUB_LIBS} ${hub_lib})
-       
+
 
         # file(GLOB HUB_SRC
         #     "${PROJECT_SOURCE_DIR}/hub/${hub_lib}/*.cpp"
@@ -288,34 +307,72 @@ foreach(HUB_VAR ${HUB_VARS})
 
         add_subdirectory(${PROJECT_SOURCE_DIR}/hub/${hub_lib})
     endif()
-    
+
 endforeach()
 
-target_include_directories(${PROJECT_NAME}
-    PUBLIC 
-    
-    /usr/local/include/e2
 
-    ${UUID_INCLUDE_DIRS}
-    ${PostgreSQL_INCLUDE_DIRS}
+if(APPLE)
+    find_library(RDKAFKA_CPP_LIB rdkafka++ PATHS ${HOMEBREW_PREFIX}/lib REQUIRED)
+    find_library(RDKAFKA_C_LIB rdkafka PATHS ${HOMEBREW_PREFIX}/lib REQUIRED) 
 
-    ${PROJECT_SOURCE_DIR}/include
+    target_include_directories(${PROJECT_NAME}
+        PUBLIC 
 
-    )
+        /usr/local/include/e2
 
-target_link_libraries(${PROJECT_NAME}
-    PUBLIC
+        ${PostgreSQL_INCLUDE_DIRS}
 
-    pthread
+        ${PROJECT_SOURCE_DIR}/include
 
-    ${E2_LIBRARY}
-    ${UUID_LIBRARIES}
-    ${FIX_LIBRARY}
-    ${LIBRDKAFKA_LIB}
-    ${PostgreSQL_LIBRARIES}
- 
-    rdkafka++
+        )
 
-    ${HUB_LIBS}
-    ${LLVM_LIBRARIES}
-    )
+    target_link_libraries(${PROJECT_NAME}
+        PUBLIC
+
+        pthread
+
+        ${E2_LIBRARY}
+        ${FIX_LIBRARY}
+        ${LIBRDKAFKA_LIB}
+        ${PostgreSQL_LIBRARIES}
+
+        ${HUB_LIBS}
+        ${LLVM_LIBRARIES}
+
+        ${RDKAFKA_CPP_LIB} 
+        ${RDKAFKA_C_LIB} 
+
+        "-framework CoreFoundation"
+        )
+else()
+    target_include_directories(${PROJECT_NAME}
+        PUBLIC 
+
+        /usr/local/include/e2
+
+        ${UUID_INCLUDE_DIRS}
+        ${PostgreSQL_INCLUDE_DIRS}
+
+        ${PROJECT_SOURCE_DIR}/include
+
+        )
+
+    target_link_libraries(${PROJECT_NAME}
+        PUBLIC
+
+        pthread
+
+        ${E2_LIBRARY}
+        ${UUID_LIBRARIES}
+        ${FIX_LIBRARY}
+        ${LIBRDKAFKA_LIB}
+        ${PostgreSQL_LIBRARIES}
+
+        rdkafka++
+
+        ${HUB_LIBS}
+        ${LLVM_LIBRARIES}
+
+        )
+
+endif()

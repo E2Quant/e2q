@@ -46,6 +46,7 @@
 #define E2Q_INC
 
 #include <string>
+#include <vector>
 
 #include "FusionPack/Fusion.hpp"
 #include "Toolkit/pack.hpp"
@@ -65,10 +66,10 @@ public:
     /* ====================  ACCESSORS =======================================
      */
 
-    void setCfg(std::string &, std::string &);
+    void setCfg(std::string&, std::string&);
     void exchange(int pros, func_type<> child_process);
-    void log_dir(std::string &);
-    void search_dir(std::string &);
+    void log_dir(std::string&);
+    void lib_dirs(const std::vector<std::string>&);
     void trader(size_t n, std::size_t quant_start, int run);
     /* ====================  MUTATORS =======================================
      */
@@ -90,9 +91,12 @@ private:
     /* ====================  DATA MEMBERS
      * ======================================= */
 
+    // 入口函数 e2l
     std::string e2l_path = "";
+    // dbs path
     std::string db_path = "";
-    std::string esearch_dir = "";
+    // e2l lib dirs
+    std::vector<std::string> lib_dir;
 }; /* -----  end of class E2Q  ----- */
 }  // namespace e2q
 #endif /* ----- #ifndef E2Q_INC  ----- */

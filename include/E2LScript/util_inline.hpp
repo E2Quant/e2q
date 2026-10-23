@@ -947,7 +947,7 @@ struct LogProtoPtr_t : public LogProtoBin_t {
             if (it.second.ldata != nullptr) {
                 free(it.second.ldata);
                 it.second.ldata = nullptr;
-                elog::info("use size:", it.second.count);
+                // elog::info("use size:", it.second.count);
             }
         }
 #ifdef KAFKALOG
@@ -1056,11 +1056,18 @@ public:
         if (beam == nullptr || beam->id != SigId::_process_status) {
             return;
         }
-        elog::echo("connect");
+        // elog::echo("connect");
         _beam = std::move(beam);
     }
 
-    void status(ProcessStatusKind k) { _beam->stash(_con_fun, k); };
+    void status(PushProcessStatus k) { _beam->stash(_con_fun, k); };
+    void status(ProcessStatusKind k)
+    {
+        PushProcessStatus pps;
+        pps.pkind = k;
+        pps.pindex = 0;
+        _beam->stash(_con_fun, pps);
+    };
     /* =============  OPERATORS     =================== */
 
 protected:
@@ -1073,8 +1080,8 @@ private:
 
     /* =============  DATA MEMBERS  =================== */
     std::shared_ptr<e2q::ConnectSignal> _beam;
-    e2q::bridge::StashType<ProcessStatusKind, ProcessStatusKind> _con_fun =
-        [](ProcessStatusKind x) { return x; };
+    e2q::bridge::StashType<PushProcessStatus, PushProcessStatus> _con_fun =
+        [](PushProcessStatus x) { return x; };
 }; /* -----  end of class ProcessStatusCon  ----- */
 
 inline std::shared_ptr<e2q::ProcessStatusCon> globle_psc = nullptr;
@@ -1101,13 +1108,13 @@ public:
             return;
         }
         elog::echo("ProcessStatusFun");
-        e2q::bridge::ReceiveType<ProcessStatusKind> tfun =
-            [this](ProcessStatusKind p) {
+        e2q::bridge::ReceiveType<PushProcessStatus> tfun =
+            [this](PushProcessStatus p) {
                 // elog::echo("ps fun p:", p);
                 PSF_t psf_t;
                 psf_t.data(_data);
-                psf_t.kind(p);
-                psf_t.index(0);
+                psf_t.kind(p.pkind);
+                psf_t.index(p.pindex);
                 globle_producer.data(_data, _psc_size, psf_t.header(_tid));
             };
         beam->receive(tfun);

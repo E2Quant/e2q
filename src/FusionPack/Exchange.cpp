@@ -60,7 +60,39 @@
 #include "quickfix/SessionID.h"
 
 namespace e2q {
+/*
+ * ===  FUNCTION  =============================
+ *
+ *         Name:  Exchange::Exchange
+ *  ->  void *
+ *  Parameters:
+ *  - size_t  arg
+ *  Description:
+ *
+ * ============================================
+ */
+Exchange::Exchange(const std::string& e2l, const std::vector<std::string>& ldir)
+{
+    _program = std::make_shared<ScriptThread>(e2lType::_OMS);
 
+    _program->init(e2l.c_str(), ldir);
+
+    bool call = _program->CheckCall();
+    Int_e argc = 1;
+
+    if (call) {
+        elog::bug("call method is error");
+        return;
+    }
+
+    _program->toScript(argc, argc);
+
+    if (FinFabr->_QuantVerId == 0) {
+        // 如果没有人初始化，就默认一个版本号
+        InitQVersion();
+    }
+
+} /* -----  end of function Exchange::Exchange  ----- */
 /*
  * ===  FUNCTION  =============================
  *
@@ -116,39 +148,6 @@ void Exchange::InitQVersion()
     e2q::FinFabr->_QuantVerId = active;
     e2q::GlobalDBPtr->release(idx);
 } /* -----  end of function Exchange::InitQVersion  ----- */
-/*
- * ===  FUNCTION  =============================
- *
- *         Name:  Exchange::Exchange
- *  ->  void *
- *  Parameters:
- *  - size_t  arg
- *  Description:
- *
- * ============================================
- */
-Exchange::Exchange(std::string& e2l, std::string& edir)
-{
-    _program = std::make_shared<ScriptThread>(e2lType::_OMS);
-
-    _program->init(e2l.c_str(), edir);
-
-    bool call = _program->CheckCall();
-    Int_e argc = 1;
-
-    if (call) {
-        elog::bug("call method is error");
-        return;
-    }
-
-    _program->toScript(argc, argc);
-
-    if (FinFabr->_QuantVerId == 0) {
-        // 如果没有人初始化，就默认一个版本号
-        InitQVersion();
-    }
-
-} /* -----  end of function Exchange::Exchange  ----- */
 
 /*
  * ===  FUNCTION  =============================

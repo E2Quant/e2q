@@ -62,16 +62,15 @@ namespace e2q {
 class Fusion {
 public:
     /* =============  LIFECYCLE     =================== */
-    Fusion(); /* constructor */
+    Fusion(const std::string& e2l_script,
+           const std::vector<std::string>&); /* constructor */
 
     /* =============  ACCESSORS     =================== */
-    void oms(std::string e2l_script, std::string &edir, int,
-             func_type<> child_process);
-    void ea(std::string e2l_script, std::string &edir, size_t n,
-            std::size_t quantId_start);
+    void oms(int, func_type<> child_process);
+    void ea(size_t n, std::size_t quantId_start);
 
-    void properties(std::string &);
-    void enter(const char *);
+    void properties(std::string&);
+    void enter(const char*);
     /* =============  MUTATORS      =================== */
     void next();
     /* =============  OPERATORS     =================== */
@@ -90,7 +89,8 @@ private:
 
     _Resource_ptr _resource = nullptr;
 
-    std::vector<std::string> scripts;
+    std::string _script_enter = "";
+    std::vector<std::string> _script_libs;
 
     std::shared_ptr<Shuttle> _shu_ptr = nullptr;
 }; /* -----  end of class Fusion  ----- */

@@ -44,7 +44,6 @@
 
 #include <unistd.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <string>
@@ -137,9 +136,9 @@ void FixApplication::onLogout(const FIX::SessionID& sid)
         // elog::info("reset here");
         return;
     }
-    // 下一次改成 kafka single
+
     if (!_is_end) {
-        elog::info("[ea_again]:", sid.getTargetCompID());
+        //        elog::info("[ea_again]:", sid.getTargetCompID());
         if (globle_psc != nullptr) {
             globle_psc->status(ProcessStatusKind::_EA_CHANGED);
         }
@@ -586,6 +585,12 @@ bool FixApplication::processOrder(OrderItem* order)
     if (ret == false) {
         elog::bug("insert bug:", order->Pending()->getTicket());
         return false;
+    }
+    if (globle_psc != nullptr) {
+        PushProcessStatus pps;
+        pps.pkind = ProcessStatusKind::_OMS_MATCHER;
+        pps.pindex = order->Pending()->getTicket();
+        globle_psc->status(pps);
     }
 
     return true;
